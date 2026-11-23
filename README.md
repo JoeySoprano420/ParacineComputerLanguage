@@ -1,150 +1,42 @@
-﻿PARACINE — ".pcn"
-
+PARACINE — ".pcn"
+Paracine: Write with intent. Compile with certainty.
 Final Native-First Normative Resolution and Production Completion Standard
 
-Edition: Ultimate Multi-Output Production Standard Language edition: 2026 Specification level: 1.0 Final Status: Frozen production definition Canonical compiler implementation: C++23
+Edition: Ultimate Native Production Standard
+Language edition: 2026
+Specification level: 1.0 Final
+Status: Frozen production definition
+Canonical compiler implementation: C++23
+Primary compilation model: Independent direct-native compilation
+Primary native object realization: COFF .obj
+Primary native executable realization: PE32+ .exe
+Canonical Tier-1 target: Windows x86-64
+Canonical external ABI: Microsoft x64 ABI
+Canonical semantic IR: PCIR
+Canonical machine IR: PMIR
+Canonical compiler-analysis framework: SAGE — Semantic Analysis & Guidance Engine
 
-Primary compilation model: Independent direct-native compilation Primary native object realization: COFF ".obj" Primary native executable realization: PE32+ ".exe"
-
-Optional portability/export realization: Standards-oriented C++20 ".cpp" C++20 required for Paracine compilation: No
-
-Canonical Tier-1 target: Windows x86-64 Canonical external ABI: Microsoft x64 ABI Canonical semantic IR: PCIR Canonical machine IR: PMIR Canonical compiler-analysis framework: SAGE — Semantic Analysis & Guidance Engine
-
-Implementation note: the development compiler parallelizes independent PCIR function optimization after the sequential inlining pass, PMIR lowering, and x64 function encoding. The backend merges functions and resolves relocations in source order. Each task has a private ABI layout cache. By default each phase uses up to 32 hardware threads when it has at least four functions and 256 instructions, and otherwise runs serially. Pass `--jobs N` (1 through 256) to set the maximum workers per phase, or `--jobs 1` for serial execution. Other phases remain sequential; optimization level 0 skips PCIR optimization. Worker count does not affect output or cache keys.
-
-At `-O3`, the x64 backend can combine two adjacent independent 64-bit integer adds, subtracts, or bitwise operations into an SSE2 instruction when all operands and results occupy corresponding contiguous stack cells. It also recognizes a restricted canonical sum loop over a locally constructed fixed `array<int,N>` or `array<long,N>` with 4 through 128 elements. Those loops are fully unrolled into SSE2 reductions with a scalar tail; the existing scalar loop remains for all other cases. Reductions of at least 16 elements use two volatile SIMD accumulators to shorten the dependency chain; smaller reductions avoid their setup/merge overhead. Signed 32-bit array elements are widened before modulo-64-bit accumulation. Guarded, effectful, noncanonical and aliased loops are not transformed. Floating-point operations are not reassociated.
-
-O3 global scalar value numbering uses reachable-CFG dominators to reuse integer/boolean expressions across dominated blocks, with typed literal identities and commutative operand canonicalization. A value cell must have one static definition and must not be exposed through calls, closure captures, non-shared parameters or their copy chains. Sibling branches never share nondominating results. Natural-loop invariant motion requires a dedicated single-entry preheader, stable operands and nontrapping integer/boolean operations. It hoists dependency chains and their required literals, but not trapping reads/division, allocations, calls, floating computations or mutable induction cells. Both passes use bounded dominance analysis for functions of at most 512 blocks; larger functions keep the local optimizer. This is conservative scalar exposure analysis, not a complete field-sensitive alias or interprocedural escape analysis.
-
-Moved instructions retain their source spans; synthesized inline return copies and redundant-phi copies retain call/phi locations. Opt-in native debug artifacts now consume the final machine-address mappings: CodeView/externally linked PDB on Windows and DWARF 4 on Linux x86-64. Optimized variables remain conservatively unavailable rather than retaining stale locations; this is not full optimized-variable reconstruction. See the implemented debug and ABI profile in [ABI.md](ABI.md). O3 devirtualizes checked environment-free closures to their defined concrete routines before inlining; capturing closures retain their stored environments. The scalar inliner now follows up to eight transitive leaf-discovery waves under one original-module growth budget, and accepts checked division, remainder and Fibonacci while retaining their instruction order and traps. It still excludes recursive/effectful/multi-block/rich-value inlining and does not use runtime hotness.
-
-`inspect` now reports deterministic whole-PCIR parameter escape summaries with separate returned and retained parameter sets and an unknown-call flag. A monotone fixed point follows copy/phi/aggregate value origins, direct-call summaries and recursive call graphs; unknown/foreign/closure calls and memory stores are conservative escape sinks. These flow-insensitive may-escape summaries are advisory: they are not full field-sensitive escape/lifetime analysis, do not authorize stack promotion, and are not a separate-compilation contract. General induction strength reduction, microarchitecture-wide scheduling, runtime PGO, comprehensive whole-program devirtualization, complete rich Unix ABI/runtime, dynamic-loader integration and comprehensive cross-target optimized-debugging/runtime-unwind support remain unimplemented.
-
-To measure generated Windows x64 code, run `python tools\benchmark_optimizer.py x64\Release\Paracine.exe`. It validates small workloads against native/PCIR, checks every timed executable's checksum, rotates O0/O2/O3 run order, and reports seven-run median/MAD and speedup relative to O2. Timings include process startup and are workload/machine-specific; this is a runtime benchmark, not runtime PGO, an optimization proof, or an absolute bare-metal-speed guarantee.
-
-### Implemented native debug and ABI profile
-
-Use `build program.pcn -g -O0` for a Windows PE plus full companion PDB through an installed `lld-link`, or `obj ... -g` for CodeView objects. `link ... -g -O0` preserves separate source contributions and supports explicit external library settings. Linux x86-64 `obj/build ... --target linux-x86_64 -g` emits DWARF 4 source/function/type records, bounded scalar locations and `.debug_frame` CFI. Windows tests set actual source breakpoints, inspect live scalar values/types, single-step optimized and unoptimized code and walk symbolic call/crash stacks using the OS debug API and DbgHelp. The OS unwinder is also tested across prologue/body/epilogue boundaries and large-frame encoding thresholds. These capabilities are opt-in, not blanket production-completeness claims.
-
-`abi program.pcn --json` emits `paracine.abi.v1`: versioned target contracts, explicit layouts, discriminants and function classifications. Native Windows artifacts embed `.pcnabi`; COFF linker directives reject ABI revision and shared nominal layout mismatches. Rich System V call boundaries, cross-compiler compatibility, rich/optimized variable locations, full inline frames and Mach-O debug emission remain unsupported. Debug executable/PDB pair caching and concatenated-source debug LTO fail explicitly. Debug object cache keys include exact source bytes and canonical source paths. See [ABI.md](ABI.md) for precise name mangling, layout, closure, ownership, option/result, calling convention, versioning, debugging and compatibility rules, plus verification commands.
-
-### Target/runtime contracts and conformance campaigns
-
-`targets [--target TARGET] --json` exposes the shared `paracine.targets.v1` capability registry; `runtime-contract --target TARGET --json` describes generated runtime services and limits. ARM64 Windows/Linux/macOS identities are registered for inspection and target-independent frontend checking, but native ARM64 generation is **not implemented** and rejects with `E0590`; no x64 fallback is allowed. TLS, language threads/synchronization/environment access, stack probing and a general dynamic-loader API remain unsupported. Windows and System V scalar call placement now use shared classification, including Windows variadic fixed-float GP duplication. See [TARGETS.md](TARGETS.md) for precise support boundaries and runtime failure/ownership rules.
-
-Run `python tools\test_target_contracts.py x64\Release\Paracine.exe` for seeded grammar/compile-fail, native/PCIR O0/O3, backend artifact, multi-module, incremental/cache corruption, archive integrity and reproducibility checks. `--cases`, `--modules`, `--stress-rounds` and `--seed` select larger replayable campaigns. Embedded selftests add lossless lexer/parser edits, malformed-IR mutations, ABI register probes and adversarial portable ZIP member-name checks. The workflow in `.github\workflows\conformance.yml` defines cross-host jobs; it is not evidence that CI or ARM64 target execution has run. The corpus contains small application-style examples, not a production application ecosystem.
-
-### Implemented source-module profile
-
-This profile supersedes the older acyclic-import rule R22 and the path/name equivalence in R25 below. Compilation and `deps`/artifact caching now use one bounded, deterministic module graph. Files are discovered once by canonical filesystem path before declaration resolution. Cyclic routine/type imports are allowed; cyclic constant definitions still fail with `E0233`. Distinct files claiming one logical identity fail with `E0528`, including the two locations. Logical identities use an explicit `module` header, or the package/project-relative source path without its extension, prefixed by `package-name@exact-version` when a manifest exists. Headers may differ from physical filenames; import spelling is not a second module identity.
-
-Imports stay inside their canonical package boundary, including through symlinks. Components reject traversal, separators and Windows device names; spelling must match directory-entry case even on Windows. The project boundary is the nearest enclosing `paracine.pkg`, or the entry file's directory if none exists. Graph limits are 1024 files, 8192 import edges, discovery depth 64, 8 MiB per input and 64 MiB total captured input. Failures are coded and nested import failures carry the importing module and line/column.
-
-A file with a `module` header exports only `public` declarations. Headerless files retain legacy implicit exports. Private helpers and nominal types from different modules receive distinct internal names. Unqualified names come only from direct, unaliased imports; local declarations/bindings shadow imports, and ambiguous imported names fail with `E0531`. `import math as M` exposes `M.name` / `M::name`, not unqualified names. `public import math` explicitly re-exports its public declarations; cyclic re-exports converge to a set fixed point. Aliased re-exports and re-exporting/aliasing built-in standard modules are rejected with `E0521`. Public signatures/aggregate fields exposing private named types fail with `E0534`. Public routine bodies now enter the same semantic, ownership, specialization and lowering pipeline as ordinary routines.
-
-Manifest dependencies use exact numeric `major.minor.patch` versions, one version per dependency name, with matching strict lock entries. Declared package dependencies take precedence over same-named local files, preventing silent dependency shadowing. Vendored sources resolve under `vendor\name\version\package.pcn`. Only that single locked source file is supported: sibling/submodule imports and vendored manifests containing transitive dependencies fail with `E0569` until authenticated file inventories are implemented. Optional identity-only manifests must match the dependency name/version. Manifest/lock conflicts, malformed records and changed installed contents fail explicitly. Locks now require full lowercase SHA-256 digests; legacy 16-hex locks require deliberate regeneration with `package lock --update`. Every imported source, relevant manifest and lock is also SHA-256-covered by the artifact dependency key.
-
-### Implemented package integrity and registry policy
-
-Package resolution is exact-version only, without ranges or an implicit transitive solver. Locks contain sorted `name version source sha256` records. `package lock` refuses changed content/source for an existing name/version without explicit `--update`. `package install [--offline] [--jobs 1..32]` requires a matching lock and validates every dependency before writing any vendor file. Offline mode only uses revalidated cache content and metadata; misses fail with `E0567`, without registry access or lock regeneration. Limits are 1024 dependencies, 1 MiB manifests/locks, 64 KiB registry/trust configuration, 8 MiB per package and 64 MiB retained install content. Parallel resolution uses bounded workers and reports the earliest failing task by lock position. Individual Windows file publications are atomic; an entire multi-package install and the two-file cache entry are not single atomic transactions. Concurrent cache publication can therefore fail closed on a mismatch.
-
-Registries are ACL-controlled `fs` mirrors or Windows-native `https` endpoints; shell-backed curl/PowerShell/git fetches, HTTP downgrade and redirects are disabled. HTTPS requires a pinned namespace source and an environment-sourced HMAC verifier. TLS 1.2 or newer and ordinary certificate validation are required; ambient Windows credentials are not sent. Optional bearer credentials are taken from environment variables, not shell arguments. Requests use bounded response sizes, operation timeouts and at most three attempts for timeout/429/502/503/504 failures. There is no registry uptime guarantee or strict whole-request deadline; other hosts currently require filesystem mirrors.
-
-Pin a namespace with `package trust NAME SOURCE BEARER_ENV_OR_- HMAC_ENV_OR_-`. `.paracine\trust.conf` stores those four fields, never key/token values. A different source for a pinned name is rejected. Rebinding requires a reviewed manual configuration change. For keyed releases, the HMAC secret must contain at least 32 bytes. `release.meta` has exactly seven newline-terminated lines: `PCN-RELEASE-1`, name, version, source SHA-256, `active|deprecated|yanked`, a provenance token, and `none` or a lowercase HMAC-SHA256 digest. HMAC covers the first six lines including their newlines. This is **shared-key authentication, not public-key signatures**; every verifier possessing the key can also forge metadata. Unkeyed filesystem releases rely on filesystem ownership/ACLs, not independent publisher authentication.
-
-`package publish FILE fs REGISTRY NAME VERSION [--hmac-env VARIABLE]` publishes an immutable release directory. `package status REGISTRY NAME VERSION STATUS HMAC_ENV_OR_-` verifies content/current authentication before changing status. New locks reject yanked releases; exact locked restores remain allowed, including offline. Deprecation emits `W0566`. Online unlocked resolution refreshes release status; locked/offline restores cannot discover later registry policy changes. Build scripts are never executed, unknown manifest directives fail, and archives are not extracted: this is a disabled-script policy, not a general-purpose OS sandbox. Project/cache/vendor canonical boundaries are checked, but hostile concurrent filesystem mutation is not fully isolated. Global namespace services, public-key rotation/revocation, transparency logs, authenticated multi-file packages, distributed registry guarantees and unspecified rendering/diffusion messaging remain unimplemented.
-
-Imported symbol linkage is versioned: `__pcn_module_v1_` + hex UTF-8 logical identity + `_` + declaration name. That prefix cannot be used in source to bypass visibility. Generic ownership includes the package version, so callers share one checked instance per concrete declaration rather than merging same-named declarations from different packages. Root native symbol names and foreign C linkage remain compatible with the existing backend. This is not a complete separately compiled package ABI: generic object manifests, cross-unit COMDAT coalescing, stable cross-compiler closure ABI and ABI compatibility negotiation remain unavailable.
-
-Unchanged imported ASTs are reused in-process by exact source-byte comparison (128 entries / 32 MiB); imported edits invalidate that entry. Graph resolution, visibility and semantic analysis are rebuilt, rather than reusing stale dependency contexts. Persistent `--cache` remains whole-artifact caching, not per-module semantic/object recompilation. Windows native artifact keys use length-framed SHA-256 inputs covering the compiler build identifier **and current executable bytes** (not size/mtime stamps), portable source/import contents, manifests and package locks, target, object/entry mode, entry name, optimization level, pinned optimizer profile, vectorization/register-reuse flags, warning level/allow/deny/promotion policy, explicit ABI/feature contracts and internal PE/COFF linker/script-policy versions.
-
-The complete process environment is automatically snapshotted and hashed, including `PATH`, `LIB`, SDK variables, user variables and per-drive working-directory entries. Windows variable names are case-normalized; values and presence are significant. Raw environment values and secrets are never stored in cache entries or printed by cache diagnostics. This conservative policy can miss across otherwise equivalent machines/environments. Worker count and output/cache directory options do not themselves enter the key; source identities remain project-relative. Environment differences, including current-directory entries, can still prevent cross-checkout reuse.
-
-Declare additional build dependencies with repeatable `--cache-input FILE`, `--cache-library FILE`, `--cache-linker FILE` and `--cache-build-script FILE` on `build`, `pe`, `obj` or their legacy forms. Each declaration enables caching and hashes canonical file identity (relative to the entry source directory, or absolute for a different drive), role and exact current bytes, so edits invalidate even with unchanged size/timestamps; ordering and duplicate identical declarations do not matter. Up to 1024 external inputs are accepted. Missing/unreadable files fail explicitly. A supplied optimizer profile is tracked automatically and must still match the applied pinned bytes during lookup/publication. These options only fingerprint files: they do not execute scripts, invoke that linker or link that library. Include generated inputs/configuration and any external workflow dependencies explicitly; arbitrary undeclared files and runtime-loaded DLL changes are not inferred. The native cached path uses the internal writer, whose identity is covered by the compiler digest. External `link`/LTO and Unix outputs remain uncached rather than risking incomplete linker/library invalidation. Build-script execution remains disabled and manifest script directives fail before cache lookup.
-
-`PCNCACHE3` entries bind artifact integrity to the expected input-key digest; old entries are misses. Inputs are rechecked before publishing either a hit or newly compiled output, and changes report `E0570` with retry guidance. Corrupt entries are rebuilt/repaired. These checks detect changes between snapshots, not arbitrary concurrent ABA mutations or hostile writers; SHA-256 envelopes are integrity checks, not authentication for an untrusted shared cache. Embedded tests cover exact key dimensions, environment changes, same-size/timestamp file edits, missing inputs, key-bound envelopes and real CLI hit/miss behavior. Reproducibility evidence remains same-host, not proof across all toolchains/machines.
-
-### Implemented structured diagnostics
-
-`paracine check FILE --json` (also legacy `FILE --check --json`) emits `paracine.diagnostics.v1` on both success and failure, including lexical and option-validation exceptions. The envelope has `schema`, numeric `version`, `coordinates`, `ok` and `diagnostics`; successful checks retain routine/declaration/effect summaries. Every diagnostic has a stable code, phase, severity, message/hint, primary span, secondary labeled spans, trace frames, fix-it edits, optional expected/actual type difference, warning level and promotion flag. Legacy top-level `line`/`column` fields remain available. Codes previously embedded in messages remain preserved for compatibility.
-
-Files are canonical UTF-8 identities. Span endpoints are half-open, line/column coordinates are 1-based normalized-source **UTF-8 byte** coordinates, and `offset` is a 0-based byte offset or `null` if unavailable. Unknown exception positions use zero line/column. Normalization removes a BOM and normalizes newlines, so editors must map normalized edits back to original buffers. Full statement/expression and routine ranges are retained; fallback point diagnostics highlight one complete Unicode scalar. Semantic/SAGE diagnostics accumulate within their phases. Recovering parsers also collect independent errors from imported files, including lexical failures in separate siblings, without running later semantic/lowering stages on malformed graphs. A lexical failure still ends lexing for that file; root lexical failures and fatal module-resolution/constant/backend failures can still stop the compilation at the first such failure.
-
-Duplicate overloads and failed/ambiguous calls include related declaration spans; type mismatches include expected/actual visualizations and routine or initializer context where available. Import traces follow a deterministic cycle-safe discovery chain and use captured source excerpts from the actual imported file, not root-file line numbers. Generic failures include real specialization ancestry, call sites and concrete arguments where available. The trace schema also permits macro frames, but this compiler has no procedural/textual macro expansion system and does not invent macro traces. Not every legacy diagnostic supplies a secondary span or automatic repair.
-
-Unreachable statements now emit nonfatal `W0306` at warning level 1 instead of the previous generic error. Use `--warning-level 0|1|2` (maximum enabled level; current warning inventory contains level-1 `W0306`), `--warnings-as-errors`, or `--deny-warning W0306` to enforce a failing build. `--allow-warning W0306` filters it; conflicting allow/deny controls fail. A standalone `@allow(W0306)` before an ordinary or public routine suppresses that warning for the routine and its specializations. Unknown warning codes, error-code suppression and attributes on other declaration kinds are rejected. This is routine-scoped warning suppression, not permission to ignore type/ownership errors. Warning policy participates in cache keys; cache hits rerun diagnostic checking so warnings cannot disappear merely because an artifact is reused.
-
-Unreachable diagnostics carry exact removal edits marked `maybe-incorrect`, for review rather than automatic application; no broad fix-all engine is implied. Human rendering shows primary/secondary source excerpts, type differences, trace locations and edit applicability. `--color auto|always|never` controls severity colors. Auto mode requires a Windows stderr console with virtual-terminal capability, honors `NO_COLOR` and emits no ANSI to redirected streams; other hosts currently default to plain output. Untrusted control bytes are escaped. JSON never contains terminal colors. Carets account for UTF-8 continuation bytes and tabs, but full grapheme/East-Asian terminal-cell width modeling is not implemented. Run `python tools\test_diagnostics.py x64\Release\Paracine.exe` for schema, provenance, edits, warning, cache and terminal regressions.
-
-At `-O3`, the x64 encoder also reuses an immediately preceding integer result in RAX for a following scalar operand in the same basic block. Stack stores remain in place, and the reuse is invalidated across control-flow boundaries, calls, vectorized instructions and other non-whitelisted operations. This is a local peephole optimization, not a global register allocator.
-
-At `-O2` and above, the x64 immediate selector replaces eligible wrapping 64-bit integer multiplies by 2 or by a power-of-two bit pattern of 128 or greater with a shorter immediate left shift. Constants are tracked within basic blocks; floating-point multiplication and other multipliers are unchanged.
-
-At `-O2` and above, PCIR cancels paired integer negations, bitwise complements, and matching XOR operations within a basic block when the original operands and intermediate register have not been overwritten. Calls and mutable-storage operations invalidate these facts; floating-point operations are excluded.
-
-The `-O3` PCIR inliner expands eligible small integer/boolean leaves, including checked scalar arithmetic and calls to resolved source imports, within a deterministic 300% pre-inline module instruction budget shared by all transitive waves. Ordinary `paracine link` compiles source inputs separately and uses an external linker. An experimental `paracine link main.pcn other.pcn --lto -o program.exe` instead compiles all listed source units as one namespace at `-O3`, allowing cross-unit inlining before external COFF linking (using `lld-link` by default). The first source may have a module header, and the shared namespace may include ordinary type, capability and constant declarations. Routine names must be unique and the entry must take no arguments. Additional module headers, imports, public or compile routines, foreign declarations, libraries, native inputs, native imports and DLL output are rejected. The backend prefers `main` when present; `--entry` must match the selected entry. Semantic diagnostics refer to the combined source. This is source-based whole-program optimization, not full LTO: it cannot consume or optimize separately compiled IR or objects, extract archives, or resolve cross-module visibility and interposition. The production runtime backend supports Windows x86-64; the restricted Unix x86-64 output paths are described below. Additional CPU/GPU architectures and full closure and ownership semantics are not implemented.
-
-Unix output implementation note: `paracine elf file.pcn -o file.o` and `paracine macho file.pcn -o file.o` emit x86-64 ELF64 and Mach-O64 relocatable objects directly, without a C++ export step. Equivalently use `obj --target linux-x86_64` or `obj --target macos-x86_64`; Windows remains the default. The shared x64 encoder now has an explicit System V scalar ABI: independent RDI/RSI/RDX/RCX/R8/R9 integer and XMM0..XMM7 floating banks, ordered stack overflow arguments, and variadic floating promotions plus AL vector count. Objects may contain entry-free libraries. Fixed and variadic `foreign c` calls retain checked signatures and emit ELF `R_X86_64_PLT32` or Mach-O `X86_64_RELOC_BRANCH` relocations; Mach-O symbols gain the platform underscore prefix. Symbol inventories and relocation ordering are deterministic. Independent function encoding still uses the existing bounded `--jobs` scheduler; object serialization is sequential and text is limited to 256 MiB.
-
-The sequencing graph is verified PCIR -> PMIR -> target ABI eligibility -> independent function encoding -> ordered section/symbol inventory -> call relocation mapping -> format serialization -> binary verification. ELF section links explicitly connect relocations to the symbol table and text, and symbols to the string table; Mach-O segment/section and symbol load commands reference their payloads. `paracine verify-bin file.o file.elf` validates the emitted subset's bounded headers, sections, symbol/string dependencies and relocation ranges. `build --target linux-x86_64 -o program.elf` emits a static, fixed-address, no-libc ELF executable with a no-argument integer entry, separate read-only headers/RX code, nonexecutable stack and Linux exit syscall startup. It rejects unresolved external calls; use the relocatable object with a platform linker for libraries. On Linux hosts this build command adds owner-execute permission.
-
-This is not complete Unix platform support. Rich aggregate/closure/reference argument and return classification, owned/borrowed text runtime operations, allocation/I/O/process intrinsics, TLS, dynamic-loader integration, PIE, Mach-O DWARF, runtime exception-unwind sections, ARM64 code generation, integrated Mach-O executable linking and code signing remain unimplemented. Unsupported runtime/ABI cases report `E0540`, unsupported executable requirements `E0541`, and malformed output `E0542`. Unix caching, package/export and run/test command integration are explicitly rejected rather than using Windows implementations. Release execution semantics are unchanged; Windows objects now carry ABI compatibility directives/manifests, and Windows PE epilogues/unwind records use the corrected OS-recognized encoding. Run `python tools\test_unix_output.py x64\Release\Paracine.exe` with LLVM tools on PATH for independent binary checks and cross-linking against C with `ld.lld`/`ld64.lld`; these tests do not execute images on the target operating systems. Embedded tests execute generated System V register/stack calls through the Windows PE loader and compare their values with PCIR, but that does not validate either Unix OS loader.
-
-Closure/text implementation note: closure calls now consistently use stored environments, including aliases and expression callees. Generic closures retain concrete checked signatures and capture layouts. Native borrowed captures are pointer-backed, and directly owned string captures have environment-scope cleanup rather than per-call destruction. The optional C++20 exporter now provides a standalone managed-value runtime for rich PCIR, including closures, owned strings, borrowed text, aggregates and options/results; scalar-only exports retain the compact path. Managed C++ values are not native ABI-compatible and add allocation/reference-counting overhead. Nested ownership, nested closure conversion, arbitrary escaping owning environments and cross-unit closure ABI remain incomplete. See [PARSER.md](PARSER.md) for details and the executable `tools\test_cpp_export.py` differential suite.
-
-Backend passes can be selected explicitly using `--optimizer-profile FILE --profile-sha256 HASH`, where HASH is the lowercase SHA-256 of the exact profile bytes (obtainable with `paracine hash FILE`). The file contains `PCN-OPT-PROFILE-1` on the first line, followed by exactly one `vectorize=0` or `vectorize=1` line and one `register_reuse=0` or `register_reuse=1` line. These choices only affect the existing O3 passes; the profile hash is included in cache keys.
-
-`paracine tune file.pcn -O3 [--iterations N] [-o new-profile]` compares all four backend settings, rotates trial order, checks repeated artifact hashes and compares dependency fingerprints before and after the trials, and recommends the lowest compile-time median plus median absolute deviation. At least three iterations are required (default five). Without `-o` it only prints an advisory; with `-o` it creates a new pinned profile and prints its hash. This measures compilation time, not generated-program runtime, and neither byte stability nor successful compilation establishes semantic correctness. Profiles are not collected or updated automatically; the compiler does not learn from program executions.
-
-Frontend implementation note: blank and comment-only lines do not participate in layout, including their leading tabs; tabs in the structural indentation of significant lines are rejected. Unexpected indentation blocks are parser errors. The recovering parser reports multiple independent syntax errors per compilation and retains a lossless token/trivia syntax representation; see [PARSER.md](PARSER.md) for recovery boundaries and current tree limitations. The compiler makes declaration collection, declaration name/type resolution, body type checking, and lowering explicit sequential stages, while some local name lookup remains integrated with body checking. Unary minus before a numeric token is retained as part of the parsed numeric literal, allowing the full signed 64-bit minimum as well as negative decimal, hexadecimal, binary, fractional, and exponent forms. A leading sign remains a separate lexer token; exponent signs are part of decimal numeric tokens. Fractional and exponent notation both identify floating-point literals; radix-prefixed integers are not misclassified by hexadecimal `e` digits. The lexer validates UTF-8, normalizes BOM and line endings, and applies NFC using Unicode 15.1.0 data pinned in `unicode_nfc_data.h`; diagnostics display normalized source and byte columns. Regenerate the data with `tools\generate_unicode_nfc.py` using Python's Unicode 15.1.0 database; see `UNICODE-LICENSE.txt`. To check the Unicode normalization suite, run `python tools\test_unicode_nfc.py path\to\Paracine.exe path\to\NormalizationTest.txt` with the [Unicode 15.1 test file](https://www.unicode.org/Public/15.1.0/ucd/NormalizationTest.txt); cases containing NUL or line breaks are excluded because they cannot be represented directly in source string literals. Complete edition-2026 frontend support remains unimplemented.
-
-Boolean negation (`!` and `not`) is supported for runtime expressions and constants. The checked runtime `fib(index)` intrinsic returns signed 64-bit results for indices -92 through 92; `fib_big(index)` provides exact, opt-in arbitrary-precision decimal text in top-level constants, limited to index magnitudes of 10000. See [FIBONACCI.md](FIBONACCI.md) for semantics, examples, limits, and backend details.
-
-The bootstrap text library provides the extension `text.contains_byte(value: int) -> bool`, a bytewise search over UTF-8 storage. Values outside 0 through 255 return false; the method does not search for Unicode code points and does not allocate.
-
-Structural capability checking supports declared type parameters (the first is the constrained subject), exact parameter types and modes, return types, and inferred effect bounds for non-generic candidate routines. Effect inference currently merges same-name, same-arity overloads conservatively; module-specific lookup precedence, generic member implementations, overloaded native symbol mangling, routine-pointer callable evidence, derived traits and full generic constraint resolution remain incomplete. Unsupported evidence is rejected rather than assumed valid.
-
-This document completes and freezes the Paracine Language Specification and Paracine Backend Specifications.
-
-Normative revision: Structured Loop Completion — November 5, 2026.
-
-This revision incorporates "for ... while ...", "from ... to ...", and "continue until ..." into the normative grammar and semantics. It replaces the preceding freeze definition and establishes the loop-completed edition-2026 baseline. The frozen-edition change policy below applies to this revised baseline.
-
-Where this document conflicts with an earlier "[Decision]", "[Verify]", open issue, tentative statement, incomplete backend clause, or wording that implied C++20 was structurally necessary to Paracine, this document is authoritative.
-
+This document states the frozen edition-2026 Paracine language and backend design contract. The qualified safety boundary in Section 16 constrains all unqualified "no UB" readings; a frozen specification is not evidence of complete implementation or independent verification.
+Normative revision: Structured Loop Completion — November 5, 2026 (with Edition-2026 Adaptive Optimization, Pattern Matching, Resource/Register Allocation, Self-Tuning Heuristic Completion, Qualified Safety Contract, Fibonacci / Boolean Negation Notes, and Ellipsis ... Support).
+This revision incorporates for ... while ..., from ... to ..., and continue until ... into the normative grammar and semantics; freezes full production expectations for constant folding, profile-guided optimization, inlining, tail-call handling, control-flow/expression flattening, pattern matching, resource and register allocation, type/resource diagramming, probability-weighted decision trees, native dynamic runtime support, high-throughput standard libraries, native code generation, and consistency- and reward-guided adaptive heuristic tuning; establishes the binding safety-contract rules; and records the native-only Fibonacci, boolean-negation, and ellipsis (...) provisions. It replaces the preceding freeze definition and establishes the complete edition-2026 baseline. The frozen-edition change policy below applies to this revised baseline.
+Where this document conflicts with an earlier [Decision], [Verify], open issue, or incomplete backend clause, this document is authoritative.
 All earlier provisions not changed here remain in force.
-
-No "[Decision]", "[Verify]", “open issue,” “future specification,” or unspecified mandatory production component remains in Paracine 1.0.
-
-The defining architectural distinction is now permanent:
-
-«Paracine is a complete native compiler without C++20.»
-
-The C++20 exporter is useful.
-
-It is not required.
-
-Final Language Identity
-Paracine is a statically typed, ahead-of-time compiled, native general-purpose and systems programming language designed around a self-contained compiler and direct machine realization.
-
-Its essential production path is:
-
+No [Decision], [Verify], "open issue," "future specification," or unspecified mandatory production component remains in Paracine 1.0.
+The defining architectural distinction is permanent:
+«Paracine is a complete, self-contained native compiler.»
+1. Final Language Identity
+Paracine is a statically typed, ahead-of-time compiled, native general-purpose and systems programming language designed around a self-contained compiler and direct machine realization. Its safe-code memory-safety goal is subject to the qualified unsafe/FFI/platform trust boundary in Section 16.
+Its production path is:
 .pcn ↓ canonical normalization ↓ lexer + layout ↓ parser ↓ semantic frontend ↓ SAGE semantic core ↓ ownership / effects / closure resolution ↓ PCIR ↓ semantic optimization ↓ target legalization ↓ PMIR ↓ x86-64 machine code ↓ COFF object model ↓ COFF writer / native linker ↓ .obj / PE32+ ↓ .exe
+This path compiles, links, and executes a complete Paracine application directly.
 
-This path is sufficient to compile, link and execute a complete Paracine application.
-
-It requires no generated C++ source.
-
-It requires no foreign C++ compiler.
-
+It requires no generated foreign source code.
+It requires no foreign compiler.
 It requires no LLVM.
-
 It requires no external assembler.
-
 It requires no external linker.
 
-The essential native architecture is therefore:
-
+The native architecture is therefore:
                 PARACINE
                    .pcn
                     ↓
@@ -167,57 +59,92 @@ The essential native architecture is therefore:
                  PE32+
                     ↓
                   .exe
-Paracine may additionally expose an optional portability/export path:
 
-optimized PCIR ↓ optional C++20 exporter ↓ .cpp
-
-That exporter exists for:
-
-portability unsupported-target reach existing C++ project integration human inspection bootstrapping compiler validation differential testing foreign build systems
-
-It is a strategic secondary backend.
-
-It is not part of Paracine's semantic core.
-
-The following statements are final:
+The following definitions are final:
 
 C++23 = implementation language of the Paracine compiler
-
-SAGE = semantic, structural and optional advisory analysis framework
-
+SAGE = semantic, structural, and optional advisory/guided analysis framework
 PCIR = authoritative semantic optimization representation
-
 PMIR = target-aware machine representation
-
 x86-64 machine code = canonical Tier-1 native instruction realization
-
 COFF = canonical Tier-1 native object realization
-
 PE32+ = canonical Tier-1 executable realization
 
-C++20 = optional portability/export representation
-
-The native language remains complete if the C++20 exporter is not installed, not built, or entirely removed.
-
-Final Resolution Ledger
+2. Final Resolution Ledger
 Every former design question is resolved as follows.
-
-ID| Final resolution R1| Indentation is exactly four spaces. Tabs remain forbidden for structural indentation. R2| Layout tokenization is purely lexical and does not depend on parser knowledge. R3| "text" is an immutable borrowed UTF-8 slice. "string" is its owning counterpart. R4| Paracine 1.0 supports zero-allocation capturing closures as statically typed, monomorphized closure values. R5| Ordinary routine pointers remain environment-free. A noncapturing closure may coerce to a routine pointer. R6| There are no implicit numeric conversions. Contextual literal fitting remains allowed. R7| Capability satisfaction remains structural by name/signature with deterministic lookup. Associated types are not part of edition 2026. R8| Record fields remain in declaration order. The compiler never silently reorders them. R9| Integer "+", "-", "*", and unary negation use defined modular two's-complement semantics. R10| Shift counts are reduced modulo operand width. R11| Signed "MIN / -1 = MIN"; "MIN % -1 = 0". R12| Default routine parameters are shared borrows; "var" is exclusive borrowing; "own" transfers ownership. R13| Explicit lifetime parameters do not exist in edition 2026. Borrow regions are inferred and nonlexical. R14| "@from(...)" remains the explicit returned-borrow disambiguator. R15| Traps terminate the process. They do not unwind Paracine scopes and are not catchable exceptions. R16| Thread traps obey the same terminal-trap model. The former recoverable "thread_panic" model is removed. R17| "give" automatically wraps values into "ok" or "some" where required by the declared result type. R18| "fail" automatically produces "err". R19| Floating contraction and reassociation remain disabled outside "@fastmath". R20| Default hash maps use process-randomized hashing. Stable deterministic hashing remains separately available. R21| Allocating growth operations are fallible. Convenience constructors may trap on OOM while retaining "try_" forms. R22| The import graph remains acyclic. R23| Visibility remains private / public / export. R24| "vec<T,N>" remains a compiler-defined exception to the no-user-operator rule. R25| One source file defines one module, and its path must agree with its module name. R26| General textual/preprocessor macros do not exist in edition 2026. R27| User procedural macros do not exist in edition 2026. Built-in "@derive" is the declaration-generation mechanism. R28| Async/await is not a language construct in edition 2026. Structured threads, synchronization, channels and nonblocking APIs form the concurrency model. R29| Windows x86-64 is the only mandatory direct-native Paracine 1.0 target. Additional platforms may be reached by future direct-native profiles or by the optional C++20 exporter. R30| Index disjointness is conservative unless statically proved or established through a disjointness primitive such as "split_at". R31| Associated types are deliberately excluded. Multi-parameter capabilities are canonical. R32| Trap cleanup is deliberately absent. Recoverable failure uses "result<T,E>" and "option". R33| Build-time metaprogramming uses const evaluation and explicit build-tool steps rather than arbitrary compiler-executed scripts. R34| Nullable "raw" is not guaranteed to use null niche optimization inside "option<raw>". R35| Safe "view", "span", "text" and empty "buffer" values use canonical non-null sentinels, enabling guaranteed null niches for their optional forms. R36| "raw" parameter mode is legal only when raw authority actually exists in the parameter type. R37| Tier-1 unwind information uses the Windows x64 unwind representation implemented and verified by Paracine. R38| PDB emission is a native tooling facility and not part of language-semantic equivalence. R39| Production executables use ASLR-compatible relocation, high-entropy VA and NX compatibility by default. R40| Control Flow Guard is enabled only when complete guard metadata is successfully emitted. R41| Reproducible builds contain no uncontrolled wall-clock timestamps. R42| Native executable linking is complete within Paracine. R43| C++20 generation is not required for a conforming native Paracine compiler. R44| ".obj" and ".exe" are Paracine's primary Tier-1 production realizations. R45| C++20 ".cpp" generation is an optional portability/export subsystem branching from optimized PCIR. R46| Absence of the C++20 exporter does not make a Paracine compiler incomplete. R47| Semantic Analysis is deterministic and authoritative. R48| Structural Analysis identifies computational form but does not change program meaning. R49| Stylometric Analysis is optional, local and advisory. It can suggest but cannot establish semantic truth. R50| Every optimization remains subject to independent semantic proof regardless of stylometric suggestion. R51| Stylometry cannot determine validity, type resolution, overload resolution, ownership, alias legality, synchronization legality, arithmetic meaning or unsafe correctness. R52| Paracine stylometry is not an authorship-identification facility. R53| The compiler may maintain a project-local Semantic-Stylometric Fingerprint, but it is not part of language semantics. R54| Default reproducible production builds do not permit unpinned stylometric state to alter emitted machine code. R55| Style-guided optimization is explicit and, when enabled, its exact profile hash becomes a declared build input.
-
-R56| "for pattern in iterable while condition" is guarded iteration that stops at the first false guard after binding the candidate and before entering its body.
-R57| "from index = first to last" is inclusive integer iteration with a fixed direction of +1 or -1, one-time left-to-right bound evaluation, and endpoint testing before any advance.
-R58| "continue until condition" introduces a post-test loop: its body executes before each condition test, false repeats, and true exits.
-R59| A continue jump targets next-candidate acquisition for a for loop, endpoint testing for a from loop, and post-test evaluation for a continue-until loop; normal cleanup precedes the target operation.
-R60| Loop conditions require bool. From-loop bounds require the same built-in integer type with no implicit numeric conversion; the induction binding is immutable and local to each body iteration.
-R61| "to" and "until" are reserved keywords. A continue jump and a continue-until compound statement are distinguished by the next token without changing lexical layout rules.
-R62| Structured loops lower through verified PCIR and PMIR to direct native code. Their control mechanism introduces no mandatory allocation or runtime scheduler and does not depend on the optional C++20 exporter.
-R63| Structured-loop semantics, integer-boundary handling, labels, cleanup, ownership, effect inference, and backend equivalence are mandatory conformance requirements.
+IDFinal resolution
+R1Indentation is exactly four spaces. Tabs remain forbidden for structural indentation.
+R2Layout tokenization is purely lexical and does not depend on parser knowledge.
+R3text is an immutable borrowed UTF-8 slice. string is its owning counterpart.
+R4Paracine 1.0 supports zero-allocation capturing closures as statically typed, monomorphized closure values.
+R5Ordinary routine pointers remain environment-free. A noncapturing closure may coerce to a routine pointer.
+R6There are no implicit numeric conversions. Contextual literal fitting remains allowed.
+R7Capability satisfaction remains structural by name/signature with deterministic lookup. Associated types are not part of edition 2026.
+R8Record fields remain in declaration order. The compiler never silently reorders them.
+R9Integer +, -, *, and unary negation use defined modular two's-complement semantics.
+R10Shift counts are reduced modulo operand width.
+R11Signed MIN / -1 = MIN; MIN % -1 = 0.
+R12Default routine parameters are shared borrows; var is exclusive borrowing; own transfers ownership.
+R13Explicit lifetime parameters do not exist in edition 2026. Borrow regions are inferred and nonlexical.
+R14@from(...) remains the explicit returned-borrow disambiguator.
+R15Traps terminate the process. They do not unwind Paracine scopes and are not catchable exceptions.
+R16Thread traps obey the same terminal-trap model. The former recoverable thread_panic model is removed.
+R17give automatically wraps values into ok or some where required by the declared result type.
+R18fail automatically produces err.
+R19Floating contraction and reassociation remain disabled outside @fastmath.
+R20Default hash maps use process-randomized hashing. Stable deterministic hashing remains separately available.
+R21Allocating growth operations are fallible. Convenience constructors may trap on OOM while retaining try_ forms.
+R22The import graph remains acyclic.
+R23Visibility remains private / public / export.
+R24vec<T,N> remains a compiler-defined exception to the no-user-operator rule.
+R25One source file defines one module, and its path must agree with its module name.
+R26General textual/preprocessor macros do not exist in edition 2026.
+R27User procedural macros do not exist in edition 2026. Built-in @derive is the declaration-generation mechanism.
+R28Async/await is not a language construct in edition 2026. Structured threads, synchronization, channels, and nonblocking APIs form the concurrency model.
+R29Windows x86-64 is the mandatory direct-native Paracine 1.0 target. Additional platforms may be reached by future direct-native target profiles.
+R30Index disjointness is conservative unless statically proved or established through a disjointness primitive such as split_at.
+R31Associated types are deliberately excluded. Multi-parameter capabilities are canonical.
+R32Trap cleanup is deliberately absent. Recoverable failure uses result<T,E> and option.
+R33Build-time metaprogramming uses const evaluation and explicit build-tool steps rather than arbitrary compiler-executed scripts.
+R34Nullable raw is not guaranteed to use null niche optimization inside option<raw>.
+R35Safe view, span, text, and empty buffer values use canonical non-null sentinels, enabling guaranteed null niches for option<view>, option<span>, option<text>, and option<buffer>.
+R36raw parameter mode is legal only when raw authority actually exists in the parameter type.
+R37Tier-1 unwind information uses the Windows x64 unwind representation implemented and verified by Paracine.
+R38PDB emission is a native tooling facility and not part of language-semantic equivalence.
+R39Production executables use ASLR-compatible relocation, high-entropy VA, and NX compatibility by default.
+R40Control Flow Guard is enabled only when complete guard metadata is successfully emitted.
+R41Reproducible builds contain no uncontrolled wall-clock timestamps.
+R42Native executable linking is complete within Paracine.
+R43Direct-native machine code generation is the sole canonical backend architecture of Paracine 1.0.
+R44.obj and .exe are Paracine's primary Tier-1 production realizations.
+R45.lib and .dll are Paracine's additional Tier-1 native deployment realizations.
+R46A conforming Paracine 1.0 compiler realizes all outputs directly through its integrated native backend and linker without foreign source-to-source translation.
+R47Semantic Analysis is deterministic and authoritative.
+R48Structural Analysis identifies computational form but does not change program meaning.
+R49Stylometric Analysis is optional, local, and advisory. It can suggest but cannot establish semantic truth.
+R50Every optimization remains subject to independent semantic proof regardless of stylometric suggestion.
+R51Stylometry cannot determine validity, type resolution, overload resolution, ownership, alias legality, synchronization legality, arithmetic meaning, or unsafe correctness.
+R52Paracine stylometry is not an authorship-identification facility.
+R53The compiler may maintain a project-local Semantic-Stylometric Fingerprint, but it is not part of language semantics.
+R54Default reproducible production builds do not permit unpinned stylometric state to alter emitted machine code.
+R55Style-guided optimization is explicit and, when enabled, its exact profile hash becomes a declared build input.
+R56for pattern in iterable while condition is guarded iteration that stops at the first false guard after binding the candidate and before entering its body.
+R57from index = first to last is inclusive integer iteration with a fixed direction of +1 or -1, one-time left-to-right bound evaluation, and endpoint testing before any advance.
+R58continue until condition introduces a post-test loop: its body executes before each condition test, false repeats, and true exits.
+R59A continue jump targets next-candidate acquisition for a for loop, endpoint testing for a from loop, and post-test evaluation for a continue-until loop; normal cleanup precedes the target operation.
+R60Loop conditions require bool. From-loop bounds require the same built-in integer type with no implicit numeric conversion; the induction binding is immutable and local to each body iteration.
+R61to and until are reserved keywords. A continue jump and a continue-until compound statement are distinguished by the next token without changing lexical layout rules.
+R62Structured loops lower through verified PCIR and PMIR to direct native code. Their control mechanism introduces no mandatory allocation or runtime scheduler.
+R63Structured-loop semantics, integer-boundary handling, labels, cleanup, ownership, effect inference, and native backend equivalence are mandatory conformance requirements.
+R64Comprehensive constant folding, profile-guided optimization, master-class inlining, tail-call optimization, flattening, pattern matching, resource/register allocation, type/resource diagramming, and probability-weighted decision trees are first-class native compiler capabilities governed by semantic proof.
+R65Adaptive heuristic learning tracks compilation/execution outcomes, compile-time cost, and consistency—updating probability weights and pruning low-value heuristic strategies in the adaptive repertoire—while keeping semantic validity and reproducible build inputs strictly bounded.
+R66Safe-code memory safety is a qualified contract over well-formed safe code and trusted abstractions under documented external preconditions, rather than a blanket claim that all operations are defined, hardware is fault-free, or all implementations are formally proven.
+R67fib(n) is a checked signed-64-bit routine/intrinsic (including negative-index evaluation and exact constant folding) with explicit bounds/overflow checking, while fib_big(n) is an opt-in arbitrary-precision compile-time text constant subject to a documented index/resource cap; boolean negation is supported via not (and unary ! where wired identically across frontend, PCIR, and native lowering).
+R68Ellipsis (...) is supported in foreign variadic declarations and permitted in supported variadic/sequence-expansion and future-edition-reserved forms according to its grammar and lowering rules, rather than being rejected as a blanket error.
 
 These resolutions are frozen for the revised edition-2026 baseline.
-
-Corrected Lexical and Layout Definition
+3. Corrected Lexical and Layout Definition
 3.1 Source normalization
-
 Before lexical analysis:
 
 source is decoded as UTF-8;
@@ -226,249 +153,113 @@ CRLF and CR are normalized to LF;
 Unicode source is normalized to NFC outside raw byte-oriented compiler internals;
 a missing final LF is conceptually added;
 trailing horizontal whitespace outside literals is ignored.
+
 Tabs remain legal inside:
 
-text literals raw text escaped character content comments
+text literals
+raw text
+escaped character content
+comments
 
-Tabs also separate tokens and are allowed within grouped lines and before pipeline continuations. They never contribute to structural indentation. Any tab before the first significant token of an ungrouped, non-continuation line is rejected at its byte column; blank and comment-only lines are exempt. Only ASCII space and tab are horizontal whitespace—other Unicode spacing characters are lexical errors.
-
-Final Layout Algorithm
-Layout tokenization is purely lexical.
-
-The lexer does not need to know whether the previous line was a grammatically valid block opener.
-
-The indentation stack initially contains:
-
-[0]
-
-For every significant physical line outside "()", "[]", and "{}":
-
+Tabs are illegal in structural indentation.
+3.2 Final Layout Algorithm
+Layout tokenization is purely lexical. The lexer does not need to know whether the previous line was a grammatically valid block opener.
+The indentation stack initially contains [0].
+For every significant physical line outside (), [], and {}:
 indent = count of leading ASCII spaces
+The count must be divisible by four. Otherwise: E0100 invalid indentation width.
+Let current = top(indent_stack).
 
-The count must be divisible by four.
+Equal indentation (indent == current): Emit NEWLINE before the first token of the next significant line.
+Increased indentation (indent > current): The increase must be exactly four spaces (indent == current + 4). Emit NEWLINE INDENT and push indent. A larger jump is E0101 indentation skips a structural level. Whether that INDENT is grammatically legal is decided by the parser; an unexpected block becomes E0201 unexpected block.
+Decreased indentation (indent < current): The target indentation must already occur in the stack. Emit NEWLINE DEDENT... until that value becomes the top. Otherwise: E0102 inconsistent dedent.
 
-Otherwise:
+Continuations: Inside (...), [...], {...}, physical newlines are ordinary whitespace. A physical line whose first significant token is -> continues the preceding pipeline expression. No backslash-continuation mechanism exists.
+At EOF, emit one final NEWLINE if necessary and enough DEDENT tokens to restore indentation zero.
+4. Final Reserved Vocabulary & Punctuation
+4.1 Edition 2026 Keywords
+abi alias alloc and as break capability choose const continue defer else export
+fail false for foreign from give gives if import in io is let loop module move
+not nothing or own public pure raw record return_ routine static test then thread
+to trap true try unsafe until var variant when where while with yield_
 
-E0100 invalid indentation width
+return_ and yield_ are reserved without edition-2026 semantics.
+4.2 Predeclared Identifiers
+byte short int long ubyte ushort uint ulong float double bool char text size
+ssize void never option result view span ref mut buffer array raw atomic
+string ordering
 
-Let:
+Prelude suppression is controlled by package configuration: no_prelude = true or no_std = true. The former import std.prelude as nothing form is removed.
+4.3 Completed Punctuation
++ - * / % & | ^ ~ << >> == != < <= > >= = += -= *= /= %= &= |= ^= <<= >>=
+-> => ... . .. ..= , : :: ? @ ( ) [ ] { }
 
-current = top(indent_stack)
-
-Equal indentation
-
-If:
-
-indent == current
-
-emit:
-
-NEWLINE
-
-before the first token of the next significant line.
-
-Increased indentation
-
-If:
-
-indent > current
-
-the increase must be exactly four spaces:
-
-indent == current + 4
-
-Then emit:
-
-NEWLINE INDENT
-
-and push "indent".
-
-A larger jump is:
-
-E0101 indentation skips a structural level
-
-Whether that "INDENT" is grammatically legal is decided by the parser.
-
-An unexpected block therefore becomes:
-
-E0201 unexpected block
-
-Decreased indentation
-
-If:
-
-indent < current
-
-the target indentation must already occur in the stack.
-
-Emit:
-
-NEWLINE DEDENT...
-
-until that value becomes the top.
-
-Otherwise:
-
-E0102 inconsistent dedent
-
-Continuations
-
-Inside:
-
-(...) [...] {...}
-
-physical newlines are ordinary whitespace.
-
-A physical line whose first significant token is:
-
-->
-
-continues the preceding pipeline expression.
-
-No backslash-continuation mechanism exists.
-
-At EOF, emit one final "NEWLINE" if necessary and enough "DEDENT" tokens to restore indentation zero.
-
-Final Reserved Vocabulary
-Edition 2026 keywords are:
-
-abi alias alloc and as break capability choose const continue defer else export fail false for foreign from give gives if import in io is let loop module move not nothing or own public pure raw record return_ routine static test then thread to trap true try unsafe until var variant when where while with yield_
-
-"return_" and "yield_" are reserved without edition-2026 semantics. The bootstrap tokenizer separately maintains this compatibility-only vocabulary: each otherwise case enum union use compile layout packed align null return. These words remain reserved as tokens for legacy grammar support; adding one to either vocabulary requires an explicit lexer/parser regression test and does not change the canonical edition-2026 list.
-
-Predeclared identifiers include:
-
-byte short int long ubyte ushort uint ulong float double bool char text size ssize void never
-
-option result view span ref mut buffer array raw atomic string ordering
-
-Prelude suppression is controlled by package configuration:
-
-no_prelude = true
-
-or:
-
-no_std = true
-
-The former "import std.prelude as nothing" form is removed.
-
-Completed Punctuation
-Edition 2026 recognizes:
-
-/ % & | ^ ~ << >> == != < <= > >= = += -= *= /= %= &= |= ^= <<= >>= -> => ... . .. ..= , : :: ? @ ( ) [ ] { }
-
-A foreign variadic declaration places `...` after its final named parameter, for example:
-
-foreign c routine sum(count: int, ...) gives int
-
-The named parameters are checked normally. Calls provide at least those arguments; each additional argument must be a scalar numeric, boolean, or raw pointer value. Variadic `float` arguments are promoted to `double`, and Windows x64 variadic calls duplicate floating arguments into the corresponding general-purpose argument register as required by the Microsoft ABI. Aggregate values such as `text`, `string`, arrays, and records are not accepted in the variadic tail. Foreign declarations have no Paracine body. Unresolved variadic symbols are emitted as direct COFF relocations for external linking; direct PE emission rejects unresolved calls instead of creating a broken executable.
-
-`...` is not a range or spread operator. Elsewhere it produces E0208 illegal ellipsis.
-
-Corrected Statement Grammar
+... is supported in foreign variadic declarations and permitted in supported variadic/sequence-expansion and future-edition-reserved positions per its grammar and lowering rules.
+5. Corrected Statement Grammar
 statement = simple_statement NEWLINE | compound_statement ;
 
-simple_statement = let_stmt | var_stmt | assign_stmt | expr_stmt | give_stmt | fail_stmt | break_stmt | continue_stmt | defer_stmt ;
+simple_statement = let_stmt | var_stmt | assign_stmt | expr_stmt | give_stmt
+                 | fail_stmt | break_stmt | continue_stmt | defer_stmt ;
 
-compound_statement = if_stmt | choose_stmt | loop_stmt | while_stmt | for_stmt | from_stmt | continue_until_stmt | defer_block | unsafe_block ;
+compound_statement = if_stmt | choose_stmt | loop_stmt | while_stmt | for_stmt
+                   | from_stmt | continue_until_stmt | defer_block | unsafe_block ;
 
 block = NEWLINE INDENT statement { statement } DEDENT ;
 
 defer_stmt = 'defer' expr ;
-
 defer_block = 'defer' block ;
-
 label = '@' identifier ;
 
 break_stmt = 'break' [ label ] ;
-
 continue_stmt = 'continue' [ label ] ;
 
 loop_stmt = [ label ':' ] 'loop' block ;
-
 while_stmt = [ label ':' ] 'while' expr block ;
-
 for_stmt = [ label ':' ] 'for' [ 'var' ] pattern 'in' expr [ 'while' expr ] block ;
-
 from_stmt = [ label ':' ] 'from' identifier [ ':' type ] '=' expr 'to' expr block ;
-
 continue_until_stmt = [ label ':' ] 'continue' 'until' expr block ;
 
-The 'type' in a from_stmt is restricted semantically to a built-in integer type. The expressions following 'while' and 'until' must resolve to bool.
-
-At the current delimiter nesting level, the reserved 'while' token ends a for-loop iterable expression, and the reserved 'to' token separates the two from-loop bound expressions. These rules introduce no textual macro or parser-dependent indentation behavior.
-
-Labeled jumps therefore use:
-
+The type in a from_stmt is restricted semantically to a built-in integer type. The expressions following while and until must resolve to bool.
+At the current delimiter nesting level, the reserved while token ends a for-loop iterable expression, and the reserved to token separates the two from-loop bound expressions. These rules introduce no textual macro or parser-dependent indentation behavior.
+Labeled jumps use:
 break @outer
 continue @scan
 
-The sequence 'continue until' introduces a compound statement, not a continue jump. Its indented block is required. Bare 'continue' and 'continue @label' retain their existing jump meanings.
-
-The simple-statement alternatives explicitly include the already-defined expression form of defer, so loop cleanup examples follow the statement grammar.
-
-Structured Loop Completion — For ... While / From ... To / Continue ... Until
-
+The sequence continue until introduces a compound statement, not a continue jump. Its indented block is required. Bare continue and continue @label retain their existing jump meanings.
+6. Structured Loop Completion — For ... While / From ... To / Continue ... Until
 These are normative structured statements in edition 2026. Source spelling is lowercase:
-
 for ... while ...
 from ... to ...
 continue until ...
 
-The dots above mark explanatory placeholders. They are not source tokens and do not authorize use of the reserved ellipsis token in loop headers.
+All three forms use the existing four-space block syntax. Their behavior is resolved by the semantic frontend and represented in PCIR. They require no loop-specific allocation, closure object, or runtime scheduler. Operations written in their expressions and bodies retain their ordinary allocation, ownership, effect, and failure behavior.
+6.1 Loop Form Summary
 
-All three forms use the existing four-space block syntax. Their behavior is resolved by the semantic frontend and represented in PCIR. They require no loop-specific allocation, closure object, scheduler, foreign compiler, or C++ export step. Operations written in their expressions and bodies retain their ordinary allocation, ownership, effect, and failure behavior.
+for item in items while condition: Iterates through items and stops at the first false condition. The condition is checked after binding each candidate and before its body executes.
+from index = first to last: Visits both integer endpoints, moving by one toward last. Equal endpoints produce one iteration. Descending bounds count downward automatically.
+continue until condition: Executes the body, then checks condition. False repeats; true finishes. Reaching the loop normally executes its body at least once.
 
-Loop Form Summary
-
-for item in items while condition
-    Iterates through items and stops at the first false condition. The condition is checked after binding each candidate and before its body executes.
-
-from index = first to last
-    Visits both integer endpoints, moving by one toward last. Equal endpoints produce one iteration. Descending bounds count downward automatically.
-
-continue until condition
-    Executes the body, then checks condition. False repeats; true finishes. Reaching the loop normally executes its body at least once.
-
-For ... While — Guarded Iteration
-
+6.2 For ... While — Guarded Iteration
 Canonical syntax:
-
 for pattern in iterable while condition
     statements
 
-The existing mutable-pattern form remains available:
+The mutable-pattern form (for var pattern in mutable_iterable while condition) and unguarded for ... in ... remain valid.
+Execution order:
 
-for var pattern in mutable_iterable while condition
-    statements
+Evaluate the iterable expression once and obtain its iterator under the existing iterator rules.
+Request the next candidate.
+If the iterator is exhausted, finish without evaluating the guard.
+Bind the candidate to the pattern.
+Evaluate the guard exactly once for this candidate. Its type must be bool.
+If false, perform normal cleanup of the candidate and iterator state and finish the loop.
+If true, execute the body.
+On ordinary body completion, perform iteration cleanup and request the next candidate.
 
-The existing unguarded "for ... in ..." form remains valid. The optional "while" clause adds a stopping guard to that form.
-
-Execution order is exact:
-
-1. Evaluate the iterable expression once and obtain its iterator under the existing iterator rules.
-2. Request the next candidate.
-3. If the iterator is exhausted, finish without evaluating the guard.
-4. Bind the candidate to the pattern.
-5. Evaluate the guard exactly once for this candidate. Its type must be bool.
-6. If false, perform normal cleanup of the candidate and iterator state and finish the loop.
-7. If true, execute the body.
-8. On ordinary body completion, perform iteration cleanup and request the next candidate.
-
-The guard may refer to names bound by the pattern and to names visible in the enclosing scope. It cannot refer to declarations introduced only inside the body.
-
-The first candidate that fails the guard has already been obtained from the iterator. Its body does not execute; the candidate is not put back. Later candidates are not requested. If an externally retained iterator is resumable under its normal borrowing rules, its position reflects that candidate acquisition.
-
-This is a stopping guard. It does not skip a rejected candidate and resume searching. Per-element selection uses an explicit body condition or an iterator filter.
-
-"for var" retains the existing exclusive-borrow requirements. A guard does not create permission to mutate a shared iterable, overlap exclusive borrows, or keep a borrowed item alive across an incompatible iterator advance.
-
-An ordinary "continue" targeting this loop performs iteration cleanup and advances to the next candidate. It does not test the current candidate again. The guard is evaluated when the next candidate has been bound.
-
-An ordinary "break" targeting this loop performs normal cleanup and exits without requesting another candidate or evaluating another guard.
-
+The guard may refer to names bound by the pattern and to names visible in the enclosing scope, but not declarations introduced only inside the body.
+The first candidate that fails the guard has already been obtained from the iterator; its body does not execute, the candidate is not put back, and later candidates are not requested. This is a stopping guard—it does not skip a rejected candidate and resume searching.
+An ordinary continue targeting this loop performs iteration cleanup and advances to the next candidate without re-testing the current candidate. An ordinary break performs normal cleanup and exits without requesting another candidate or evaluating another guard.
 Example:
-
 routine sum_before_limit(values: view<int>, limit: int) gives int
     var total: int = 0
 
@@ -477,2552 +268,747 @@ routine sum_before_limit(values: view<int>, limit: int) gives int
 
     give total
 
-For the input values 2, 4, 9, 1 with limit 8, the body sees 2 and 4. The result is 6. The value 9 stops the loop; the later value 1 is not visited.
-
-From ... To — Inclusive Directed Integer Iteration
-
+For input values 2, 4, 9, 1 with limit = 8, the body sees 2 and 4 (returning 6); 9 stops the loop and 1 is not visited.
+6.3 From ... To — Inclusive Directed Integer Iteration
 Canonical syntax:
-
 from index = first to last
     statements
-
-An explicit induction type may be supplied:
 
 from index: int = first to last
     statements
 
-"index" is a fresh immutable loop binding. It is in scope only within the body. Each iteration introduces that iteration's binding; assigning to it is an error. Ordinary copying, borrowing, and closure-capture rules apply.
+index is a fresh immutable loop binding scoped only within the body. Each iteration introduces that iteration's binding; assigning to it is an error.
+The induction type must be one of Paracine's built-in signed or unsigned integer types, including size and ssize. bool, char, floating-point types, raw pointers, and user records are not induction types. Both bounds must resolve to the same induction type without implicit numeric conversion.
+Execution order:
 
-The induction type must be one of Paracine's built-in signed or unsigned integer types, including size and ssize. bool, char, floating-point types, raw pointers, and user records are not induction types.
+Evaluate first once.
+Evaluate last once, after first.
+Save both values using their resolved integer type.
+Choose an ascending direction if first < last, a descending direction if first > last, or a single iteration if they are equal.
+Bind the current value and execute the body.
+After normal body cleanup, compare the current value with the saved endpoint.
+If equal, finish immediately.
+Otherwise, advance by exactly one toward the endpoint and execute the next iteration.
 
-Both bounds must resolve to the same induction type. An explicit type provides context for literal fitting. Without an explicit type, ordinary expression inference and contextual literal fitting select the common integer type. No implicit numeric conversion is introduced. Differently typed nonliteral bounds require an explicit conversion.
-
-Execution order is exact:
-
-1. Evaluate first once.
-2. Evaluate last once, after first.
-3. Save both values using their resolved integer type.
-4. Choose an ascending direction if first < last, a descending direction if first > last, or a single iteration if they are equal.
-5. Bind the current value and execute the body.
-6. After normal body cleanup, compare the current value with the saved endpoint.
-7. If equal, finish immediately.
-8. Otherwise, advance by exactly one toward the endpoint and execute the next iteration.
-
-Both endpoints are included. "from index = 3 to 1" visits 3, 2, 1. It is not an empty range. A zero-iteration requirement must be expressed with an explicit condition or an appropriate existing iterator.
-
-The direction and endpoint do not change if the source variables used to compute the bounds are later modified. No bound expression is reevaluated by the loop.
-
-Completion is tested before advancing. The loop never forms MAX + 1 after its final ascending iteration or MIN - 1 after its final descending iteration. The unsigned zero endpoint is handled by the same rule.
-
-The loop does not require computing last - first, an absolute difference, or an iteration count in the induction type. Traversing a signed range across zero therefore introduces no hidden overflow or implicit conversion. This rule does not change the language's modular arithmetic for explicit source operations.
-
-An ordinary "continue" targeting this loop performs iteration cleanup and reaches the endpoint test. At the final endpoint it exits; otherwise it advances once toward the saved endpoint.
-
-An ordinary "break" targeting this loop performs normal cleanup and exits without advancing.
-
-No step keyword or implicit arbitrary stride is defined by this form. The progression is exactly +1 or -1 as selected above. Other progressions use existing iterator APIs or explicit "while" logic.
-
-Examples:
-
-routine ascending_sum() gives int
-    var total: int = 0
-
-    from index: int = 1 to 5
-        total += index
-
-    give total
-
-The result is 15.
-
-routine descending_digits() gives int
-    var digits: int = 0
-
-    from digit: int = 3 to 1
-        digits = digits * 10 + digit
-
-    give digits
-
-The result is 321.
-
-routine equal_endpoint_count() gives int
-    var count: int = 0
-
-    from index: int = 7 to 7
-        count += 1
-
-    give count
-
-The result is 1.
-
-Continue ... Until — Post-Test Repetition
-
+Both endpoints are included (from index = 3 to 1 visits 3, 2, 1). Completion is tested before advancing, so the loop never forms MAX + 1 after its final ascending iteration or MIN - 1 after its final descending iteration, and traversing a signed range across zero introduces no hidden overflow.
+An ordinary continue performs iteration cleanup and reaches the endpoint test. An ordinary break performs normal cleanup and exits without advancing.
+6.4 Continue ... Until — Post-Test Repetition
 Canonical syntax:
-
 continue until condition
     statements
 
-This is a standalone compound statement. It may introduce a loop even when there is no enclosing loop. Its header condition is evaluated after the body.
+This is a standalone compound statement that introduces a loop even without an enclosing loop.
+Execution order:
 
-Execution order is exact:
+Enter the body without evaluating condition.
+Execute the body.
+On ordinary body completion, execute normal cleanup for the completed iteration.
+Evaluate condition exactly once. Its type must be bool.
+If true, finish.
+If false, begin the next iteration.
 
-1. Enter the body without evaluating condition.
-2. Execute the body.
-3. On ordinary body completion, execute normal cleanup for the completed iteration.
-4. Evaluate condition exactly once. Its type must be bool.
-5. If true, finish.
-6. If false, begin the next iteration.
+When reached through normal control flow, the body executes at least once. condition resolves names in the enclosing lexical scope (body-local declarations are out of scope). An ordinary continue targeting this loop performs iteration cleanup and evaluates condition. An ordinary break performs normal cleanup and exits without evaluating condition.
+6.5 Loop Labels, Statement Disambiguation, Ownership, and Backend Lowering
+Each form accepts the loop-label prefix (@scan: for ..., @count: from ..., @retry: continue until ...). Labels must resolve to an enclosing loop and cannot cross a routine or closure boundary.
+The token immediately following continue determines the statement form:
 
-When reached through normal control flow, the body executes at least once, including when the condition would have been true before entry. A terminal trap or an explicit control transfer can prevent completion of that first body.
+until: parse the compound continue until loop and require its condition and indented block
+@: parse a labeled continue jump
+NEWLINE: parse an unlabeled continue jump
 
-The condition resolves names in the enclosing lexical scope. Body-local declarations are outside its scope. Every path that reaches the condition must leave each referenced place initialized and legally usable. State needed by the condition is normally declared before the loop and updated by the body.
-
-An ordinary "continue" targeting this loop performs iteration cleanup and then evaluates the condition. It does not jump directly to the next body entry and bypass the test.
-
-An ordinary "break" targeting this loop performs normal cleanup and exits without evaluating the condition.
-
-Example:
-
-routine count_to_three() gives int
-    var count: int = 0
-
-    continue until count >= 3
-        count += 1
-
-    give count
-
-The result is 3.
-
-Example showing "continue" reaching the post-test:
-
-routine post_test_continue() gives int
-    var count: int = 0
-
-    continue until count >= 3
-        count += 1
-        continue
-
-    give count
-
-The result is 3. The condition is tested after each "continue".
-
-The construct performs sequential repetition. Any waiting, sleeping, yielding through a library, synchronization, or OS event processing must be explicitly provided by operations in its expressions or body.
-
-Loop Labels and Statement Disambiguation
-
-Each new form accepts the existing loop-label prefix:
-
-@scan: for value in values while value >= 0
-    statements
-
-@count: from index: int = 0 to 9
-    statements
-
-@retry: continue until finished
-    statements
-
-"statements" in these three header illustrations is a placeholder, not a language keyword.
-
-"break @label" exits the targeted enclosing loop. "continue @label" transfers to that loop's continuation point:
-
-for ... while ... : iteration cleanup, then next candidate acquisition
-from ... to ... : iteration cleanup, then endpoint test and possible advance
-continue until ... : iteration cleanup, then the post-test condition
-
-Labels must resolve to an enclosing loop. A jump cannot enter a loop, select a sibling loop, or cross a routine or closure boundary. Intervening scopes receive normal cleanup.
-
-The token immediately following "continue" determines the statement form:
-
-until : parse the compound "continue until" loop and require its condition and indented block
-@ : parse a labeled continue jump
-NEWLINE : parse an unlabeled continue jump
-
-No other "continue expression" form is introduced. Bare "continue" outside a loop remains an error. "continue until condition" outside a loop is valid because it introduces its own loop.
-
-"to" and "until" are reserved lowercase keywords. "from" was already reserved. The existing "@from(...)" returned-borrow attribute retains its meaning.
-
-Layout tokenization remains purely lexical. It does not inspect loop meaning. The parser recognizes these headers and consumes their ordinary NEWLINE / INDENT / DEDENT blocks.
-
-Ownership, Cleanup, Effects, and Failure
-
-The new forms use the existing ownership and nonlexical-region rules. They create no exemption for escaping borrows, shared/exclusive aliasing, moves, thread safety, or initialization.
-
-On ordinary iteration completion, continue, break, give, fail, or propagated recoverable failure, cleanup runs for every scope actually exited. Registered defers execute under the existing scope-exit rules before the targeted loop continuation point is reached.
-
-For "continue until", body-scope cleanup precedes the condition test, so a defer that changes enclosing state is observable by that test. Inner scopes crossed by a labeled jump are also cleaned before the target's test or advance.
-
-Loop-owned iterator state is cleaned on normal loop exit. Owned values and temporaries associated with guards and bounds follow the same normal expression and scope rules. An item rejected by a "for ... while" guard is cleaned even though its body never ran.
-
-Terminal traps retain the final failure model: they terminate the process without unwinding, defer, or disposal. A trap in a bound, iterator operation, guard, body, cleanup operation, or post-test is not converted into a loop result.
-
-The inferred effect set is the union of effects required by iterable acquisition, iterator advancement, guards, bounds, post-test conditions, body statements, and cleanup. A loop header is not implicitly pure. The induction mechanism itself requires no allocation and introduces no overflow trap.
-
-A condition must have type bool. There is no implicit numeric truthiness. A false "for ... while" guard stops; a true "continue until" condition stops. Side-effect order follows the execution rules above.
-
-Compiler and Backend Completion for Structured Loops
-
-SAGE Semantic Analysis resolves loop bindings, expression types, ownership, effects, initialization, labels, and precise break/continue targets. The SKM records the resulting facts.
-
-Structural Analysis may classify guarded iterators, directed integer inductions, and post-test loops. Stylometric suggestions cannot select a different stopping condition, change endpoint inclusion, infer a different direction, or authorize an invalid jump.
-
-PCIR represents the verified control flow with explicit entry, test, body, continuation, and exit edges as applicable. Iterator advancement, guard evaluation, endpoint comparison, cleanup, and post-test evaluation have explicit sequencing. Synthetic induction values are ordinary defined values; no poison or undefined sentinel is introduced.
-
-The PCIR verifier checks that a "for ... while" continuation advances before testing the next bound candidate; a "from ... to" continuation tests completion before advancing; and a "continue until" continuation reaches its post-test. A break edge bypasses the corresponding next-iteration work. On each normal exit or jump path, all cleanup required for that path completes before its destination is reached.
-
-PMIR and the direct native backend lower those verified edges to ordinary branches, comparisons, and integer operations. The constructs need no new public ABI, object format, DLL contract, or runtime scheduler.
-
-Optimization may remove, fuse, unroll, or vectorize loop work only after proving semantic equivalence. It preserves iterator consumption, one-time bound evaluation, guard effects, inclusive endpoints, normal cleanup, post-test entry behavior, trap order, and the targets of labeled jumps.
-
-If present, the optional C++20 exporter preserves the same behavior. It may use generated loop structures or reconstructed control flow. It must not implement an inclusive integer loop by unconditionally incrementing after its final endpoint, or implement "continue until" with a jump that bypasses its condition or required cleanup.
-
-All forms are eligible for const evaluation when every executed operation is otherwise const-legal. Const-evaluation step limits remain enforced; the syntax creates no exemption for nontermination or excessive work.
-
-Structured Loop Conformance Requirements
-
-Mandatory frontend cases cover each form with and without labels, guarded and unguarded "for" loops, mutable iterator bindings, nested loops, bare and labeled continue jumps, and disambiguation between a continue jump and a "continue until" compound statement.
-
-Mandatory semantic cases include:
-
-1. Empty guarded iterator: zero guard evaluations and zero body executions.
-2. Initially false iterator guard: one candidate acquisition, one guard evaluation, zero body executions, normal candidate cleanup, and no later candidate request.
-3. Candidate-dependent guard: 2, 4, 9, 1 under "value < 8" visits 2, 4 only.
-4. Inclusive ascending range: 1 to 3 visits 1, 2, 3.
-5. Inclusive descending range: 3 to 1 visits 3, 2, 1.
-6. Equal endpoints: 7 to 7 executes once.
-7. One-time bounds: bound-side effects occur once each, left to right; later source-variable mutation does not change the saved bounds.
-8. Integer limits: ascending completion at MAX, descending completion at MIN, unsigned descent to zero, and "continue" on the final endpoint introduce no extra advance or overflow.
-9. Post-test entry: a condition already true before entry still permits one body execution when that body falls through normally.
-10. Post-test continue: every targeted continue reaches the condition after normal cleanup; true exits and false repeats.
-11. Break and recoverable routine exits: required cleanup runs, while bypassed guards and post-tests do not run.
-12. Nested labeled jumps: intervening cleanup executes and the targeted loop's own continuation rule is used.
-13. Defer ordering: a body defer that updates enclosing state is visible to a "continue until" test.
-14. Rejected programs: non-bool conditions, noninteger or mismatched range bounds, assignment to the immutable induction binding, out-of-scope condition names, invalid labels, invalid borrows, and malformed blocks produce diagnostics.
-15. Trap behavior: traps in loop operations retain process termination and no-unwind semantics; optimizations preserve preceding observable effects.
-
-The mandatory native semantic oracle compares these cases between the PCIR reference interpreter and direct native execution. When the optional C++20 exporter is installed, its differential suite includes the same loop behavior.
-
-
-Completed Top-Level Grammar
-item_body = routine_decl | record_decl | variant_decl | alias_decl | const_decl | static_decl | thread_static_decl | capability_decl | foreign_decl | test_decl ;
+On ordinary iteration completion, continue, break, give, fail, or propagated recoverable failure, cleanup and registered defer blocks run for every scope exited before reaching the targeted continuation point. Terminal traps terminate the process without unwinding or cleanup.
+SAGE Semantic Analysis resolves loop bindings, expression types, ownership, effects, initialization, labels, and break/continue targets into the SKM. PCIR represents the verified control flow with explicit entry, test, body, continuation, and exit edges, and PMIR lowers those verified edges directly to x86-64 machine instructions without allocation or runtime scheduler dependencies.
+7. Completed Top-Level Grammar & Globals
+item_body = routine_decl | record_decl | variant_decl | alias_decl | const_decl
+          | static_decl | thread_static_decl | capability_decl | foreign_decl | test_decl ;
 
 static_decl = 'var' 'static' identifier ':' type '=' const_expr ;
-
 thread_static_decl = 'thread' 'var' identifier ':' type '=' const_expr ;
 
-A "thread var":
-
-has one native-thread-local instance;
-requires a const-evaluable initializer;
-must be trivially disposable in edition 2026;
-may be mutated safely by its owning thread;
-may not be borrowed across thread boundaries;
-may not appear directly in stable DLL ABI-visible layout.
-Nontrivial thread-local destructors are deliberately excluded.
-
-Final Closure Model
-Paracine supports zero-runtime-overhead statically typed closures.
-
-There is:
-
-no GC closure object no mandatory boxing no dynamic closure dispatch no hidden heap allocation
-
-9.1 Syntax
-
+A thread var has one native thread-local instance, requires a const-evaluable initializer, must be trivially disposable in edition 2026, may be mutated safely by its owning thread, may not be borrowed across thread boundaries, and may not appear directly in stable DLL ABI-visible layout.
+8. Final Closure Model & Iterators
+Paracine supports zero-runtime-overhead statically typed closures with no GC closure object, mandatory boxing, dynamic dispatch, or hidden heap allocation.
 closure_expr = 'routine' '(' [ closure_param_list ] ')' [ 'gives' type ] ( '=>' expr | block ) ;
-
 closure_param_list = closure_param { ',' closure_param } [ ',' ] ;
-
 closure_param = [ param_mode ] identifier [ ':' type ] ;
 
-Example:
 
-let twice = routine(x: int) => x * 2
-
-let threshold = 10 let over = routine(x: int) => x > threshold
-
-Parameter types may be inferred only from a known expected callable type.
-
-Otherwise they must be explicit.
-
-9.2 Capture semantics
-
-Reading an outer place produces:
-
-shared capture
-
-Mutating an outer "var" place produces:
-
-exclusive capture
-
-Consuming a move-only outer value produces:
-
-own capture
-
-Explicit ownership-biased capture:
-
-move routine(x: int) => x + base
-
-captures used values by ownership wherever legal.
-
-9.3 Representation
-
-A capturing closure becomes conceptually:
-
-closure$42 { captured fields... }
-
-plus a statically known call implementation.
-
-The closure is an ordinary monomorphic value.
-
-It may:
-
-live on the stack move be stored in another aggregate be specialized be passed generically cross a thread boundary when its captures satisfy sendability
-
-9.4 Callable capability
-
-The compiler defines an intrinsic callable relationship conceptually equivalent to:
-
-capability callable<F, A, R>
-
-meaning:
-
-F may be called with argument tuple A and produces R
-
-User code cannot forge this intrinsic capability.
-
-9.5 Routine-pointer conversion
-
-A noncapturing closure may convert to a matching:
-
-routine(...) gives ...
-
-pointer.
-
-A capturing closure may not.
-
-9.6 Escaping
-
-A closure containing borrowed captures may not outlive those captures.
-
-A closure may freely escape its lexical definition when every capture is owned by value.
-
-The normal region analysis enforces this.
-
-9.7 Public ABI
-
-Anonymous closure types may not directly appear in:
-
-public signatures export signatures foreign declarations
-
-Public generic APIs may accept a generic type constrained by "callable".
-
-Standard Iterators Updated for Closures
-Standard adapters accept statically typed callables.
-
-Conceptually:
-
-routine map<I, T, U, F>( own it: I, own f: F ) gives map_iter<I, T, U, F> where I is iterator, F is callable<(T), U>
-
-The same model applies to:
-
-filter fold any all find sort_by_key parallel_for
-
-Routine pointers satisfy the callable requirement.
-
-Closure environments may disappear completely after:
-
-specialization inlining SROA DCE
-
-Pipeline fusion remains mandatory for the standard built-in fusion cases.
-
-Associated Types Resolution
-Associated types do not exist in edition 2026.
-
-The iterator relationship remains:
-
-iterator<I,T>
-
-rather than:
-
-I::Item
-
-This preserves:
-
-simpler name resolution simpler interface serialization simpler monomorphization no projection-normalization system fewer cyclic type constraints straightforward PCIR specialization
-
-A future language edition may add associated types.
-
-Edition 2026 does not depend upon them.
-
-Type-System Representation Corrections
-12.1 "never"
-
-"never" is an uninhabited predeclared type with no runtime representation.
-
-Expressions producing "never" include:
-
-trap(...) unreachable() process.exit(...) calls to routines declared gives never
-
-"never" coerces to every expected type.
-
-12.2 "ref" and "mut"
-
-They are aliases:
-
-ref = view constrained to count == 1 mut = span constrained to count == 1
-
-They do not introduce another ownership mechanism.
-
-12.3 Raw-pointer options
-
-"raw" is nullable.
-
-Therefore:
-
-option<raw>
-
-does not have a guaranteed null niche.
-
-It may use an explicit tag or another proven representation.
-
-The representation remains nonobservable at source level.
-
-12.4 Canonical safe empty pointer
-
-Safe empty:
-
-view span text
-
-values use a canonical aligned non-null sentinel.
-
-An empty "buffer" uses:
-
-ptr = canonical sentinel count = 0 capacity = 0
-
-This permits guaranteed null-niche option encodings for:
-
-option<view> option<span> option option<buffer>
-
-Unsafe constructors must normalize raw representations before exposing a safe value.
-
-12.5 "option"
-
-Tier-1 representation:
-
-0 = false 1 = true 2 = none
-
-12.6 "option"
-
-Tier-1 uses the invalid scalar:
-
-0x00110000
-
-as "none".
-
-"raw" Parameter Mode Resolution
-The syntax:
-
-raw x: T
-
-grants raw authority associated with "T".
-
-It is valid only when "T" is:
-
-raw an @raw_authority record an explicitly @raw_authority aggregate
-
-Valid:
-
-raw p: raw
-
-Invalid:
-
-raw x: int
-
-Diagnostic:
-
-E0408 meaningless raw parameter mode
-
-"raw" itself remains the machine-pointer type.
-
-Final Effect System
-The effect set is:
-
-alloc io thread trap unsafe
-
-"pure" means the empty set.
-
-It cannot be combined with another effect.
-
-Examples:
-
-with io, alloc
-
-and:
-
-with pure
-
-14.1 Inference
-
-Routine bodies receive minimum inferred effect sets.
-
-Typical contributions:
-
-allocation → alloc file/console/network/process → io thread/synchronization block → thread possible defined trap → trap unsafe authority operation → unsafe
-
-Calls union callee effects.
-
-14.2 Explicit annotations
-
-A "with" clause is an allowed upper bound.
-
-The inferred set must fit within it.
-
-Violation:
-
-E0360 undeclared effect
-
-Private routines without explicit effects infer them.
-
-Public/export routine interfaces record their resolved effects.
-
-14.3 Unsafe encapsulation
-
-A routine may internally use an "unsafe" block without exposing "with unsafe" if callers need not uphold raw invariants.
-
-A routine whose correctness depends on caller-supplied unsafe invariants must declare:
-
-with unsafe
-
-14.4 Trap effect
-
-Potential bounds failure, division failure and explicit assertion contribute "trap".
-
-Optimization may prove individual traps unreachable.
-
-Public effect identity is established before machine optimization.
-
-Final Failure Model
-Paracine has two failure classes.
-
-Recoverable failure
-
-Represented by:
-
-result<T,E> option
-
-using:
-
-try fail choose
-
-Normal cleanup executes.
-
-Terminal trap
-
-Includes:
-
-explicit trap bounds violation division by zero assertion failure unreachable stack exhaustion configured OOM trap
-
-A trap:
-
-does not unwind does not execute defer does not execute dispose does not become a result does not resume does not become thread_panic
-
-Trap handler:
-
-routine(trap_code, text) gives never
-
-Thread Trap Resolution
-There is no recoverable language trap across thread boundaries.
-
-There is no:
-
-std.thread.on_trap(recover)
-
-and no trap-derived:
-
-thread_panic
-
-A trap on any normal Paracine thread terminates the process.
-
-"join" is:
-
-routine join(own h: join_handle) gives result<R, thread_error>
-
-"thread_error" reports operating-system/runtime join failures.
-
-It does not represent language traps.
-
-Structured Thread Scope Resolution
-Canonical scoped threading is generic over callable values:
-
-routine scope(own f: F) where F is callable<(var thread_scope), void>
-
-Example:
-
-var values = ...
-
-scope(routine(var s) spawn_scoped(var s, routine() use(values) ) )
-
-Captured borrows are known to the compiler.
-
-"scope" cannot return until all scoped child threads have completed.
-
-Borrow lifetimes therefore terminate before the enclosing scope call returns.
-
-Interior Mutability Resolution
-Safe interior mutability is confined to compiler-known and standard-library abstractions whose implementation encapsulates unsafe authority.
-
-Edition 2026 includes:
-
-atomic mutex rwlock once channel internal state approved thread-safe runtime handles
-
-Ordinary user records may not mutate through a shared borrow.
-
-Index Disjointness Resolution
-The borrow checker treats:
-
-a[i] a[j]
-
-as potentially overlapping unless it proves otherwise.
-
-Proof may use:
-
-constant inequality normalized ranges dominating comparisons induction-variable facts range facts
-
-Programs requiring guaranteed independently mutable regions may use:
-
-split_at chunks_mut split_first_mut
-
-or equivalent standard disjointness primitives.
-
-Macro and Compile-Time Generation Resolution
-Edition 2026 provides no:
-
-textual macros token macros syntax macros procedural compiler plugins arbitrary source-generating compiler callbacks
-
-It does provide:
-
-const evaluation const generics monomorphization @derive @feature explicit build-tool steps
-
-Built-in derives:
-
-equatable ordered hashable printable defaultable
-
-Async Resolution
-Edition 2026 contains no:
-
-async await coroutine syntax mandatory event loop hidden scheduler
-
-Asynchronous systems may use:
-
-threads nonblocking APIs channels callbacks explicit state machines libraries
-
-No coroutine ABI is reserved in 1.0.
-
-Other Native Targets Resolution
-The mandatory direct-native target is:
-
-windows-x86_64-msx64
-
-Additional native platforms require complete target profiles defining:
-
-primitive widths endianness pointer width ABI instruction lowering object format executable format relocation model unwind model TLS atomics runtime bindings standard-library realization
-
-The optional C++20 exporter may provide portability to environments without a direct Paracine backend.
-
-That portability path is a convenience and compatibility mechanism.
-
-It is not required to establish Paracine as a complete language.
-
-A Paracine implementation that supports only the Tier-1 direct-native path may still be fully conforming.
-
-Hardened Hashing Resolution
-Default:
-
-map<K,V> set
-
-use a process-randomized SipHash-family state seeded from OS entropy.
-
-Iteration order is unspecified and may differ between runs.
-
-Stable deterministic hashing remains available through:
-
-stable_hasher hash_of fnv1a crc32 xxh3_64
-
-A deterministic table can be explicitly created with:
-
-map_with_hasher(stable_hasher())
-
-Standard-Library Network Completion
-The "std" tier includes:
-
-std.net
-
-Tier-1 networking uses Winsock through:
-
-std.win.ws2_32
-
-Core types:
-
-ip_addr ipv4_addr ipv6_addr socket_addr tcp_stream tcp_listener udp_socket shutdown socket_error
-
-Representative API:
-
-routine resolve(host: text, service: text) gives result<buffer<socket_addr>, socket_error>
-
-routine tcp_connect(addr: socket_addr) gives result<tcp_stream, socket_error>
-
-routine tcp_bind(addr: socket_addr) gives result<tcp_listener, socket_error>
-
-routine accept(var listener: tcp_listener) gives result<(tcp_stream, socket_addr), socket_error>
-
-routine read(var stream: tcp_stream, dst: span) gives result<size, socket_error>
-
-routine write(var stream: tcp_stream, src: view) gives result<size, socket_error>
-
-routine udp_bind(addr: socket_addr) gives result<udp_socket, socket_error>
-
-routine send_to( var socket: udp_socket, data: view, addr: socket_addr ) gives result<size, socket_error>
-
-routine recv_from( var socket: udp_socket, dst: span ) gives result<(size, socket_addr), socket_error>
-
-Socket initialization is demand-linked and one-time.
-
-"no_std" provides no network runtime.
-
-Dynamic-Library Completion
-"std.dynlib" provides:
-
-routine open(path: text) gives result<library, io_error>
-
-routine symbol(self: library, name: text) gives result<raw, io_error> with unsafe
-
-routine close(own lib: library)
-
-Typed conversion of dynamically obtained symbols requires unsafe authority.
-
-Global Allocator Completion
-The global allocator is initialized before "main".
-
-Replacement is legal only through the allocator startup phase.
-
-Example:
-
-@startup routine configure_allocator()
-
-Once the first allocation occurs, allocator replacement locks permanently.
-
-Only the root package may select the global allocator provider.
-
-Dependency packages cannot silently replace it.
-
-SAGE — Semantic Analysis & Guidance Engine
-SAGE is Paracine's unified analysis framework.
-
-It is divided into three distinct layers:
-
-Semantic Analysis Structural Analysis Stylometric Analysis
-
-Their authority is deliberately unequal.
-
-The governing rule is:
+Capture semantics: Reading an outer place produces a shared capture; mutating an outer var place produces an exclusive capture; consuming a move-only outer value produces an own capture; move routine(...) captures used values by ownership wherever legal.
+Representation: A capturing closure becomes a concrete monomorphic aggregate (closure$42 { captured fields... }) plus a statically known call implementation, satisfying the compiler-intrinsic callable<F, A, R> capability.
+Routine-pointer conversion: A noncapturing closure may convert to a matching routine(...) gives ... pointer; a capturing closure may not.
+Escaping & Public ABI: Borrowed captures may not outlive their source regions; anonymous closure types may not directly appear in public, export, or foreign signatures (public generic APIs constrain a generic type with callable).
+
+Standard iterator adapters (map, filter, fold, any, all, find, sort_by_key, parallel_for) accept statically typed callables (where I is iterator, F is callable<(T), U>), and associated types are excluded in edition 2026 (iterator<I, T> is canonical).
+9. Type-System Representation, Effects, and Failure Model
+9.1 Core Types & Representations
+
+never: Uninhabited predeclared type with no runtime representation (trap(...), unreachable(), process.exit(...), routines declared gives never). Coerces to every expected type.
+ref and mut: Aliases for view and span constrained to count == 1.
+Raw-pointer options: raw is nullable, so option<raw> has no guaranteed null niche.
+Canonical safe empty pointers: Safe empty view, span, text, and empty buffer values use a canonical aligned non-null sentinel, guaranteeing null-niche option encodings for option<view>, option<span>, option<text>, and option<buffer>.
+option<bool>: Tier-1 representation uses 0 = false, 1 = true, 2 = none.
+option<char>: Tier-1 representation uses the invalid Unicode scalar 0x00110000 as none.
+raw parameter mode: raw x: T grants raw authority and is valid only when T is raw or an @raw_authority type (otherwise E0408 meaningless raw parameter mode).
+
+9.2 Final Effect System
+The effect set is alloc, io, thread, trap, unsafe. pure denotes the empty effect set and cannot be combined with another effect.
+
+Private routines infer their minimum effect sets; public/export interfaces record resolved effects.
+Explicit with clauses act as allowed upper bounds (violation: E0360 undeclared effect).
+Internal unsafe blocks may be encapsulated without exposing with unsafe only if the implementation soundly upholds every raw, provenance, lifetime, aliasing, and synchronization invariant for all safe callers. If callers must establish unchecked preconditions, the API requires with unsafe and a documented safety contract (see Section 16).
+
+9.3 Failure Model & Structured Concurrency
+
+Recoverable failure: Represented by result<T,E> and option<T> using try, fail, and choose. Normal cleanup executes.
+Terminal trap: Explicit trap, bounds violation, division by zero, assertion failure, unreachable, stack exhaustion, and configured OOM trap terminate the process immediately without unwinding or running defer/dispose. Traps on any thread terminate the process; join returns result<R, thread_error> for OS/runtime join errors only.
+Structured thread scope: routine scope(own f: F) where F is callable<(var thread_scope), void> guarantees all scoped child threads complete before scope returns, bounding captured borrow regions.
+Interior mutability & index disjointness: Safe interior mutability is restricted to sound atomic, mutex, rwlock, once, channel, and approved thread-safe runtime handles. Disjoint element mutation uses static proof or primitives such as split_at, chunks_mut, and split_first_mut. This design does not guarantee that invalid unsafe, FFI, or device/volatile/DMA accesses are race-free (see Section 16).
+Hashing, Networking, Dynlib, and Allocator: Default map<K,V> and set<T> use OS-seeded SipHash-family hashing (map_with_hasher(stable_hasher()) provides deterministic hashing). std.net lowers directly to Winsock (std.win.ws2_32) on Tier-1; std.dynlib provides open, symbol (with unsafe), and close; global allocator replacement occurs exclusively in @startup before the first allocation.
+
+10. SAGE — Semantic Analysis & Guidance Engine
+SAGE is Paracine's unified analysis framework, divided into three layers of strictly unequal authority:
+
+Semantic Analysis (authoritative — decides what is true)
+Structural Analysis (descriptive — identifies computational shapes)
+Stylometric & Adaptive Analysis (optional, local, advisory/guided — suggests where to look and tracks empirical heuristic efficacy)
 
 «Stylometry may suggest. Semantics must prove.»
-
-The SAGE law is:
-
 «Observe the programmer's expression. Understand the program. Prove the transformation.»
-
-The compiler must never confuse familiarity with proof.
-
-27.1 SAGE pipeline
-
-The canonical frontend-analysis pipeline is:
-
-.pcn source ↓ normalization ↓ lexer + layout ↓ parser ↓ typed syntax ↓ Semantic Analysis ↓ Semantic Knowledge Model ↓ Structural Analysis ↓ Structural Model ↓ optional Stylometric Analysis ↓ Semantic-Stylometric Fingerprint ↓ Intent / Pattern Advisory Facts ↓ ownership + effects + specialization completion ↓ semantic verification ↓ PCIR
-
-Not every program requires the stylometric stage.
-
-Semantic Analysis is mandatory.
-
-Structural Analysis is part of the standard optimization-analysis architecture.
-
-Stylometric Analysis is optional.
-
-27.2 Semantic Analysis
-
-Semantic Analysis answers:
-
-«What is true about this program?»
-
-It is authoritative.
-
-It resolves:
-
-identifiers modules imports types literal types overloads generic arguments capability satisfaction ownership moves borrows borrow regions effects closure captures constants layouts result propagation control-flow reachability initialization state aliasing facts unsafe boundaries FFI compatibility loop bindings guarded-iterator stopping conditions inclusive integer progression post-test conditions loop-label resolution break/continue targets
-
-No later heuristic system may override a resolved semantic fact.
-
-Semantic Analysis must be:
-
-deterministic reproducible testable independent of personal writing style independent of stylometric confidence
-
-27.3 Semantic Knowledge Model
-
-SAGE materializes resolved compiler knowledge into a Semantic Knowledge Model, abbreviated:
-
-SKM
-
-The SKM may contain:
-
-symbol identities resolved types generic substitutions capability resolutions ownership graph borrow-region graph effect graph closure-capture graph constant facts range facts initialization lattice alias facts source spans public/private visibility known layout facts known call relationships loop-continuation edges directed-induction facts saved-bound identities cleanup-before-test relationships
-
-The SKM is compiler-internal.
-
-It is not a new source-language abstraction.
-
-It provides structured semantic facts to:
-
-diagnostics structural analysis PCIR construction pcn explain optimization reasoning
-
-27.4 Structural Analysis
-
-Structural Analysis answers:
-
-«What computational shape does this semantically valid program have?»
-
-It may classify:
-
-reduction loops guarded iteration inclusive ascending/descending integer loops post-test loops map/filter chains sentinel loops state machines lookup-table patterns arena-allocation phases hot/cold branch patterns invariant initialization data-parallel loops serialization passes deserialization passes validation pipelines producer/consumer loops accumulators search loops finite-state dispatch resource-acquisition sequences
-
-Structural Analysis operates from semantic facts, not textual guesswork alone.
-
-Its Structural Model may include:
-
-control-flow shape data-flow shape loop morphology dependency graph branch topology allocation topology ownership transfer shape pipeline topology call topology mutation density
-
-Structural classification may help select analyses.
-
-It does not by itself prove an optimization legal.
-
-27.5 Stylometric Analysis
-
-Stylometric Analysis asks:
-
-«How does this project habitually express computational ideas?»
-
-It may observe patterns such as:
-
-guard-clause placement preferred immutable intermediates common loop shapes pipeline use error-handling patterns buffer naming relationships validation order allocation order hot/cold organization closure use iterator use module organization generic usage ownership-transfer patterns branch structure data-layout tendencies
-
-Paracine stylometry is codebase-oriented.
-
-It is not an authorship-identification facility.
-
-It does not attempt to determine:
-
-who wrote a file a person's identity demographics personality location background
-
-Its purpose is compiler guidance.
-
-27.6 Semantic-Stylometric Fingerprint
-
-The project-local advisory profile is the:
-
-Semantic-Stylometric Fingerprint
-
-abbreviated:
-
-SSF
-
-It may summarize:
-
-control-flow morphology mutation density ownership patterns error-handling morphology loop forms pipeline forms allocation sequencing branch structure generic patterns closure patterns iterator patterns naming relationships module organization resource-order patterns
-
-Example SSF inference:
-
-This project commonly validates input before allocating output storage.
-
-This project commonly expresses integer reductions as either explicit accumulators or std.iter.sum pipelines.
-
-Such observations are not semantic truths.
-
-27.7 Advisory facts
-
-Stylometric output enters the compiler only as:
-
-advisory facts
-
-An advisory fact may say:
-
-likely reduction likely data-parallel kernel likely map/filter pipeline likely state machine likely resource-order anomaly
-
-It may not say:
-
-this transformation is legal this pointer does not alias this overload was intended this unsafe operation is safe this synchronization can be removed
-
-The latter require semantic proof.
-
-27.8 Optimization interaction
-
-SAGE may use advisory patterns to decide that an expensive analysis is worth attempting.
-
-For example:
-
-Stylometric classification ↓ likely data-parallel kernel ↓ run stronger dependence analysis ↓ semantic proof succeeds ↓ vectorize
-
-The vectorization occurs because dependence analysis proved legality.
-
-It does not occur because stylometry guessed correctly.
-
-If semantic proof fails:
-
-no transformation
-
-even if stylometric confidence is 100%.
-
-27.9 Forbidden stylometric authority
-
-Stylometric Analysis may never determine:
-
-whether source is valid identifier meaning name resolution overload selection type inference where semantics are ambiguous ownership legality borrow legality pointer aliasing legality unsafe correctness FFI correctness error-propagation legality synchronization removal atomic ordering changes integer arithmetic semantics floating-point semantics trap legality control-flow equivalence optimization correctness
-
-These are semantic responsibilities.
-
-27.10 Diagnostics
-
-Stylometry may improve explanation after semantics has diagnosed the actual issue.
-
-Example:
-
-E0501: try cannot propagate this error from the current routine.
-
-This module usually handles parse_error locally.
-
-Likely project-consistent alternatives:
-
-choose parse(data)
-    when ok(value)
-        ...
-    when err(problem)
-        ...
-or change the routine result to:
-
-result<..., parse_error>
-The error comes from Semantic Analysis.
-
-The suggestion comes from advisory analysis.
-
-27.11 Consistency warnings
-
-SAGE may issue nonfatal advisory warnings.
-
-Example:
-
-W0814 unusual resource-order pattern
-
-This routine allocates output storage before validating input.
-
-Most structurally similar routines in this package validate before allocation.
-
-This is not a correctness error.
-
-Such warnings are never elevated to language errors solely because a pattern is unusual.
-
-27.12 "pcn explain"
-
-SAGE powers richer compiler explanations.
-
-Example:
-
-pcn explain sum.pcn
-
-may produce:
-
-Detected source pattern: total += value
-
-Structural classification: wrapping integer reduction
-
-Project advisory pattern: similar reductions often use std.iter.sum
-
-Semantic proof: accumulator has no observable intermediate use integer addition is wrapping and associative loop-carried dependence is reduction-only input regions do not overlap output
-
-Optimization: normalized to reduction form bounds check removed vectorized scalar remainder retained
-
-No source rewrite required.
-
-Every listed optimization proof must correspond to actual compiler evidence.
-
-27.13 Profile location
-
-A project may maintain:
-
-.paracine/ semantic-style.pcs
-
-The ".pcs" file is an implementation-defined versioned SAGE profile.
-
-It may contain aggregated project patterns.
-
-It does not contain executable program semantics.
-
-27.14 Locality and privacy
-
-Stylometric analysis is local by default.
-
-The compiler does not require:
-
-network upload remote behavioral profiling external identity analysis cross-project author tracking
-
-to use SAGE.
-
-A build service may explicitly provide a profile as an input, but that profile is treated like any other build artifact.
-
-27.15 SAGE modes
-
-Canonical modes are:
-
-off advisory guided
-
-off
-
-No stylometric analysis.
-
-Semantic and structural compilation continue normally.
-
-advisory
-
-Default.
-
-Stylometry may influence:
-
-diagnostic ranking lint suggestions pcn explain formatter recommendations analysis explanations developer-facing hints
-
-It does not alter emitted native code.
-
-guided
-
-Explicit opt-in.
-
-Stylometry may additionally influence:
-
-analysis prioritization nonmandatory optimization search order compile-time heuristic budgets specialization investigation priority vectorization-analysis priority
-
-Every resulting transformation still requires normal semantic legality proof.
-
-27.16 Reproducibility
-
-In "advisory" mode:
-
-SSF changes must not change emitted machine code.
-
-Therefore ordinary reproducible production output remains independent of changing style profiles.
-
-In "guided" mode, a style profile may change which legal optimizations are discovered within finite optimization budgets.
-
-Therefore:
-
-the exact SSF version and content hash become declared build inputs
-
-for reproducible output.
-
-Two guided builds are byte-reproducible only when they use the same:
-
-source compiler target optimization profile SSF version SSF hash
-
-Program semantics remain identical regardless.
-
-27.17 PCIR relationship
-
-Unproven stylometric facts do not become semantic PCIR metadata.
-
-They may exist as:
-
-analysis hints
-
-outside the authoritative IR.
-
-A fact may become ordinary PCIR metadata only after a semantic analysis independently proves it.
-
-Thus:
-
-stylometric guess ↓ analysis request ↓ semantic proof ↓ proven PCIR fact
-
-not:
-
-stylometric guess ↓ PCIR assumption
-
-27.18 SAGE conformance law
-
-The defining SAGE invariant is:
-
-«No program accepted, rejected or semantically transformed solely because of stylometric inference may differ from what the authoritative semantic rules permit.»
-
-PCIR Completion
-PCIR remains Paracine's semantic center.
-
-It receives only verified program meaning.
-
-28.1 Poison and undef
-
-PCIR contains no:
-
-undef poison freeze
-
-Every ordinary value is defined.
-
-Unsafe erroneous execution is modeled through violated language guarantees rather than IR poison propagation.
-
-28.2 Provenance
-
-Pointer-producing operations retain known provenance identities:
-
-alloca global heap allocation foreign/raw unknown
-
-"gep" preserves provenance.
-
-Pointer-to-integer conversion loses safe reconstruction authority.
-
-"inttoptr" is unsafe and yields raw/unknown provenance.
-
-Integer inequality alone does not establish nonaliasing.
-
-28.3 Calls and memory effects
-
-Calls carry effect summaries such as:
-
-readnone readonly(classes) write(classes) alloc free sync io trap unknown
-
-Foreign calls default conservatively to:
-
-unknown + io + trap
-
-unless a trusted compiler/runtime declaration provides stronger facts.
-
-28.4 Debug locations
-
-Source-originating PCIR instructions retain source spans.
-
-Synthetic instructions inherit meaningful origin information.
-
-Every trap-capable source operation preserves its diagnostic location.
-
-28.5 ABI independence
-
-PCIR does not contain:
-
-RCX RDX RSP XMM0 COFF relocation types PE RVAs
-
-Those belong to later machine stages.
-
-28.6 Serialization
-
-Serialized PCIR contains:
-
-magic major version minor version type table layout table symbol table functions semantic metadata content hash
-
-SAGE advisory state is not serialized into semantic PCIR unless converted into independently proven facts.
-
-28.7 Structured loop control flow
-
-The structured-loop forms are resolved before PCIR construction. Their verified control-flow graphs preserve candidate acquisition before a for-while guard, saved inclusive bounds and completion-before-advance for from-to iteration, and body-before-test execution for continue-until repetition. Normal cleanup precedes continuation operations. Break and continue edges retain their resolved label targets.
-
-Optimizer Completion
-29.1 Determinism
-
-Optimization passes are deterministic for identical:
-
-PCIR compiler version target profile optimization profile declared guided-analysis inputs
-
-Unordered host-container iteration may not determine optimization choices.
-
-29.2 Code-growth budgets
-
-Inlining, specialization, path compression and unrolling have independent budgets.
-
-Default "opt=3" module growth limit:
-
-300% of pre-inline PCIR instruction count
-
-unless a selected optimization profile explicitly changes it.
-
-29.3 Recursion
-
-Direct and mutual recursion are legal.
-
-Recursive expansion is not performed without finite proof and budget compliance.
-
-29.4 Floating semantics
-
-Outside "@fastmath":
-
-no reassociation no reciprocal approximation no implicit FMA contraction no signed-zero elimination no NaN elimination
-
-29.5 Trap ordering
-
-The optimizer may not turn:
-
-observable effect A possible trap observable effect B
-
-into an execution where B becomes observable before that trap.
-
-29.6 SAGE guidance
-
-In advisory mode, stylometry cannot alter optimization output.
-
-In guided mode, SAGE may prioritize optimization investigations.
-
-It may never waive optimizer legality conditions.
-
-29.7 Structured loop preservation
-
-Loop transformations preserve the Structured Loop Completion contract, including guard evaluation and iterator consumption, one-time bound evaluation, endpoint inclusion and direction, absence of hidden endpoint overflow, post-test entry behavior, cleanup order, effects, trap order, and labeled jump destinations. Instruction-count or performance estimates never authorize weakening those semantics.
-
-PMIR Completion and Corrections
-30.1 Windows unwind model
-
-Tier-1 uses the Windows x64 unwind representation supported by Paracine's frame generator and verifier.
-
-30.2 Leaf functions
-
-A function that:
-
-does not modify nonvolatile registers does not allocate a stack frame does not call another function
-
-may omit ".pdata/.xdata".
-
-Nonleaf functions receive unwind information.
-
-30.3 Stack probes
-
-Large fixed stack frames trigger Windows-compatible stack probing.
-
-Tier-1 uses the Paracine-provided Windows-compatible "__chkstk" support routine.
-
-Ordinary safe source does not expose arbitrary dynamic stack allocation.
-
-30.4 "INC" and "DEC"
-
-Instruction selection may use "INC"/"DEC" where legal and profitable.
-
-They are not semantically forbidden.
-
-30.5 Red zone
-
-Tier-1 has no red zone.
-
-Generated code does not store below current "RSP".
-
-30.6 Internal ABI
-
-Paracine's private internal calling convention may be used only when machine ABI is entirely compiler-controlled.
-
-Address-taken, exported or foreign-visible routines use the relevant stable external convention.
-
-Necessary thunks are generated automatically.
-
-Native Linker — Complete Specification
-The native linker is an essential Paracine component.
-
-It is not an optional foreign-toolchain integration.
-
-Its pipeline is:
-
-object discovery ↓ archive discovery ↓ directive processing ↓ symbol construction ↓ archive extraction ↓ COMDAT resolution ↓ duplicate-definition resolution ↓ reachability graph ↓ section garbage collection ↓ identical-code folding when enabled ↓ section contribution merging ↓ import synthesis ↓ export synthesis ↓ TLS synthesis ↓ unwind synthesis ↓ load-config synthesis ↓ resource synthesis ↓ final section ordering ↓ RVA assignment ↓ file-offset assignment ↓ relocation application ↓ base-relocation synthesis ↓ PE headers ↓ debug directory ↓ checksum/signature reservation ↓ image verification ↓ PE32+
-
-Link Input Discovery
-Inputs may include:
-
-in-memory Paracine object models COFF .obj static .lib import .lib explicit DLL imports resource .res Paracine runtime archives
-
-Input processing is deterministic.
-
-Library search paths come from:
-
-package manifest target profile explicit command line configured SDK locations
-
-The linker does not silently search arbitrary current-directory libraries to satisfy unresolved names.
-
-Symbol Model
-Symbols are classified as:
-
-defined strong defined weak COMDAT undefined absolute import foreign common-compatible
-
-Paracine source itself does not generate C tentative/common definitions.
-
-Foreign objects may contain them.
-
-Duplicate strong definitions produce:
-
-L1001 duplicate strong symbol
-
-Unresolved final symbols produce:
-
-L1002 unresolved external symbol
-
-Archive Extraction
-Static libraries use iterative demand extraction:
-
-build unresolved set scan archive indexes extract satisfying members add their new unresolved references repeat to fixed point
-
-A member is loaded once.
-
-Whole-archive behavior is available through:
-
-pcn link --whole-archive library.lib
-
-Archive extraction does not depend upon fragile one-pass library ordering.
-
-COMDAT Resolution
-NODUPLICATES
-
-Multiple live candidates are an error.
-
-ANY
-
-Select the deterministic canonical candidate.
-
-Preference:
-
-root package earlier dependency order lexicographically smaller object identity
-
-SAME_SIZE
-
-All candidates must have equal byte size.
-
-EXACT_MATCH
-
-Candidate bytes and normalized relocation graphs must match.
-
-ASSOCIATIVE
-
-Contribution lifetime follows its leader.
-
-Used for:
-
-pdata xdata debug fragments associated constant data
-
-LARGEST
-
-Choose the largest candidate.
-
-Deterministic tie-breaking applies.
-
-Section Garbage Collection
-Release profiles enable section GC by default.
-
-Roots include:
-
-entry point exports forced includes TLS structures TLS callbacks load-config roots resource roots @used symbols startup hooks shutdown hooks
-
-Edges include:
-
-relocations associative COMDAT relationships unwind references import thunks export forwarders startup tables
-
-Unreachable removable contributions are discarded.
-
-Identical Code Folding
-ICF is optional.
-
-Default release "opt=3" may enable it for eligible nonexported functions.
-
-Two functions may fold only when:
-
-normalized bytes match relocation topology matches unwind behavior matches observable address identity is irrelevant neither has @unique_address neither requires distinct export identity
-
-Address-taken functions are not folded by default.
-
-Final Native Image Sections
-A Tier-1 image may contain:
-
-.text .rdata .data .pdata .xdata .idata .edata .reloc .tls .rsrc .debug
-
-".bss" semantics occupy zero-filled writable virtual storage without requiring matching raw bytes.
-
-Loader semantics are defined by PE structures and directories, not by section names alone.
-
-Section Permissions
-Paracine enforces W^X by default.
-
-Typical final permissions:
-
-.text read + execute .rdata read .pdata read .xdata read .idata loader-compatible read/write as required .edata read .data read + write .tls read + write template semantics .rsrc read .reloc read + discardable
-
-Ordinary production output does not contain writable-executable sections.
-
-Final Section Layout
-Defaults:
-
-FileAlignment = 512 bytes SectionAlignment = 4096 bytes
-
-Final RVAs and file offsets use alignment-aware layout.
-
-"SizeOfRawData" is file-aligned.
-
-"VirtualSize" reflects actual virtual contribution size.
-
-"SizeOfImage" and "SizeOfHeaders" are computed from finalized layout.
-
-Import Construction
-Imports are grouped by DLL.
-
-Paracine emits:
-
-Import Directory Import Lookup Tables Import Address Tables DLL names Hint/Name records
-
-Each import table is correctly terminated.
-
-Imported named functions use the required hint/name representation.
-
-Ordinal imports use the PE32+ ordinal encoding.
-
-References to:
-
-__imp_symbol
-
-resolve to IAT slots.
-
-Typical direct call:
-
-call qword ptr [rip + IAT-slot]
-
-Delay Imports
-Delay loading is explicit.
-
-It may be requested through:
-
-@delay_import
-
-or package configuration.
-
-The linker emits the required delay-import structures and runtime resolver support.
-
-If unused, the directory is zero.
-
-Export Construction
-Exports contain:
-
-public name target symbol optional ordinal optional NONAME optional forwarder
-
-Ordinals are unique.
-
-Unassigned ordinals are deterministically assigned.
-
-The linker emits:
-
-Export Directory Export Address Table Name Pointer Table Ordinal Table strings DLL identity
-
-Anonymous closure types and private internal-ABI routines cannot be directly exported.
-
-Resource Construction
-Paracine accepts ".res" input and manifest-defined resources.
-
-Resource trees normalize by:
-
-type name or ID language
-
-The linker emits the complete ".rsrc" directory tree and payloads.
-
-No resources means a zero Resource data directory.
-
-TLS Construction
-"thread var" items become native TLS template content.
-
-The linker emits:
-
-initialized TLS bytes zero-fill requirement TLS index storage optional callbacks IMAGE_TLS_DIRECTORY64
-
-Edition-2026 source TLS initialization is const-evaluable and requires no arbitrary user callback.
-
-Runtime TLS callbacks may still exist where the runtime requires them.
-
-Exception and Unwind Construction
-Surviving nonleaf functions receive:
-
-RUNTIME_FUNCTION UNWIND_INFO
-
-The linker resolves final RVAs, sorts ".pdata", verifies ranges and installs the Exception data directory.
-
-Malformed unwind information is a link failure or internal compiler error depending on source.
-
-Base Relocation Construction
-Paracine uses RIP-relative native code whenever practical.
-
-Remaining image-base-dependent addresses generate base relocations.
-
-Tier-1 primarily uses:
-
-DIR64
-
-Relocations are grouped by 4 KiB page.
-
-Production dynamic-base images contain required relocation information.
-
-Relocation Application
-For relocation evaluation:
-
-S = resolved symbol A = addend P = fixup address
-
-Typical Tier-1 rules:
-
-ADDR64 → S + A ADDR32NB → RVA(S) + A REL32 → S + A - address_after_fixup SECTION → section index SECREL → section-relative offset
-
-Overflow is diagnosed.
-
-No silent truncation is allowed.
-
-PE32+ Header Construction
-The final image contains:
-
-DOS header minimal DOS stub PE signature COFF image header PE32+ optional header data directories section table section data optional certificate data
-
-Tier-1 machine:
-
-AMD64
-
-Optional header:
-
-PE32+
-
-The writer computes all required image sizing, subsystem, stack, heap and directory fields.
-
-Reserved fields are zero.
-
-Image Base
-Default EXE preferred image base:
-
-0x0000000140000000
-
-DLL image base is linker-selected and correctly aligned.
-
-ASLR means code must not depend upon actual preferred-base loading.
-
-Subsystem
-Applications select:
-
+10.1 SAGE Pipeline
+.pcn source
+     ↓
+normalization → lexer + layout → parser → typed syntax
+     ↓
+Semantic Analysis → Semantic Knowledge Model (SKM)
+     ↓
+Structural Analysis → Structural Model
+     ↓
+[optional] Stylometric & Adaptive Analysis → Semantic-Stylometric Fingerprint (.pcs) & Heuristic Telemetry
+     ↓
+Intent / Pattern & Probability-Weighted Advisory Facts
+     ↓
+ownership + effects + specialization completion → semantic verification → PCIR
+
+10.2 Layer Responsibilities & Authority
+
+Semantic Analysis & SKM: Deterministically resolves identifiers, modules, imports, types, pattern matching/exhaustiveness, overloads, generics, capabilities, ownership, borrow regions, effects, closure captures, constants, layouts, type/resource relationships, aliasing, unsafe boundaries, and structured loops into the internal Semantic Knowledge Model (SKM).
+Structural Analysis: Classifies semantic graphs into computational shapes (reductions, guarded/directed/post-test loops, map/filter pipelines, state machines, arena phases, data-parallel loops) and maintains type/resource diagrams and probability-weighted decision trees to select candidate analyses.
+Stylometric Analysis & SSF (.paracine/semantic-style.pcs): Strictly local, codebase-oriented pattern profiling (never authorship identification). It can never determine program validity, name/type/overload resolution, borrow/alias legality, unsafe correctness, or optimization legality.
+Consistency-Measured & Reward-Guided Heuristic Adaptation: Under explicit adaptive/guided tuning, the compiler tracks compilation and execution outcomes, compile-time overhead, and behavioral/performance consistency—updating success probability weights and pruning low-yield or inconsistent heuristic strategies from its repertoire—while never bypassing semantic proof or altering language semantics.
+Modes & Reproducibility:
+off: No stylometric or adaptive heuristic analysis.
+advisory (default): Influences diagnostic ranking, consistency warnings (W0814), and pcn explain output without altering emitted machine code.
+guided (opt-in): Uses probability-weighted decision trees, empirical heuristic rankings, and consistency metrics to prioritize optimization search order and heuristic budgets while requiring full semantic legality proof for every transformation. In guided mode, the exact SSF/heuristic profile version and content hash are recorded as declared build inputs to preserve byte-reproducibility.
+
+
+Conformance Law: No program accepted, rejected, or semantically transformed solely because of stylometric or adaptive heuristic inference may differ from what the authoritative semantic rules permit.
+
+11. PCIR, Optimizer, and PMIR Specifications
+11.1 PCIR (Paracine Semantic IR)
+
+Contains no undef, poison, or freeze; every ordinary value is defined.
+Tracks pointer provenance (alloca, global, heap, foreign/raw, unknown), explicit memory/control effect summaries (readnone, readonly, write, alloc, free, sync, io, trap, unknown), and source spans.
+Completely independent of target registers, COFF relocations, and PE RVAs.
+Serialized PCIR carries magic, version, type/layout/symbol tables, functions, proven semantic metadata, and content hash.
+
+11.2 Optimizer & Pattern/Control Lowering
+
+Deterministic for identical PCIR, compiler version, target profile, optimization profile, and declared guided-analysis inputs.
+Provides comprehensive constant folding, profile-guided optimization, master-class inlining, tail-call optimization, expression/control-flow flattening, pattern-matching lowering/decision trees, and resource assignment/diagramming within explicit budgets (default opt=3 module growth limit: 300% of pre-inline PCIR instruction count unless explicitly configured).
+Outside @fastmath, preserves strict IEEE-754 semantics (no reassociation, reciprocal approximation, implicit FMA contraction, or NaN/signed-zero elimination).
+Preserves trap ordering and the full Structured Loop Completion contract.
+
+11.3 PMIR, Register Allocation, and x86-64 Lowering
+
+Uses fast, high-precision register and resource allocation with explicit spill/coalescing and resource-assignment tracking.
+Uses Windows x64 unwind representation (.pdata/.xdata for nonleaf functions; leaf functions without nonvolatile modifications or frame allocations may omit unwind metadata).
+Large stack frames trigger Paracine's Windows-compatible __chkstk stack probe.
+No red zone below RSP; enforces 16-byte stack alignment at calls and 32-byte msx64 shadow space.
+Uses private internal calling conventions for internal-only routines and automatic thunks for address-taken, exported, or foreign-visible routines.
+Integrated x86-64 encoder (legacy prefixes, REX, VEX, EVEX, ModRM, SIB, RIP-relative addressing) paired with an independent validating decoder powering pcn asm.
+
+12. Native Linker, COFF, and PE32+ Specification
+The native linker is an integrated, mandatory Paracine component:
+object discovery → archive discovery → directive processing → symbol construction → archive extraction → COMDAT resolution → duplicate-definition resolution → reachability graph → section GC → ICF → section merging → import/export/TLS/unwind/load-config/resource synthesis → section ordering → RVA & file-offset assignment → relocation application → base-relocation synthesis → PE32+ headers & debug directory → self-verification → PE32+ image
+12.1 Object, Archive, and Symbol Handling
+
+Accepts in-memory Paracine objects, COFF .obj (automatically upgrading to Windows bigobj when section/symbol counts exceed standard COFF limits), static .lib archives (iterative fixed-point demand extraction plus --whole-archive), import .lib, explicit DLL imports, and .res resources.
+Enforces deterministic COMDAT resolution (NODUPLICATES, ANY, SAME_SIZE, EXACT_MATCH, ASSOCIATIVE, LARGEST), root-based section GC, and optional Identical Code Folding (ICF) at opt=3 for non-address-taken, non-exported functions.
+Link diagnostics cover families L1000 (input/object) through L1900 (internal image verification).
+
+12.2 PE32+ Layout, Hardening, and Verification
+
+Emits standard PE sections (.text, .rdata, .data, .pdata, .xdata, .idata, .edata, .reloc, .tls, .rsrc, .debug) with FileAlignment = 512, SectionAlignment = 4096, and strict W^X permissions.
+Default EXE image base 0x0000000140000000, console or windows subsystem via pcn_start (with UTF-16-to-UTF-8 argument conversion and zero CRT dependency), and loader-safe pcn_dll_start for DLLs (emitting both module.dll and validated import library module.lib).
+Enables HIGH_ENTROPY_VA, DYNAMIC_BASE, NX_COMPAT, TERMINAL_SERVER_AWARE, and optional GUARD_CF (failing the link if complete CFG metadata cannot be constructed).
+Supports native MSF/PDB debug generation (-g0, -g1, -g2), deterministic reproducible builds (program.build.json), PE checksum computation (pcn pe --checksum), and Authenticode tooling (pcn sign, pcn verify-signature).
+Before writing final output, an independent PE reader reparses and validates the entire generated image; any verification failure deletes the output and raises L1901.
+
+13. Build Manifest, Execution Model, and Security Baseline
+13.1 Package Manifest (paracine.toml)
+[package]
+name = "acme.tool"
+version = "1.0.0"
+edition = "2026"
+kind = "app"
+root = "src"
+no_std = false
+no_prelude = false
+
+[target.windows-x86_64]
+abi = "msx64"
+cpu = "x86-64"
 subsystem = "console"
+image_base = 0x140000000
+stack_reserve = 8388608
+stack_commit = 65536
+heap_reserve = 1048576
+heap_commit = 65536
+cfg = true
+
+[sage]
+stylometry = "advisory"
+profile = ".paracine/semantic-style.pcs"
+
+[profile.debug]
+opt = 0
+debug = 2
+reproducible = true
+emit = ["obj", "exe"]
+
+[profile.release]
+opt = 3
+debug = 1
+lto = true
+icf = true
+gc_sections = true
+reproducible = true
+emit = ["obj", "exe"]
+
+[link]
+libraries = ["kernel32.lib"]
+search = []
+whole_archive = []
+
+[resources]
+files = []
+
+[signing]
+enabled = false
+
+13.2 Build Steps, Const Evaluation, Entry Points, and FFI
+
+Build steps ([[step]]): Sandboxed, input-hashed workspace generators producing .pcn files; arbitrary compiler-executed dependency scripts are forbidden.
+Const evaluation: Supports pure arithmetic, records, variants, arrays, bounded structured loops, pure routine calls, and const generics; forbids I/O, threads, unsafe memory, randomness, and stylometric state.
+Startup/Shutdown & main: @startup and @shutdown apply to routine() gives void in deterministic order (@shutdown runs in reverse on normal main exit). main accepts void, int, view<text>, or result<void, E> where E is printable. no_std = true enables freestanding @entry targets.
+FFI & Multiversioning: @export_name routines must use MS x64 FFI-compatible types (E0624 otherwise). @multiversion("x86-64", "x86-64-v3") emits baseline-safe atomic CPU dispatchers.
+Security & Hardening (design requirements): Enforces safe-access bounds checks, W^X, ASLR, randomized default hashing, stack probing, checked host/compiler arithmetic when parsing untrusted object/archive/PDB/resource inputs, and configurable compiler resource limits. This parser-hardening rule does not change Paracine source-language modular integer overflow.
+
+14. Standard-Library Tiers & Implementation Roadmap
+14.1 Standard-Library Tiers
+
+core: std.core, std.mem.core, std.num, std.math, std.slice, std.iter, std.atomic, std.hash, std.fmt.core, std.text.core, std.simd
+alloc: std.buffer, std.text.string, std.collections, std.sort, std.mem.allocators
+std: std.io, std.fs, std.path, std.env, std.time, std.thread, std.sync, std.process, std.random, std.net, std.dynlib, std.win, std.test
+
+Delivered as a high-throughput, native-speed runtime and standard library across core, alloc, and std where no tier silently depends upon a higher tier.
+14.2 Canonical Native Implementation Order
+
+Phase 1: UTF-8 normalization, lexer, four-space layout engine, parser, typed syntax, diagnostics, structured-loop grammar and continue/until disambiguation.
+Phase 2: Name resolution, types, generics, capabilities, effects, ownership, closure capture analysis, loop checks, and labeled-jump resolution.
+Phase 3: SAGE Semantic Core, Semantic Knowledge Model, Structural Analysis, optional local advisory/guided stylometric & adaptive heuristic engine.
+Phase 4: PCIR construction, PCIR verifier, PCIR reference interpreter, full structured-loop evaluation and cleanup semantics.
+Phase 5: Core optimizer (SCCP, mem2reg, SROA, DCE, range/BCE, constant folding, pattern matching, flattening).
+Phase 6: x86-64 PMIR instruction selection, register/resource allocation, frame layout, integrated machine encoder/decoder.
+Phase 7: COFF writer, object reader, archive reader/writer.
+Phase 8: Native linker, imports, exports, relocations, PE32+ headers, runtime entry (pcn_start), first native .exe.
+Phase 9: Windows unwind (.pdata/.xdata), TLS, resources, DLLs, hardening (ASLR, NX, CFG), debug support.
+Phase 10: Advanced optimizer & PGO/adaptive tuning (inlining, tail calls, specialization, loop fusion, vectorization, Path Compression SSA Reduction, probability-weighted decision trees, consistency- and reward-guided heuristic pruning).
+Phase 11: Full standard library (core, alloc, std), native PDB tooling, pcn explain/lint refinement, toolchain polish.
+
+First Native Milestone Contract: Compiles hello.pcn directly through the semantic frontend, PCIR, PMIR, x86-64 encoder, and native COFF/PE32+ linker to hello.exe with zero external toolchain dependencies.
+15. Final Native Laws & Frozen Edition-2026 Summary
+
+Safety Contract (qualified): The Edition-2026 design specifies that well-formed safe Paracine code, when implemented by a conforming compiler and using sound safe abstractions under valid documented platform/foreign contracts, cannot itself cause language-level undefined behavior through safe operations. Ownership, borrow, aliasing, initialization, bounds, and safe data-race invariants are part of that contract. This is not a guarantee about invalid unsafe code, unsound wrappers, foreign implementations, volatile/MMIO/DMA behavior, all hardware faults, or an unverified compiler. Defined traps (including division by zero and bounds failures) are not UB. The authoritative detailed boundary is Section 16 (Final Philosophy of Memory Safety — Qualified Contract).
+Final Analysis Law: Semantic truth > Structural classification > Stylometric & Adaptive suggestion — Observe. Classify. Suggest. Prove.
+Final Optimization Law: Resolve what is known. Remove what is unnecessary. Represent what remains directly.
+Final Multi-Output Law: One Paracine semantic program may be realized directly as native object code (.obj), native static libraries (.lib), native dynamic libraries (.dll), or complete PE32+ executables (.exe), with supporting debug (.pdb) and foreign header (.h) artifacts.
+Frozen Edition-2026 Policy: Edition 2026 is frozen when the reference native implementation passes all mandatory conformance suites (Frontend, Structured Loops, SAGE Semantic Core & Stylometric/Adaptive Boundary, Type & Ownership, Semantics, PCIR, PMIR, COFF, PE32+, and the PCIR Interpreter vs. Native Executable differential oracle). Compatible additions (new optimizations, diagnostics, SAGE advisory/guided patterns, standard-library APIs, or new direct-native target profiles) require no edition bump; incompatible semantic or ABI changes require a new language edition.
 
-or:
-
-subsystem = "windows"
-
-Console is the default.
-
-"pcn_start" adapts the ordinary Paracine "main" contract to either process type.
-
-Default PE Hardening
-Production images normally enable:
-
-HIGH_ENTROPY_VA DYNAMIC_BASE NX_COMPAT TERMINAL_SERVER_AWARE
-
-"NO_SEH" is not set by default.
-
-"FORCE_INTEGRITY", "APPCONTAINER" and specialized image characteristics are explicit deployment options.
-
-Control Flow Guard
-CFG is optional production hardening.
-
-The linker sets "GUARD_CF" only after constructing all required guard metadata.
-
-Indirect targets may include:
-
-address-taken routines ABI thunks foreign-visible exports runtime callbacks
-
-Incomplete CFG generation causes link failure rather than a misleading partial image.
-
-Load Configuration
-A load-config directory is synthesized when required by enabled hardening facilities.
-
-Unused fields are zero.
-
-The chosen structure size matches the target-profile version actually emitted.
-
-Stack and Heap Defaults
-Defaults:
-
-stack reserve = 8 MiB stack commit = 64 KiB
-
-heap reserve = 1 MiB heap commit = 64 KiB
-
-These are image defaults, not language semantics.
-
-Entry Point
-EXE entry:
-
-pcn_start
-
-DLL startup entry when required:
-
-pcn_dll_start
-
-"pcn_start" performs:
-
-runtime initialization OS argument acquisition UTF-8 argument conversion standard-stream initialization trap-handler installation random hash seeding runtime subsystem initialization startup hooks user main stream flush process exit
-
-No C runtime is required.
-
-DLL Startup
-DLL process attachment performs only loader-safe work.
-
-General allocation, thread creation and arbitrary application callbacks do not run under loader lock.
-
-Richer initialization uses:
-
-initialize()
-
-or safe lazy initialization.
-
-Debug Directory
-Native debug output may contain a PE debug directory referring to CodeView data.
-
-PDB identity uses deterministic information when reproducible mode is active.
-
-Uncontrolled absolute build paths are not embedded in reproducible mode.
-
-PDB Completion
-The native PDB writer supports:
-
-line information public symbols private symbols at -g2 types modules source mapping register/stack variable location ranges
-
-It maintains the necessary MSF/PDB streams.
-
-Conformance is judged by successful consumption by expected Windows debugging tooling and accurate source/symbol resolution.
-
-PDB generation is not required to define language semantics.
-
-Native Debug Levels
--g0 no debug information
-
--g1 source and line mappings public function names
-
--g2 full supported type, lexical scope, local variable, and location-range information
-
-Optimized-away values are reported honestly as unavailable or optimized away.
-
-PE Checksum
-Default ordinary EXE/DLL policy:
-
-Checksum = 0
-
-unless explicitly required.
-
-Command:
-
-pcn pe --checksum
-
-may compute it before signing.
-
-Authenticode and Certificate Table
-Signing is a tooling/deployment operation.
-
-It is not part of Paracine semantics.
-
-Commands may include:
-
-pcn sign pcn verify-signature
-
-Signing occurs after deterministic image construction.
-
-Private keys are never stored directly in normal package manifests.
-
-Reproducible Native Linking
-Identical declared build inputs produce byte-identical native outputs except intentionally external signatures.
-
-Rules include:
-
-zeroed reproducibility-sensitive timestamps deterministic symbols deterministic sections deterministic padding deterministic PDB identity normalized source paths no random binary padding
-
-Runtime randomized hash seeds are generated at process startup and do not affect binary reproducibility.
-
-SAGE advisory mode does not affect emitted code.
-
-SAGE guided mode requires its SSF hash to be treated as a declared build input.
-
-Build Identity
-A build may emit:
-
-program.build.json
-
-containing:
-
-source hashes package graph lockfile hash compiler version language edition SAGE version SAGE mode SSF version/hash when guided mode is used PCIR version PMIR version optimization profile target triple CPU profile native backend version COFF writer version linker version PE writer version standard-library version feature set reproducibility mode
-
-If the optional C++20 exporter participates, it additionally records:
-
-C++20 exporter version portable runtime-helper version
-
-If it does not participate, no C++ exporter identity is required.
-
-Import Library Completion
-DLL builds may also emit:
-
-module.lib
-
-Import library names and ordinals are validated against the final DLL export table.
-
-Conventional:
-
-__imp_Name Name
-
-symbols are provided where required.
-
-Static Library Completion
-"pcn lib" emits deterministic Windows archives containing:
-
-linker members long-name tables when needed object members symbol indexes
-
-The writer supports independent read-back validation.
-
-Bigobj Resolution
-Paracine uses ordinary COFF while legal.
-
-It switches to Windows bigobj when ordinary section/symbol limits are exceeded.
-
-Bigobj is an object-file mechanism only.
-
-It does not alter PE image semantics.
-
-Native Link Diagnostics
-Diagnostic families:
-
-L1000 input/object L1100 symbol L1200 relocation L1300 COMDAT/archive L1400 import/export L1500 image layout L1600 unwind/TLS/load-config L1700 debug/PDB L1800 signing/certificate L1900 internal image verification
-
-Representative diagnostics:
-
-L1001 duplicate strong symbol L1002 unresolved external L1104 incompatible symbol ABI L1204 relocation overflow L1302 COMDAT exact-match disagreement L1401 duplicate export name L1402 duplicate export ordinal L1501 image exceeds supported small code model L1601 malformed unwind contribution L1602 invalid TLS template L1901 generated PE failed self-validation
-
-Final Image Verification
-Before final output, an independent PE reader reparses the produced image.
-
-It verifies:
-
-signatures machine type PE32+ format header bounds section-table bounds file alignment section alignment virtual overlap raw overlap entry-point location directory bounds imports IAT exports pdata sorting unwind references TLS relocations load config resources debug directory certificate bounds SizeOfImage SizeOfHeaders permissions reserved fields
-
-Failure deletes the output and raises an internal compiler error.
-
-Independent Loader Test
-Conformance testing launches generated images through the Windows loader and validates:
-
-ASLR imports TLS unwind console startup GUI startup DLL loading exports thread creation trap termination large stack frames debug symbolication
-
-Optional C++20 Exporter
-C++20 generation is no longer described as a required backend of Paracine.
-
-It is the:
-
-optional portability/export backend
-
-A conforming native compiler may omit it entirely.
-
-Its pipeline, when installed, is:
-
-optimized PCIR ↓ C++20 legalization ↓ type lowering ↓ control-flow reconstruction ↓ ownership/runtime mapping ↓ C++20 source emission ↓ .cpp
-
-The exporter may also generate:
-
-.hpp .h
-
-when requested.
-
-Its absence does not affect:
-
-parsing semantic analysis SAGE PCIR PMIR machine encoding COFF generation native linking PE generation native execution
-
-Optional C++20 Exporter Semantics
-If the exporter is present, it must preserve edition-2026 semantics.
-
-72.1 Closures
-
-Capturing closures become concrete generated aggregates or equivalent helper structures.
-
-No "std::function" is required.
-
-72.2 Sequencing
-
-Generated temporaries preserve Paracine's defined left-to-right evaluation.
-
-72.3 Arithmetic
-
-Signed modular arithmetic is implemented without relying on C++ signed-overflow UB.
-
-72.4 Shifts
-
-Shift counts are normalized to Paracine semantics.
-
-72.5 Division
-
-Generated code explicitly handles:
-
-divisor == 0 MIN / -1
-
-72.6 Float-to-int
-
-Conversion implements:
-
-truncate toward zero saturate NaN → 0
-
-without depending on undefined host behavior.
-
-72.7 Layout
-
-ABI-relevant representations receive static layout assertions.
-
-72.8 Atomics
-
-C++20 atomics use explicit corresponding memory orders.
-
-72.9 TLS
-
-"thread var" lowers to suitable "thread_local" storage under the same edition-2026 trivial-destruction constraints.
-
-72.10 Structured loops
-
-The exporter preserves guarded for iteration, inclusive directed from-to iteration, and post-test continue-until repetition. Generated control flow retains one-time left-to-right bound evaluation, candidate consumption, cleanup and jump behavior. It tests inclusive completion before advancing at integer extremes and directs a continue-until continuation through its post-test. No C++ signed-overflow assumption or control-flow reconstruction may change these rules.
-
-Optional Cross-Backend Differential Validation
-If the optional C++20 exporter is installed, Paracine should use it as an additional validation oracle.
-
-Then:
-
-Paracine ↓ C++20 exporter ↓ MSVC/Clang
-
-may be compared against:
-
-Paracine ↓ PMIR ↓ native PE
-
-and against:
-
-PCIR reference interpreter
-
-This is valuable.
-
-It is not required to prove that the native compiler exists independently.
-
-A native-only conforming compiler does not fail conformance because C++20 differential tests are unavailable.
-
-Module and Manifest Completion
-Example:
-
-[package] name = "acme.tool" version = "1.0.0" edition = "2026" kind = "app" root = "src" no_std = false no_prelude = false
-
-[target.windows-x86_64] abi = "msx64" cpu = "x86-64" subsystem = "console" image_base = 0x140000000 stack_reserve = 8388608 stack_commit = 65536 heap_reserve = 1048576 heap_commit = 65536 cfg = true
-
-[sage] stylometry = "advisory" profile = ".paracine/semantic-style.pcs"
-
-[profile.debug] opt = 0 debug = 2 reproducible = true emit = ["obj", "exe"]
-
-[profile.release] opt = 3 debug = 1 lto = true icf = true gc_sections = true reproducible = true emit = ["obj", "exe"]
-
-[profile.portable] optional_backend = "cxx20" emit = ["cpp"]
-
-[link] libraries = ["kernel32.lib"] search = [] whole_archive = []
-
-[resources] files = []
-
-[signing] enabled = false
-
-If the optional C++20 exporter is unavailable, requesting:
-
-emit = ["cpp"]
-
-produces a clear backend-unavailable diagnostic.
-
-It does not make the installation incapable of ordinary native compilation.
-
-Build-Step Completion
-Arbitrary compiler-time dependency scripts remain forbidden.
-
-Explicit root-workspace steps may be declared:
-
-[[step]] name = "generate_protocol" tool = "tools.protocol_generator" inputs = ["schema/protocol.pcn-schema"] outputs = ["generated/protocol.pcn"]
-
-The build engine:
-
-hashes inputs hashes the tool runs it under declared workspace rules records outputs rejects undeclared writes in sandboxed mode
-
-Generated source becomes ordinary Paracine source.
-
-Capability Lookup Freeze
-Capability lookup order remains:
-
-module defining the subject type;
-module defining the capability;
-current module.
-Multiple exact candidates at equal precedence produce:
-
-E0340 ambiguous capability member
-
-Compiler-intrinsic relationships such as "callable" bypass ordinary user lookup.
-
-Generic Coherence
-Two visible definitions cannot simultaneously satisfy the same effective capability member signature at equal precedence without ambiguity.
-
-Paracine uses no global impl-block registry.
-
-Ambiguity is resolved or diagnosed at the use site.
-
-Const Evaluation Completion
-Const evaluation supports:
-
-pure arithmetic records variants arrays bounded loops (including const-legal for-while, from-to, and continue-until forms that complete within configured evaluation limits) pure routine calls const generics supported const text operations
-
-It cannot use:
-
-I/O threads foreign calls unsafe memory access runtime randomness time environment state dynamic libraries networking stylometric project state
-
-SAGE stylometric state is never available to const evaluation.
-
-Thus program constants cannot depend on stylistic profiling.
-
-Static Initialization Completion
-There is no hidden user dynamic-global initialization.
-
-Allowed:
-
-const X = const_expr
-
-var static X: T = const_expr
-
-thread var X: T = const_expr
-
-Runtime startup hooks are explicit.
-
-Startup and Shutdown Hooks
-Attributes:
-
-@startup @shutdown
-
-apply only to:
-
-routine() gives void
-
-Startup order is deterministic.
-
-Shutdown runs in reverse order on normal "main" completion.
-
-Shutdown does not execute after:
-
-trap process.exit forced process termination
-
-Main Routine Completion
-Accepted forms:
-
-routine main() gives void
-
-routine main() gives int
-
-routine main(args: view) gives int
-
-routine main() gives result<void, E> where E is printable
-
-routine main(args: view) gives result<void, E> where E is printable
-
-Windows UTF-16 arguments are converted to valid UTF-8 before user code receives them.
-
-Invalid source UTF-16 input becomes a startup failure.
-
-No-Std Completion
-With:
-
-no_std = true
-
-available facilities include:
-
-primitive types records variants option/result arrays views/spans raw pointers core arithmetic PCIR/native code generation required compiler intrinsics
-
-A freestanding package may provide:
-
-@entry
-
-The native compiler does not require the optional C++ exporter in "no_std" mode or any other mode.
-
-Unsafe Boundary Completion
-Public unsafe-containing routines are classified as either:
-
-Safe encapsulation
-
-Caller has no raw invariant obligation.
-
-No "with unsafe" is exposed.
-
-Unsafe contract
-
-Caller must uphold raw/lifetime/alias/platform requirements.
-
-The declaration includes:
-
-with unsafe
-
-and documentation states the contract.
-
-FFI ABI Compatibility
-C/MS x64-compatible types include:
-
-fixed-width integers float double documented bool representation raw routine pointers @layout(c) compatible records
-
-Paracine-native abstractions such as:
-
-text view span buffer option result variant string closure
-
-are not automatically foreign-ABI types.
-
-They require explicit wrappers or thunks.
-
-Exported Paracine APIs
-Ordinary Paracine-to-Paracine exports may use Paracine-native types because interface metadata communicates their ABI.
-
-A foreign-facing:
-
-@export_name
-
-routine must use foreign-compatible types.
-
-Violation:
-
-E0624 foreign export exposes non-FFI type
-
-Runtime Version Compatibility
-Paracine native libraries record:
-
-language edition public ABI version standard-library ABI version target profile
-
-The native linker rejects incompatible combinations.
-
-PCIR-to-PMIR Machine Verification
-The backend verifies:
-
-virtual registers resolved frame indexes resolved ABI placement correct RSP aligned at calls msx64 shadow space valid nonvolatile registers restored direction flag valid instruction/register combinations legal branch targets valid relocations representable unwind information matches prologue epilogs satisfy target rules
-
-Failure is an internal compiler error.
-
-Native Encoder Completion
-The integrated encoder covers:
-
-legacy prefixes REX VEX EVEX where allowed opcode maps ModRM SIB displacements immediates rel8 rel32 RIP-relative addressing
-
-A separate decoder validates final instruction bytes.
-
-"pcn asm" displays decoded final machine output rather than merely echoing PMIR intent.
-
-CPU Feature Safety
-The CPU baseline is a declared build input.
-
-The compiler never emits instructions beyond that baseline except inside properly dispatched multiversion bodies.
-
-Deployment to an incompatible CPU is a configuration error, not silent emulation.
-
-Multiversion Completion
-Example:
-
-@multiversion("x86-64", "x86-64-v3") routine work(...)
-
-may generate:
-
-work$base work$v3 work$resolver work$slot
-
-The resolver uses baseline instructions, detects CPU features once and publishes the selected implementation atomically.
-
-Exports retain a stable thunk.
-
-Runtime Independence
-Tier-1 Paracine has no hidden dependency on:
-
-MSVCRT UCRT C++ runtime LLVM runtime libgcc
-
-unless explicitly introduced by linked foreign code.
-
-The runtime is demand-linked from Paracine native objects.
-
-The optional C++20 exporter does not participate in the normal ".obj" or ".exe" production chain.
-
-Security Baseline
-Production defaults include:
-
-safe-code bounds checks NX compatibility ASLR compatibility high-entropy VA W^X randomized default hashing stack probing valid unwind metadata UTF-8 validation checked allocation-size arithmetic hardened object parsing hardened archive parsing no automatic dependency build scripts
-
-SAGE advisory data cannot weaken safety checking.
-
-Stylometric familiarity is never evidence that unsafe code is safe.
-
-Compiler Input Hardening
-External object/archive/PDB/resource/package inputs are treated as untrusted.
-
-Checked arithmetic is required for:
-
-offset + size count * element_size alignment section ranges string ranges relocation indexes symbol indexes archive offsets resource recursion
-
-Malformed inputs produce diagnostics rather than unchecked compiler memory operations.
-
-Resource Limits
-Configurable limits include:
-
-parser nesting generic instantiation depth const-eval steps const recursion module count import edges object sections symbol count optimizer growth diagnostic cascade SAGE structural-analysis budget SAGE stylometric-profile size
-
-Limits do not change language semantics.
-
-Final Conformance Suites
-A complete native Paracine 1.0 implementation must pass the following mandatory suites.
-
-Frontend
-
-normalization layout grammar name resolution modules overloads generics closures capabilities effects const evaluation
-
-Structured Loops
-
-All cases in Structured Loop Conformance Requirements are mandatory, including guarded iterator exhaustion and first-false behavior; inclusive ascending, descending and equal endpoints; saved bounds; signed and unsigned limits; post-test entry; break/continue disambiguation; nested labeled jumps; cleanup-before-test ordering; and rejection of invalid types, borrows and labels.
-
-SAGE Semantic Core
-
-semantic resolution determinism SKM correctness ownership facts borrow facts effect facts closure capture facts alias facts structural-model consistency
-
-SAGE Stylometric Boundary
-
-When stylometry is implemented:
-
-advisory facts cannot change semantic validity advisory mode cannot change emitted code no stylometric override of type/name/borrow rules guided transformations require semantic proof guided reproducibility records SSF hash
-
-Type and ownership
-
-copy/move partial move drop flags shared borrow exclusive borrow returned borrow closure capture regions thread-scoped borrows raw boundary FFI compatibility
-
-Semantics
-
-integer operators shift semantics signed division extremes float conversion NaNs signed zero try/fail/give cleanup trap order
-
-PCIR
-
-construction verification interpretation optimization passes Path Compression SSA Reduction fusion vectorization legality effect preservation
-
-PMIR
-
-instruction selection ABI lowering register allocation spilling stack alignment large frames unwind branch relaxation encoding
-
-COFF
-
-sections symbols relocations COMDAT bigobj archives import libraries foreign linker interoperability
-
-PE
-
-headers imports exports resources TLS pdata/xdata relocations ASLR load config CFG DLLs debug directory PDB self-verification actual Windows loading
-
-Native semantic oracle
-
-Mandatory comparison targets include:
-
-PCIR reference interpreter direct Paracine native executable
-
-If the optional C++20 exporter is present, an additional optional-backend suite compares:
-
-C++20/MSVC C++20/Clang direct native PCIR interpreter
-
-Failure to ship a C++20 exporter does not fail native language conformance.
-
-Release Qualification
-A native component may be described as production only when:
-
-mandatory conformance tests pass release-blocking semantic miscompilations are zero native image verification passes PCIR/native differential tests pass ABI matrix passes unwind matrix passes
-
-If the optional C++20 exporter is shipped as production, it must additionally pass its C++ differential suite.
-
-A compiler may ship:
-
-native production backend + experimental or absent C++ exporter
-
-without weakening the status of its native compiler.
-
-Final Implementation Order
-The canonical implementation strategy is native-first.
-
-Phase 1
-
-UTF-8 normalization lexer layout engine parser typed syntax basic diagnostics structured-loop grammar and continue/until disambiguation
-
-Phase 2
-
-name resolution types generics capabilities effects ownership closure capture analysis loop binding/condition/bound checks and labeled-jump resolution
-
-Phase 3
-
-SAGE Semantic Core Semantic Knowledge Model Structural Analysis optional advisory stylometry
-
-Phase 4
-
-PCIR construction PCIR verifier reference interpreter full structured-loop evaluation, cleanup and continuation semantics
-
-Phase 5
-
-basic optimizer SCCP mem2reg SROA DCE range/BCE
-
-Phase 6
-
-x86-64 PMIR instruction selection register allocation frame layout machine encoder
-
-Phase 7
-
-COFF writer object reader archive reader/writer
-
-Phase 8
-
-native linker imports exports relocations PE headers runtime entry first .exe
-
-Phase 9
-
-unwind TLS resources DLLs hardening debug support
-
-Phase 10
-
-advanced optimizer inlining specialization fusion vectorization Path Compression SSA Reduction
-
-Phase 11
-
-full standard library PDB tooling SAGE explain/lint refinement profiling/toolchain polish
-
-Optional Phase 12
-
-C++20 exporter .hpp/.h generation foreign C++ integration helpers C++ differential testing
-
-The native compiler is architecturally complete before Optional Phase 12 begins.
-
-First Native Milestone Contract
-The first architecture-proof compiler supports:
-
-int bool text literals routines let/var arithmetic comparison if while calls give minimal output or Windows foreign calls
-
-and directly produces:
-
-hello.pcn ↓ semantic frontend ↓ PCIR ↓ PMIR ↓ x86-64 ↓ COFF/native link ↓ hello.exe
-
-without:
-
-C++ generation external assembler external linker LLVM MSVC compilation Clang compilation
-
-This is the foundational proof of Paracine's independent architecture.
-
-Final Standard-Library Tiers
-core
-
-std.core std.mem core std.num std.math std.slice std.iter std.atomic std.hash std.fmt core std.text core std.simd
-
-alloc
-
-std.buffer std.text.string std.collections std.sort std.mem allocators
-
-std
-
-std.io std.fs std.path std.env std.time std.thread std.sync std.process std.random std.net std.dynlib std.win std.test
-
-No tier silently depends upon a higher tier.
-
-No tier requires C++ source generation.
-
-Final Philosophy of Memory Safety
-Safe Paracine guarantees:
-
-no use after move no double dispose no dangling safe borrow no shared/mutable alias violation no out-of-bounds memory access no safe data race no uninitialized safe read
-
-It does not guarantee:
-
-no leak no deadlock no starvation no logical message-order race no stack exhaustion no valid-computation denial of service
-
-Unsafe contract violations create erroneous execution.
-
-Stylometric analysis never weakens this boundary.
-
-Final Definition of No Undefined Behavior in Safe Code
-Safe source has no language-level undefined behavior.
-
-Every operation results in one of:
-
-defined value recoverable result defined trap defined scheduling nondeterminism documented target-platform behavior
-
-Compiler optimizations cannot invent stronger assumptions.
-
-Erroneous behavior enters only through:
-
-unsafe contract violation foreign ABI/contract violation external hardware/OS behavior outside the abstract machine
-
-A SAGE advisory inference is never a source of undefined assumptions.
-
-Final Production Architecture
-The completed native-first Paracine toolchain is:
-
-                 PARACINE SOURCE
-                       .pcn
-                        │
-                        ▼
-              canonical normalization
-                        │
-                        ▼
-               lexer + layout
-                        │
-                        ▼
-             parser + typed syntax
-                        │
-                        ▼
-                 SAGE CORE
-          ┌─────────────┴─────────────┐
-          │                           │
-          ▼                           ▼
-  Semantic Analysis           Structural Analysis
-   authoritative                 descriptive
-          │                           │
-          └─────────────┬─────────────┘
-                        │
-                        ▼
-            Semantic Knowledge Model
-                        │
-               optional│
-                        ▼
-             Stylometric Advisor
-                        │
-                advisory facts
-                        │
-                        ▼
-          semantic proof / resolution
-                        │
-                        ▼
-                       PCIR
-                        │
-                        ▼
-             PCIR verification
-                        │
-                        ▼
-             semantic optimization
-                        │
-                        ▼
-              target legalization
-                        │
-                        ▼
-                       PMIR
-                        │
-                        ▼
-               x86-64 encoding
-                        │
-                        ▼
-                 object model
-                  ┌─────┴─────┐
-                  │           │
-                  ▼           ▼
-             COFF writer   native linker
-                  │           │
-                  ▼           ▼
-                .obj        PE32+
-                              │
-                              ▼
-                      .exe
-This is the essential Paracine architecture.
-
-The optional portability/export branch is separate:
-
-                optimized PCIR
-                     │
-            optional│
-                     ▼
-              C++20 exporter
-                     │
-                     ▼
-                    .cpp
-It is not on the path from ".pcn" to ".exe".
-
-DLL and Static-Library Production
-DLL production
-
-PCIR ↓ PMIR ↓ x86-64 ↓ native linker ↓ PE32+ DLL ├── module.dll └── module.lib
-
-Static library production
-
-PCIR ↓ PMIR ↓ COFF objects ↓ archive writer ↓ module.lib
-
-Neither requires C++20.
-
-Optional portable textual export
-
-PCIR ↓ optional C++20 exporter ↓ module.cpp module.hpp
-
-Final One-Language Rule
-Paracine's source of truth is:
-
-.pcn
-
-Primary native products include:
-
-.obj .exe .dll .lib
-
-Supporting products include:
-
-.pdb .h
-
-Optional portability/export products include:
-
-.cpp .hpp
-
-None are separate language dialects.
-
-They are realizations or supporting artifacts of one Paracine program.
-
-Final Backend Law
-A backend may choose a different representation.
-
-It may not choose a different meaning.
-
-The governing rule is:
-
-«Semantics flow downward. Backends do not flow upward into the language.»
-
-The optional C++20 exporter therefore does not define Paracine semantics.
-
-PCIR and the language definition do.
-
-Final Analysis Law
-Paracine's compiler-analysis hierarchy is:
-
-Semantic Analysis What is true?
-
-Structural Analysis What computational shape exists?
-
-Stylometric Analysis What recurring expression patterns exist?
-
-Their authority is:
-
-Semantic truth > Structural classification > Stylometric suggestion
-
-The final rule is:
-
-«Observe. Classify. Suggest. Prove.»
-
-No advisory system may bypass proof.
-
-Final Optimization Law
-The optimization law remains:
-
-«Resolve what is known. Remove what is unnecessary. Represent what remains directly.»
-
-Resolve includes:
-
-constant evaluation name resolution type resolution capability resolution ownership resolution borrow resolution closure capture resolution effect resolution range proof layout proof specialization semantic pattern proof
-
-Remove includes:
-
-dead code dead storage dead checks dead cleanup dead abstraction dead iterator layers dead branches dead symbols dead closure fields
-
-Represent directly means:
-
-smallest semantically valid PCIR then smallest target-appropriate PMIR then smallest legal machine realization
-
-Stylometry may help the compiler decide where to look.
-
-It may not decide what is true.
-
-Final Output Hierarchy
-Paracine's production hierarchy is:
-
-«Primary native realization: ".pcn → .obj / .exe"»
-
-Additional native deployment realizations include:
-
-.pcn → .lib .pcn → .dll
-
-The optional portable realization is:
-
-«Optional portability/export realization: ".pcn → .cpp"»
-
-Supporting optional artifacts include:
-
-.hpp .h .pdb
-
-The C++20 exporter may be completely absent while Paracine remains a complete independent native language.
-
-Final Multi-Output Law
-«One Paracine semantic program may be realized directly as native object code, native libraries, native DLLs, or complete PE32+ executables, and may optionally be exported as standards-oriented C++20 source, without changing the Paracine language contract.»
-
-Native production is primary.
-
-C++ export is secondary.
-
-Neither changes the source language.
-
-Final Production Principle
-«Write the meaning once. Resolve it once. Prove it once. Optimize it once. Materialize only what deployment requires.»
-
-And for SAGE:
-
-«Stylometry may suggest. Semantics must prove.»
-
-Final Language Definition
-Paracine is a mature statically typed ahead-of-time native programming language with:
-
-explicit data explicit ownership inferred nonlexical borrowing guarded for-while iteration inclusive directed from-to iteration post-test continue-until repetition static zero-allocation closures monomorphized generics structural capabilities defined arithmetic recoverable result semantics terminal traps structured native concurrency authoritative semantic analysis structural computational analysis optional advisory stylometric analysis PCIR semantic optimization PMIR machine lowering direct x86-64 machine encoding direct COFF generation direct native linking direct PE32+ construction no mandatory GC no mandatory exceptions no mandatory scheduler no hidden dynamic initialization no mandatory external compiler no mandatory external assembler no mandatory external linker no mandatory C++ generation
-
-Its essential Tier-1 machine path is:
-
-.pcn ↓ frontend ↓ Semantic Analysis ↓ SAGE / semantic resolution ↓ PCIR ↓ PMIR ↓ x86-64 ↓ COFF ↓ native link ↓ PE32+
-
-Its optional portability/export path is:
-
-optimized PCIR ↓ optional C++20 exporter ↓ .cpp
-
-The first path defines Paracine's independence.
-
-The second extends Paracine's reach.
-
-Frozen Edition-2026 Statement
-The revised edition-2026 baseline includes the normative for-while, from-to, and continue-until forms. The earlier freeze declaration is superseded by this document. Edition 2026 is frozen when the reference native implementation conforms to this completed grammar, its structured-loop semantics, ownership rules, SAGE semantic boundary, PCIR contract, PMIR contract and Tier-1 native backend described by the complete 1.0 specification.
-
-The optional C++20 exporter is not a condition of language completeness.
-
-Compatible additions may include:
-
-new optimizations new diagnostics new SAGE advisory patterns new standard-library APIs new optional exporters new native target profiles
-
-provided existing semantics remain unchanged.
-
-A new language edition is required for incompatible changes to:
-
-grammar type semantics ownership borrowing arithmetic trap semantics module resolution capability semantics closure semantics safe-code guarantees ABI-visible language representation not protected by versioning
-
-A new SAGE stylometric heuristic alone does not require a new language edition because stylometry has no semantic authority.
-
-Final Canonical Summary
 PARACINE ".pcn"
+.pcn → SAGE → PCIR → PMIR → x86-64 → COFF → Native Linker → PE32+ → .exe / .dll / .lib / .obj
+Clear to people. Obvious to machines.
 
-Readable source + Exact static types + Guarded for-while iteration + Inclusive directed from-to iteration + Post-test continue-until repetition + Authoritative semantic analysis + Structural computational analysis + Optional advisory stylometry + Explicit ownership + Nonlexical borrowing + Zero-allocation static closures + Recoverable result handling + Defined machine arithmetic + PCIR semantic optimization + Path Compression + SSA Reduction + Direct PMIR lowering + Direct x86-64 machine encoding + Direct COFF generation + Direct native linking + Direct PE32+ generation ──────────────────────────────── Independent Native Program ──────────────────────────────── ↓ .obj / .exe
+16. Safe Code, Unsafe Authority, and External Contracts
+Safety-contract clarification for Paracine Edition 2026. Intended language behavior, not a certificate that a current compiler implementation is fully verified.
+16.1 Exact Scope of the Guarantee
+Normative design objective: A well-formed Paracine program that uses only safe language operations and sound safe abstractions, and whose documented external preconditions hold, must not exhibit language-level undefined behavior caused by those safe operations. In particular, an implementation conforming to this contract must not permit safe code to create dangling safe borrows, violate shared/exclusive access rules, read uninitialized safe values, cause an out-of-bounds safe memory access, double-dispose an owned value, use a moved value, or create an unsynchronized data race through its safe memory model.
+This is a scoped guarantee. It is not the claim that every operation of Paracine is defined, that all generated machine executions are fault-free, or that code is correct merely because its call site uses safe syntax. Safe code can call safe APIs implemented internally with unsafe operations; the soundness of those implementations is part of the trusted computing base. A compiler, runtime, allocator, dependency, external service, operating system, device, or hardware defect can defeat a practical implementation without changing the intended source-language semantics.
+Terminology:
 
-Optional portability exists beside that architecture:
+Language-level undefined behavior (UB): Execution violating a Paracine semantic invariant for which the language does not prescribe a result, trap, or recovery. Examples include invalid unsafe dereferencing, an unsafe violation of reference aliasing, or access after lifetime expiry. It is a contract violation; the compiler is not required to diagnose or preserve outcomes after it occurs.
+Defined value: An expression produces the specified value according to its type and operation.
+Recoverable failure: An option or result<T,E> outcome that follows normal cleanup and error-propagation rules.
+Terminal trap: A documented nonrecoverable termination; it is defined failure, not UB. As specified, traps do not unwind, execute defer, or run disposal.
+Specified nondeterminism: One of several permitted results or event orders governed by the language memory/scheduling model; it is not automatically UB.
+Target/platform-dependent behavior: Behavior explicitly assigned to a supported CPU, ABI, operating system, driver, or device contract. This is not a general guarantee that arbitrary platform effects are defined.
+External interference/fault: Behavior outside Paracine's language-level control, including faults or contract violations by foreign code, the OS, another process, hardware, or DMA-capable devices.
 
-optimized PCIR ↓ optional C++20 exporter ↓ .cpp
+16.2 Defined Arithmetic Is Not an Unsafe Loophole
+Paracine Edition 2026 gives precise ordinary integer semantics, including the following existing decisions:
+OperationEdition-2026 ruleUB status
+Integer +, -, *, unary -Defined modular two's-complement arithmetic at the operand widthDefined, including overflow
+Integer shiftsShift count is reduced modulo the operand widthDefined for valid integer operands
+Signed MIN / -1, MIN % -1Results are MIN and 0, respectivelyDefined
+Division or remainder by zeroSpecified terminal trapDefined failure, not UB
+Safe index access outside boundsSpecified terminal trapDefined failure, not UB
+Invalid raw memory accessPreconditions not satisfiedPotential UB; not promised to trap
 
-The definitive production hierarchy is:
+These rules apply uniformly across constant evaluation, PCIR, optimization, and native lowering. For every integer type of width N, +, -, *, and unary - produce the result modulo 2^N; signed results interpret the resulting N-bit pattern using Paracine's two's-complement representation. Overflow therefore produces a defined value. Arithmetic done while parsing untrusted compiler inputs is a separate hardening concern and may use checked host arithmetic; that does not change source-language modular arithmetic.
+Floating-point operation semantics, permitted rounding, NaN handling, and explicitly requested @fastmath transformations remain subject to their dedicated clauses. An optimizer cannot infer that values, overflows, exceptional outcomes, or traps "never happen" merely because such assumptions would improve generated code.
+16.3 Safe References, Ownership, Aliasing, and Provenance
+Safe references and slices (view, span, ref, mut, text, and related abstractions) rely on lifetime, initialized-storage, bounds, and aliasing invariants. The compiler's region, ownership, and exclusivity analyses enforce these invariants for safe operations. Their guarantees are conditional on any unsafe constructors and backing storage remaining valid for the promised duration.
+raw represents pointer authority, not a proof of validity. Creating, converting, or passing a raw address never by itself establishes that memory can be read or written. Before dereference or conversion into a safe reference, unsafe code must satisfy provenance, lifetime, allocation, alignment, initialized-byte, mutability, bounds, and aliasing requirements. Address equality or inequality does not prove alias independence; a pointer reconstructed from an integer does not automatically regain safe provenance. The existing PCIR provenance model retains these distinctions.
+A safe wrapper may expose a borrowed region only after validating or otherwise guaranteeing those obligations. It must not construct safe references into dead, overlapping-exclusive, mutable-while-shared, improperly aligned, or concurrently unsynchronized storage. There is no general "trust this pointer" escape hatch that silently strengthens safe semantics.
+16.4 Unsafe Authority and Invalid Execution
+unsafe is a responsibility boundary, not a separate promise of defined execution. An unsafe operation can be fully valid and have predictable results when its preconditions hold. If an unsafe contract is violated, Paracine may have UB within its abstract machine even if the invalid operation occurs inside a function whose public signature is safe. Invalid unsafe execution is not guaranteed to trap, preserve previous observations, or behave consistently between optimization levels.
+Public API policy: A function may be safe only when its implementation makes all unsafe preconditions true for every valid safe input. A caller-required invariant must be visible in the API contract and marked with unsafe under the existing effect/call rules. Documentation must say exactly what the caller must establish. An unsafe block does not prove those facts; manual review, static evidence, tests, or appropriate runtime validation must support them.
+The compiler's type checker, borrow checker, and SAGE Semantic Analysis are authoritative for safe invariants. Structural classification, stylometric profiles, adaptive heuristics, PGO, and optimizer profitability estimates cannot authorize invalid aliasing assumptions, suppress required synchronization, or declare an unsafe precondition satisfied without independent semantic evidence.
+16.5 FFI and Dynamically Loaded Code
+Foreign interfaces are a separate trust boundary. Matching the Microsoft x64 ABI, calling convention, record layout, or signature is necessary but not sufficient for safety. Each FFI call or callback may additionally require documented guarantees about:
 
-PRIMARY NATIVE
+Pointer validity, memory ownership, lifetime, nullability, initialization, allocation provenance, alignment, and buffers' lengths.
+Whether the callee reads, writes, retains, frees, or accesses memory asynchronously, and whether aliases remain legal throughout.
+Thread-affinity, synchronization, callback reentrancy, cross-thread access, and teardown order.
+Error codes, invalid return values, C/C++ exceptions, language traps, and whether foreign exceptions/unwinding are forbidden across the boundary.
+Platform dependencies, structure packing, integer/boolean representations, library versioning, and dynamically resolved symbol types.
 
-.pcn → .obj .pcn → .exe
+Foreign calls are conservatively modeled as having unknown memory effects unless a trusted declaration establishes more. @export_name and a valid ABI shape do not make a routine memory-safe. Typed conversion of a dynamically obtained symbol is an unsafe obligation; std.dynlib.symbol remains an unsafe boundary as stated elsewhere.
+FFI operations requiring unproved caller invariants must require unsafe authority. Safe wrappers are allowed only when their implementation validates or guarantees the foreign contracts. A foreign-language UB event or foreign memory corruption is outside Paracine's safe-language guarantee, even when a safe Paracine call triggers the affected library path.
+16.6 Atomics, Synchronization, and Data Races
+Safe concurrency abstractions (including supported atomic operations, mutex, rwlock, once, and channel) must preserve their documented data-race freedom when used through sound safe interfaces. Atomic operations have explicit, documented memory-order semantics; a relaxed atomic operation is not automatically sequentially consistent, and safe atomics do not make unrelated non-atomic accesses safe.
+The compiler and runtime must enforce legal atomic access sizes, alignment, operations, and memory-order combinations for the chosen target, rejecting unsupported operations rather than silently miscompiling them. Memory ordering, happens-before, and visibility claims must be made within the documented edition-2026 memory model. Synchronization across FFI or hardware boundaries is valid only if both sides' memory models and platform contracts agree.
+Unsynchronized conflicting non-atomic accesses performed through invalid unsafe/foreign paths may be UB. Deadlocks, starvation, nondeterministic scheduling, message-order races, and resource exhaustion are not prevented merely by the absence of memory-safety UB.
+16.7 Volatile Access and Memory-Mapped Hardware
+Volatile operations (where supported by a target-specific API or compiler intrinsic) constrain compiler treatment of the particular accesses, but do not establish address validity, atomicity, thread synchronization, cache coherence, memory-ordering guarantees, or device availability. They are not interchangeable with atomics, locks, or device fences.
+Memory-mapped I/O (MMIO) is an unsafe and platform-specific boundary. Correct access requires the device's documented register width, alignment, access ordering, volatile semantics, mapping lifetime, byte order, privilege level, barriers, and read/write side effects. Some registers are destructive on read or have write-one-to-clear semantics; ordinary load/store or optimization assumptions must not be applied without an established hardware contract.
+Unless a platform profile specifies an operation and its semantics, no general guarantee is made for volatile, raw hardware access, or MMIO. A failure to map, a device removal, or an external bus fault need not become a Paracine language trap.
+16.8 DMA, Shared Physical Memory, and External Mutation
+Direct memory access (DMA) allows devices or other agents to modify memory outside normal CPU-thread ownership analysis. A safe borrow or ordinary non-atomic shared view alone cannot make such concurrent mutation valid. Device-facing buffers require an explicitly documented unsafe protocol covering ownership handoff, pinning and lifetime, DMA-capable address translation, cache maintenance/coherency, device and CPU memory barriers, and synchronization before exposing data to safe code.
+The implementation must not assume that CPU-only alias analysis tracks device writes, and must not claim DMA buffers are ordinary safe memory while a device may mutate them without the appropriate synchronization protocol. Violating those obligations may cause memory corruption or undefined behavior in the relevant language/platform contract; a successful DMA transaction is never guaranteed solely by Paracine syntax.
+16.9 Operating System, Environment, and Hardware Limitations
+The language cannot promise to prevent device bugs, corrupted foreign libraries, hostile kernel actions, hardware faults, power loss, stack exhaustion, operating-system termination, malformed executable loaders, or incorrect platform integration. Defined language traps and recoverable errors are specified only for operations for which Paracine owns such semantics. Other faults remain outside the language-level UB guarantee and follow documented platform behavior where available.
+Safe Paracine does not guarantee freedom from memory leaks, logical errors, deadlock, starvation, livelock, denial of service, or timing side channels. Security properties such as sandboxing, privilege separation, constant-time execution, secret erasure, and driver isolation require additional explicit contracts; they do not follow from ordinary memory safety.
+16.10 PCIR, PMIR, Optimizer, and Linker Obligations
+Paracine's PCIR does not use implicit undef, poison, or freeze values. Every ordinary safe value is defined, and trap-capable operations must retain the semantics and ordering of observable effects. PCIR, PMIR, x86-64 lowering, and the native linker must implement the same Paracine semantic contract.
+An optimization may rely on type, range, provenance, aliasing, effect, or synchronization facts only after authoritative semantic proof or on explicit, documented unsafe contracts. It must preserve Paracine's defined modular results for signed integer overflow, must not remove required bounds traps, invent nonaliasing, reorder side effects across a possible trap, or treat volatile/atomic/device accesses as ordinary memory. If an unsafe contract is violated, the implementation is not required to reconstruct a defined safe execution after that violation.
+16.11 Conformance and Claims of Implementation Quality
+The language design aims for absence of safe-language UB; an implementation may claim that it meets this goal only to the extent supported by its tests, audits, proofs, and supported target profiles. Minimum validation categories include:
 
-ADDITIONAL NATIVE
+Arithmetic: Wrapping boundaries for every integer width, modulo shift counts, signed MIN / -1, % -1, division-by-zero traps, and optimized versus unoptimized behavior.
+Memory safety: Ownership/move/release, borrow scopes, mutable/shared aliases, bounds, initialization, lifetime, closures, and safe standard-library APIs; reject invalid safe cases.
+Unsafe/API contracts: Negative tests and documentation for raw pointers, safe wrapper invariants, alignment, pointer/integer provenance, and overlapping memory ranges.
+Concurrency: Atomic-order legality, synchronization, shared-memory visibility, race-prevention tests, and allowed nondeterministic outcomes.
+Foreign/platform: ABI round trips, callbacks, dynamic symbol conversion, foreign-memory ownership, error/unwind restrictions; platform-specific MMIO/DMA tests only where real supported devices exist.
+Backend correctness: PCIR interpreter versus emitted native code across optimization levels, trap/effect ordering, register allocation, volatile and atomic lowering, and relevant sanitizers or static checks.
+Trusted components: Audit boundaries and soundness obligations of core, alloc, std, runtime, compiler intrinsics, FFI wrappers, allocators, and platform adapters.
 
-.pcn → .lib .pcn → .dll
+Release wording: "Paracine is designed to prevent language-level undefined behavior in safe code under its documented trust assumptions." Do not publish "Paracine has no UB," "all Paracine code is UB-free," "unsafe code always traps when invalid," or "the current compiler is formally proven sound" without separate, specific evidence. Report actual coverage and limitations rather than treating design conformance as a completed test result.
+16.12 Binding Interpretive Rule
+This section replaces unqualified "no UB" language throughout the specification. It does not change the previously specified modular arithmetic, ownership/effect syntax, structured loops, failure model, Windows Tier-1 ABI, or PCIR semantics. Any future change to those semantics must follow the edition compatibility policy; this clarification is not blanket authorization for new unsafe optimizations.
+In one line: Safe Paracine defines the rules; unsafe code must uphold the invariants; external systems retain their own contracts; a compiler must prove or test that it implements what it promises.
+17. Native Fibonacci, Boolean Negation & Ellipsis Notes
 
-OPTIONAL PORTABILITY / EXPORT
+fib(n) (Signed 64-bit): Evaluated with exact compile-time constant folding and matching native lowering, supporting negative indices via the standard parity/negafibonacci identity while checking domain/overflow bounds rather than silently corrupting values.
+fib_big(n) (Compile-Time Text Constant): Opt-in arbitrary-precision decimal evaluation yielding a text constant at compile time under a documented index/resource cap, keeping core and runtime execution free of hidden heap allocation.
+Boolean Negation (not and !): not is the canonical boolean negation keyword; where unary ! is also supported across parsing, type checking, PCIR interpretation, and native codegen, its boolean semantics match not uniformly without introducing foreign-language UB assumptions.
+Ellipsis (...): Supported in foreign variadic declarations and permitted in supported variadic/sequence-expansion and future-edition-reserved positions according to its grammar and lowering rules, rather than being rejected as a blanket error.
 
-.pcn → .cpp
+Paracine Programming Language and Compiler
+Copyright (c) 2026 [Violet Aura Creations]
 
-The definitive compiler-analysis rule is:
+This product includes software developed for the Paracine Project.
 
-«Semantic Analysis decides what is true.»
+LICENSING SUMMARY:
+1. Compiler, Parser, and Code Generator (/compiler):
+   Licensed under the GNU General Public License, version 3.0 (GPL-3.0).
+   See the LICENSE file for full terms.
 
-«Structural Analysis decides what shape is present.»
+2. Standard Library, Runtime, and Core Headers (/stdlib, /runtime):
+   Licensed under the GNU General Public License, version 3.0 (GPL-3.0)
+   WITH the Paracine Runtime Library Exception (see LICENSE-RUNTIME).
+   Compiled programs linked against the Paracine Runtime may be distributed
+   under any license, including proprietary commercial licenses.
 
-«Stylometric Analysis suggests what may be worth investigating.»
+3. Language Specification, Examples, and Documentation (/docs, /spec):
+   Licensed under the Apache License, Version 2.0 (see LICENSE-APACHE).
 
-«Only proof authorizes transformation.»
+---
 
-The definitive architecture rule is:
+# APPENDIX A — SOURCE-DERIVED LANGUAGE, COMPILER, TOOLCHAIN, AND ECOSYSTEM FEATURES
 
-«C++20 is useful to Paracine. Paracine does not depend on C++20.»
+**Companion to the Paracine Edition-2026 native-first specification**  
+**Source review date:** November 23, 2026  
+**Documentation rule:** All provisions above, including the full license text, remain unchanged. This appendix adds descriptions, developer-facing interfaces, and detailed engineering behavior exposed or referenced by the accompanying compiler source. It neither deletes nor supersedes the preceding normative language and safety contracts. The canonical Windows x86-64 direct-native route remains the baseline; additional target and interoperability tools supplement it rather than making foreign compilation a prerequisite.
 
+## A.1. Unicode-complete lexical infrastructure and source fidelity
 
+1. **Unicode 15.1 XID identifiers.** Identifier recognition uses Unicode XID_Start and XID_Continue character classes in addition to ASCII letters, digits where permitted, and the underscore. Names can therefore use a much broader set of natural-language writing systems while following a consistent identifier policy. The lexer distinguishes the rules for the first character from those for subsequent characters and consults compact Unicode code-point range tables.
+2. **Canonical NFC normalization, including Hangul composition.** Source normalization incorporates canonical decomposition, canonical combining-class ordering, recomposition, and algorithmic Hangul syllable decomposition/composition. Canonically equivalent Unicode spellings are normalized to the same source representation, reducing accidental differences between visually equivalent identifiers.
+3. **Strict UTF-8 source validation.** Malformed sequences, overlong encodings, surrogate code points, and non-scalar values are rejected during source preparation. UTF-8 validation is separate from the rules used to identify legal identifier characters.
+4. **Source-preserving line normalization.** A leading UTF-8 BOM, CRLF and CR line endings, absent terminal newlines, and insignificant trailing whitespace are handled predictably. Compiler diagnostics retain normalized-source coordinates.
+5. **UTF-8-aware filesystem paths.** Compiler paths are constructed from UTF-8 through the C++ `char8_t`/`std::u8string` filesystem interface. On Windows this gives native UTF-16 path conversion without relying on the system's legacy process code page; source files, outputs, package paths, and link inputs can use international characters.
+6. **Unicode character literals.** A single-quoted character denotes one Unicode scalar value, with familiar escapes for newline, carriage return, tab, zero, quotes, and backslashes, plus Unicode escapes. Multi-character or malformed scalar literals produce diagnostics rather than silently becoming byte arrays.
+7. **Unicode escapes in text literals.** Text strings recognize escaped Unicode scalars alongside standard control-character escapes. Invalid escape spellings, incomplete literals, and literal newlines are detected where the lexical grammar forbids them.
+8. **Deterministic floating-point literal decoding.** `float` and `double` literals are parsed with locale-independent character conversion and complete-token consumption. Decimal fractions and scientific exponents are distinguished from radix-prefixed integer digits. Underscore separators are normalized for conversion, and invalid ranges or suffixes are rejected.
+9. **Shared checked integer literal decoding.** One integer-decoding model handles decimal, `0x` hexadecimal, and `0b` binary forms, optional negative signs, digit separators, and overflow checking. Literal parsing must consume the entire token; partially valid prefixes do not turn malformed source into a different number. These parsing checks do not alter Paracine's already-defined modular runtime arithmetic.
+10. **Maximal-munch multi-character punctuation.** The lexer recognizes two- and three-character operators as complete tokens, including the existing shifts, assignments, arrows, ellipsis, and range tokens. The source additionally recognizes half-open `..<` range punctuation and the symbolic logical spellings `&&` and `||` within its compatibility token vocabulary; these do not replace the canonical `and` and `or` spellings.
+11. **Explicit lexical resource ceilings.** Structural indentation depth and nested delimiters have bounded checking, including 128 structural indentation levels and 256 grouping levels in the examined lexical model. The corresponding errors identify excessively nested input rather than relying on uncontrolled parser recursion.
+12. **Precise source spans and offsets.** Tokens carry filename, start/end line and column, and start/end source-byte offsets. AST elements, semantic diagnostics, PCIR instructions, PMIR operations, and machine listings can retain source provenance for accurate downstream tracing.
+13. **Layout and pipeline continuity.** Four-space INDENT/DEDENT rules remain authoritative. Empty/comment-only lines avoid introducing spurious significant layout tokens, grouped expressions span physical lines, and a following line beginning with `->` can continue a pipeline without a backslash continuation marker.
+14. **Trailing-comma list grammar.** Routine parameters, calls, and applicable declaration/expression lists accommodate a terminal comma, improving multi-line formatting and revision-friendly diffs. Diagnostics distinguish malformed lists from valid trailing delimiters.
+15. **Operator-precedence validation.** Parsing checks grouping, comparison operands, and shift precedence explicitly so a mixed expression retains its intended syntactic tree without hidden reassociation.
 
-«One language. One semantic truth. Direct native realization. Optional portable export.»
+## A.2. Incremental frontends, lossless syntax trees, and parser recovery
 
-PARACINE
+1. **Incremental lexer edit API.** An incremental tokenization session can replace a byte range in normalized source and report the affected token region. `TokenEditDelta` records the first changed token, old and new token-end indices, a safe rescan starting offset, and the replacement tokens. IDEs and source editors can use these changes to limit subsequent updates.
+2. **Safe lexical restart boundaries.** Incremental rescanning chooses stable top-level boundaries with attention to indentation stacks, grouping delimiters, pipeline continuation, and source line numbers. Tokens preceding a safe restart boundary remain reusable.
+3. **Lossless syntax representation.** A syntax tree stores raw token spelling, leading trivia, trailing trivia, source spans, and offsets. Comments, indentation, whitespace, and original text remain available independently from the semantic AST; `reconstructSource()` recreates the retained source content.
+4. **Hierarchical syntax nodes.** The concrete tree distinguishes source-file nodes, top-level items, indentation blocks, delimited groups, individual tokens, and error nodes. Parent/child ranges permit navigation from a source position to its enclosing syntax constructs.
+5. **Multi-error parser recovery.** Parsing can collect more than one syntax diagnostic in a single pass. Error nodes are attached to the smallest appropriate region, and ancestor nodes are marked as containing an error, enabling editors to display multiple faults without sacrificing the rest of the tree.
+6. **Immutable semantic AST handles.** Expression and statement nodes are handled through shared immutable pointers. This makes ownership of parsed structures explicit and separates source-preserving syntax from canonical semantic representation.
+7. **Source-to-structure diagramming.** An AST diagram facility displays routines, expressions, declarations, labeled branches, and dependency relationships in a readable textual hierarchy. It complements token dumps and SKM reports during compiler development.
+8. **Parser-failure pinpointing.** Missing indented bodies, invalid label placement, mismatched delimiters, bad grouping, malformed parameter lists, and unexpected block starts are reported at meaningful source locations with stable diagnostic codes.
+9. **Canonical and compatibility keyword classification.** The frontend keeps the frozen edition's reserved vocabulary distinct from recognized bootstrap/compatibility spellings, including `each`, `otherwise`, `case`, `enum`, `union`, `use`, `compile`, `layout`, `packed`, `align`, `null`, and `return`. This separation helps tooling understand both canonical edition syntax and migration-oriented source forms without redefining the edition's official reserved-word list.
 
-.pcn → PCIR → PMIR → x86-64 → COFF → PE32+ → .exe
+## A.3. Rich expression forms, nominal data, and compile-time values
 
-Optional:
+1. **First-class Unicode `char` values.** Character constants carry a Unicode scalar rather than merely one encoded byte. This permits scalar-aware character comparisons, option niches, and text decoding contracts.
+2. **`float`/`double` expression typing.** The semantic and intermediate representations distinguish IEEE-754 single- and double-precision values from integral values, with type-specific constant loading, conversions, diagnostics, and backend bit patterns.
+3. **Array literal, index, and store expressions.** Fixed arrays can be constructed from ordered literal elements, accessed by checked indices, and updated through array-store operations under the language's mutability rules. The canonical type representation includes `array<T,N>` and validates element types and length parameters.
+4. **Inclusive and half-open range syntax.** Expression nodes represent a start, end, optional step, and inclusive/exclusive endpoint choice. The lexer recognizes `..`, `..=`, and `..<`; the chosen syntax determines whether iteration includes the terminal value.
+5. **Pipeline expressions.** A pipeline is represented as an initial input plus ordered stages, preserving evaluation order and enabling structural classification of multi-stage computations. The `->` continuation rule supports readable multi-line pipelines.
+6. **`choose` expression patterns.** Selection expressions carry a subject, ordered cases, optional variant names, payload bindings, and a default branch. Exhaustiveness checks account for declared variant alternatives; payload access is governed by the selected variant's tag and layout.
+7. **Nominal records, enums, unions, and variants.** Data declarations have separate identities, fields, tags, payloads, and layouts, rather than being interchangeable merely because their shapes match. Validation covers duplicate fields, unknown types, invalid stored `void` fields, infinitely recursive inline records, and invalid aggregate construction.
+8. **Transparent type aliases.** An `alias` gives an additional source-language name to a canonical type without silently creating an incompatible runtime layout. Alias normalization survives semantic resolution and machine lowering.
+9. **Canonical generic type expressions.** Nested generic applications and tuple type forms have a structural parser and canonical text representation. Type substitutions operate on parsed type trees, avoiding accidental replacement of similarly spelled substrings.
+10. **Generic routine specialization.** A generic routine is instantiated for resolved concrete argument types, with stable identities and reuse of equivalent instantiations. Nested generic calls, generic calls from closures, imported definitions, and mutually recursive routines share specialization bookkeeping.
+11. **Specialization dependency safety.** Generic instance creation tracks type constraints, caller/callee dependencies, recursive cycles, cloned syntax size, and total instantiation budgets. It distinguishes legal reuse of an active instantiation from open-ended polymorphic recursion.
+12. **Overload-aware instantiation.** Selecting a generic overload follows authoritative type and signature resolution; distinct overload declarations retain distinct identities even if their names coincide.
+13. **Structural capabilities and signature checking.** Capability satisfaction examines member names, argument/return signatures, constraints, and callable shapes. Multi-parameter capabilities remain the canonical edition form, avoiding any need to introduce associated types.
+14. **Checked numeric conversions.** `numeric.cast`/checked-cast operations distinguish explicit conversion from implicit numeric coercion. Runtime range checking protects conversions that would otherwise lose representability or create invalid bit patterns.
+15. **Extended constant resolution.** Top-level constants and expression-folding machinery share deterministic literal parsing, routine specialization, range/array interpretation, and checked evaluation of supported mathematical intrinsics.
+16. **Typed result and option construction.** Intermediate operations explicitly construct `result.ok`, `result.err`, `option.some`, and `option.none`, test error cases, and propagate failures through `try` while retaining ownership and cleanup behavior.
 
+## A.4. Source modules, import graphs, and qualified names
+
+1. **Module headers and flat routine declarations.** A source may declare its module identity while retaining independently declared top-level routines. The compiler distinguishes module headers from nested module declarations and checks duplicate or conflicting identities.
+2. **Qualified symbol paths.** A callee such as `std.io.println` is resolved as a declaration path, not a sequence of runtime field accesses. Parenthesized qualified names preserve that behavior; ordinary object member expressions are not misclassified as module symbols.
+3. **Source import resolution.** Import declarations produce a dependency graph linking source files and declared modules. Symbol visibility and import edges are handled by semantic resolution before optimization and native emission.
+4. **Private and public module identity.** Qualified symbols preserve their defining module identity across imports, including when similarly named private members appear in different modules. Local lexical shadowing follows explicit scope rules.
+5. **Re-export and ambiguity analysis.** Re-export lookup propagates through module graphs and detects duplicate identities, ambiguous references, and conflicting public names. Legal cycles among declarations are distinguished from forbidden cyclic import relationships.
+6. **Cross-module generic ownership.** A generic declaration retains a defining-module identity when instantiated by a consumer. Multiple callers can reuse one canonically owned concrete instance where type arguments and constraints match.
+7. **Dependency-sensitive syntax reuse.** Incremental source reuse observes imported content as well as the edited module itself; changing an imported declaration can invalidate dependent semantic results.
+8. **Source-level link-time optimization (`--lto`).** Multiple Paracine source units can be combined for interprocedural specialization, cross-unit inlining, duplicate-definition checks, and shared native compilation. Symbol and source provenance remain part of the combination rules.
+9. **Module-source dependency reports.** A dependency report identifies resolved local source files with per-file SHA-256 hashes and an overall graph digest. This is useful for audit trails, reproducible builds, and explaining cache invalidation.
+
+## A.5. Expanded Semantic Knowledge Model and ownership reasoning
+
+1. **Stable symbol-fact identities.** SKM facts include stable module-qualified symbol identifiers and versioned symbol relationships, helping distinguish shadowed declarations and successive semantic values.
+2. **Borrow-region and alias facts.** The model records shared, exclusive, and owned borrows; borrowed source places; region bounds; alias roots; and relationships between projected fields, array elements, and their backing objects.
+3. **Flow-sensitive move checking.** Ownership state is analyzed across assignments, branches, merges, terminating branches, loops, and back-edges. A value moved on any reachable path cannot be silently reused after the paths join.
+4. **Aggregate-root projection rules.** Moving a non-copy field can invalidate its containing aggregate, while copying a primitive field does not necessarily move the owner. Exclusive borrowing of a projected field requires a mutable qualifying root.
+5. **Conservative indexed aliases.** Separate indexed accesses are not automatically assumed disjoint; they share a conservative alias root unless static proof or a recognized disjointness primitive establishes otherwise.
+6. **Loop-carried ownership checks.** Ordinary `for`, inclusive `from`, and other structured loops account for values moved on one iteration and potentially reused on a later iteration. An unreachable loop back-edge is treated differently from an ordinary continuing iteration.
+7. **Deferred-expression checking at scope exit.** A `defer` operation is checked against the values and borrowing constraints that are relevant when its containing scope exits, not solely against the lexical location at which it was registered.
+8. **Borrow-origin propagation.** Borrowed `text` or view-like values retain their backing owner's lifetime when stored in records, arrays, results, or returned through helper routines. An unsafe escape cannot be smuggled through a nested aggregate or result propagation.
+9. **Closure capture and escape graphs.** SKM records capture kind, captured type, closure signature, and the region or owned storage associated with each capture. Returning, storing, or passing a borrowing closure through an escape-capable API is checked against backing lifetimes.
+10. **Capture snapshots and owned-string transfer.** A `move routine(...)` closure captures owned values into an environment snapshot. The environment maintains capture identity across repeated invocations, and owned string storage follows the relevant disposal rules.
+11. **Call graphs and effect edges.** SAGE records direct and indirect call relationships, effect dependencies, capability resolutions, and generic-specialization edges. This makes routine-level semantic reports more informative than a syntax-only declaration listing.
+12. **Parameter escape summaries.** Interprocedural analysis summarizes whether arguments can escape their call boundary, enabling ownership checks around closures, foreign calls, borrowed aggregates, and specialized helpers.
+13. **Type/resource layouts in SKM.** Record fields, variant tags, payload offsets, type alignment, captured closure fields, and resource relationships connect the frontend's semantic truth to later ABI verification and machine lowering.
+14. **Effect-aware library calls.** Console, filesystem, process, allocation, trap, and foreign operations carry effect information through semantic inference and the intermediate representations. An effect annotation cannot be evaded by invoking a qualified built-in namespace.
+
+## A.6. Diagnostic presentation and developer feedback
+
+1. **Structured diagnostic records.** A diagnostic has a stable code, severity (`error`, `warning`, or `note`), compiler phase, warning level, source location, primary span, and explanatory message.
+2. **Secondary labels and causal traces.** Diagnostics may annotate related definitions, borrow origins, conflicting uses, imported declarations, or other source sites with secondary spans and ordered traces.
+3. **Type expectation details.** Type errors can expose both expected and actual types, along with a concise hint, rather than only a generic failure message.
+4. **Machine-applicable suggested repairs.** A diagnostic fix describes the span to replace, replacement text, and applicability category, allowing an editor to present targeted quick fixes where semantically justified.
+5. **Configurable warning policies.** `--warning-level`, `--warnings-as-errors`, `--allow-warning CODE`, and `--deny-warning CODE` control which warnings appear and whether a warning prevents compilation.
+6. **Color policy.** `--color auto|always|never` selects terminal highlighting without affecting the diagnostic substance or a JSON response.
+7. **Versioned JSON diagnostics.** `paracine check ... --json` produces a machine-readable diagnostic schema identified as `paracine.diagnostics.v1`, suitable for IDEs, build systems, and continuous integration.
+8. **Human-readable excerpts.** Text diagnostics can render source excerpts and annotated locations for lexer, parser, type, ownership, and backend errors.
+9. **Bounded forensic compiler traces.** When an internal PCIR verification failure occurs, a limited trace of functions, blocks, virtual registers, and instructions can accompany the error without flooding logs for enormous source files.
+10. **Independent validation layers.** Semantic diagnostics, PCIR verification, rich ABI verification, PMIR verification, machine-code validation, and binary-structure verification provide distinct checkpoints that help locate faults in the compilation pipeline.
+
+## A.7. PCIR instruction vocabulary, provenance, and differential execution
+
+1. **Typed PCIR values.** The intermediate representation explicitly distinguishes `void`, `bool`, integral, `float`, `double`, `text`, owning `string`, null, function, aggregate, result, option, and closure categories.
+2. **Explicit basic blocks and parallel phi semantics.** Functions contain named basic blocks, predecessor information, branch targets, SSA-style virtual registers, and phi inputs. Cyclic phi assignments are interpreted as simultaneous edge transfers rather than in an order that could corrupt loop-carried values.
+3. **Rich aggregate operations.** Aggregate construction, field extraction, record-field stores, checked array indexing, and checked array stores carry explicit type and layout information.
+4. **Text and string operations in PCIR.** The IR includes text construction/inspection, borrowed/owned conversions, allocation-sensitive append and disposal, UTF-8-safe slices and code-point operations, stream I/O, and hashing/search operations.
+5. **Explicit fallible-value operations.** Results, options, failure tests, and `try` propagation are represented as typed operations with corresponding control and ownership behavior.
+6. **Closure lowering.** A closure value comprises its environment and a statically known callable target. `MakeClosure` and `CallClosure` operations make capture storage and invocation visible to verification and the ABI.
+7. **Built-in filesystem and process operations.** `FsReadText`, `FsExists`, `FsWriteText`, `ProcessRun`, and standard text streams are retained as recognizable IR operations until appropriate target lowering.
+8. **Fibonacci and checked casting.** Dedicated `Fibonacci` and `NumericCheckedCast` operations allow consistent compile-time, reference-interpreter, and native semantics for checked numeric features.
+9. **Call-site metadata.** Calls carry callee identity, argument type/value classifications, return type, canonical call signature, source span, and foreign variadic fixed-argument metadata where applicable.
+10. **Verifier before and after optimization.** PCIR is checked both on initial lowering and after optimization. Definitions, operands, branches, value types, and control edges must remain coherent through transformations.
+11. **Reference-interpreter oracle.** A PCIR interpreter executes the language's semantic operations independently of encoded machine instructions. Differential tests compare oracle outcomes against generated native execution to detect miscompilations.
+12. **Cross-stage source mapping.** PCIR instruction source spans are transferred through PMIR and into machine listings, supporting inspection of how a high-level statement became executable bytes.
+
+## A.8. Native optimizer, register use, and SIMD engineering
+
+1. **Cross-block constant and copy propagation.** Scalar values are propagated through compatible control-flow edges and phi joins, allowing known facts to simplify downstream expressions without erasing observable effects.
+2. **Global scalar value numbering.** Equivalent scalar computations can share results when the compiler proves dominance, stable operands, appropriate alias conditions, and compatible effects. Facts cannot be reused merely because two expressions have the same text.
+3. **Loop-invariant code motion (LICM).** Invariant, nontrapping computations may move out of loops when their inputs and side-effect constraints permit. Potential traps or observable operations remain at their semantically required execution points.
+4. **Control-flow cleanup.** Constant branches, unreachable blocks, redundant copies, and dead computations can be removed while preserving required traps, cleanup, stream output, and failure propagation.
+5. **Interprocedural leaf and transitive inlining.** Small routines can be expanded into callers, including across eligible source imports; inlining observes a bounded module growth budget and remains consistent with effect and ownership summaries.
+6. **Environment-free call devirtualization.** Known noncapturing closures and statically resolved callable targets can be converted into direct call paths when equivalent.
+7. **Call-graph escape convergence.** Escape facts can be propagated across ordinary and mutually recursive call relationships until the analysis reaches a stable conservative result.
+8. **Algebraic simplification under Paracine arithmetic.** Redundant paired modular integer operations and eligible XOR cancellation can be simplified when value versions and side effects permit. The optimizer respects Paracine's defined wrapping results, not C++ signed-overflow assumptions.
+9. **Integer multiplication strength reduction.** Multiplication by suitable powers of two can become shifts under the verified integer-width and modular-arithmetic contract.
+10. **Target-specific immediate selection.** PMIR has immediate forms for addition, subtraction, multiplication, bitwise operations, shifts, and comparisons. An immediate is selected only when its encoding and sign-extension rules preserve the original value.
+11. **Register-value reuse.** A local register-reuse path can retain suitable values in x86-64 registers, including RAX, while tracking redefinitions and preserving snapshots of overwritten values.
+12. **Compact stack-frame construction.** PMIR frame layout excludes virtual-register storage that optimization has eliminated, and separately accounts for rich value objects, outgoing calls, and return-value storage.
+13. **Displacement and branch encoding selection.** Machine lowering uses shorter valid displacements and jump encodings where possible, while preserving targets across loop layouts and code-size changes.
+14. **SSE2 packed integer operations.** Integer vector instructions process independent lanes using a verified correspondence between lane width, signedness, and scalar results.
+15. **Superword-level parallelism (SLP).** Compatible adjacent scalar operations can be combined into vector-style operations when their dependencies and memory effects permit.
+16. **Fixed-array SIMD reductions.** A recognizable sum over a fixed array can be lowered to an SSE2-based reduction. The source includes an `ArraySumSIMD` PMIR operation with fixed-array shape, element-width, and count validation; scalar lowering remains a semantic reference for the same computation.
+17. **Vectorization guards and scalar equivalence.** Alignment, count, array type, aliasing, and surrounding control flow are checked before using specialized vector paths. Array reductions preserve the result of the original scalar program.
+18. **Deterministic parallel compiler passes.** Worker jobs can optimize or lower independent functions concurrently, while final artifact ordering follows stable source/function ordering. Errors use a deterministic reporting policy rather than nondeterministic first-thread completion.
+19. **Optimization levels and backend toggles.** `-O0` through `-O3` expose progressive optimization selection. Independent vectorization and register-reuse settings permit controlled comparison without changing source-language meaning.
+20. **Pinned compiler tuning profiles.** A profile records optimization toggles and is bound to a SHA-256 digest. `--optimizer-profile FILE --profile-sha256 HASH` makes the exact profile a declared build input, complementing the existing SAGE advisory/guided analysis rules.
+21. **Statistical tuning discipline.** Tuning compares candidate backend configurations using repeated compilation, median elapsed time, and median absolute deviation (MAD), while also checking that the semantic PCIR remains identical and native output is reproducible. Compile-time tuning is deliberately distinguished from application runtime benchmarking.
+
+## A.9. Rich ABI, target contracts, and native debug information
+
+1. **Versioned target-contract registry.** Target information is modeled as an explicit contract describing platform identity, object format, calling ABI, runtime expectations, and supported lowering assumptions. Tools can query one target or the complete registry in text or JSON form.
+2. **Microsoft x64 and System V x86-64 calling conventions.** Windows keeps the canonical Microsoft x64 ABI. Unix-target x86-64 profiles add System V scalar argument-register banks, stack argument handling, caller/callee register conventions, and call-site legalization.
+3. **Linux ELF native objects.** A direct-native Unix object path emits ELF relocatable objects with platform-appropriate symbols and relocations, rather than requiring a foreign source-language translator.
+4. **Linux static executable images.** The Unix output layer includes no-runtime, self-contained ELF executable emission for supported scalar programs and a compatible target-entry contract.
+5. **macOS Mach-O object emission.** A Mach-O relocatable-object path provides Darwin-compatible object containers and relocation-oriented native linking inputs.
+6. **ARM64 target metadata.** The target registry names additional ARM64 target families and their runtime/ABI contracts. This lets frontends, build systems, and inspection tools reason about target selection separately from the Windows baseline.
+7. **Target-specific intrinsic lowering.** A System V target has defined native lowering mappings for checked Fibonacci, array index/store, array-sum reduction, and numeric casts, making architecture-sensitive built-ins inspectable.
+8. **Rich-value ABI layout resolution.** An ABI resolver calculates size, alignment, fields, tag offsets, payload offsets, ownership-relevant capture fields, and return conventions for rich values including records, variants, tuples, options, results, text, string, and closures.
+9. **Concrete text/string representations.** The x86-64 rich ABI describes `text` as pointer plus byte count (16 bytes) and `string` as pointer, count, and capacity (24 bytes), with 8-byte alignment. Representation information is available to ABI reports and validators.
+10. **Tagged and niche-encoded optional values.** `option<bool>`, `option<char>`, pointer-backed options, and otherwise tagged options have distinguishable ABI layout categories, with validation appropriate to each choice.
+11. **Aggregate and closure call conventions.** Rich values may use address-based passing or hidden return storage. An anonymous capturing closure has a concrete environment layout and a statically chosen call implementation.
+12. **ABI verification before target lowering.** Layout verification detects misalignment, fields beyond allocation bounds, missing tagged payloads, incompatible text layouts, and malformed closure calling targets before machine instruction generation.
+13. **ABI and runtime-contract manifests.** Machine-readable ABI reports describe type representations and callable boundaries. Separate runtime-contract reports expose platform assumptions to testing, foreign-interface authors, and build tooling.
+14. **Native source-level debug provenance.** Debug variables record name, type, parameter status, declaration span, scope span, and virtual-register identity. These connect source variables with the machine's emitted locations where those locations are representable.
+15. **Windows CodeView and PDB workflow.** COFF CodeView information, Windows debug executables, and PDB companion artifacts integrate with native debugger workflows. An optional external `lld-link` path can be used for that tooling without changing the canonical semantic IR and native code generator.
+16. **Linux DWARF 4 debug information.** The Linux target path has DWARF source-line, function, and scalar-local information, complementing Windows CodeView/PDB conventions.
+17. **Unwind and stack-frame validation.** Windows x64 unwind descriptions, large-frame stack probing, nonvolatile-register saves, prologue/body/epilogue transitions, and stack-alignment contracts are covered by structural checks and native tests.
+18. **Targeted foreign ABI diagnostics.** Foreign variadics, calling conventions, non-scalar arguments, and ownership-bearing parameters receive target-aware checking so an unsafe cross-platform ABI assumption cannot slip through type resolution.
+
+## A.10. Native object verification, binary inspection, and linker interoperability
+
+1. **Native binary structural inspection.** `verify-bin` reads generated or supplied native artifacts, distinguishes COFF/PE and Unix object formats, and reports structural facts such as architecture, section count, and entry-point address.
+2. **COFF relocation integrity checking.** Object inspection validates relocation records, symbol indices, section bounds, and other structural relationships before a binary is accepted as well formed.
+3. **PE32+ image reinspection.** Executable output can be independently parsed after emission, checking section boundaries and image metadata rather than assuming the encoder and writer were correct.
+4. **ELF/Mach-O verification.** Unix output includes corresponding object-format validation to detect malformed section maps, relocation containers, or invalid file structure.
+5. **Third-party COFF link adapter.** A linker-facing command accepts Paracine source together with `.obj`, `.lib`, and `.res` inputs, library paths, default libraries, whole-archive requests, DLL/import-library settings, and an explicitly selected external COFF linker. The native Paracine frontend, PCIR, PMIR, and machine-code generation stay responsible for Paracine source compilation.
+6. **Cross-unit link-time workflows.** An `--lto` source combination mode can optimize a collection of `.pcn` units before writing a single native object for the selected linking path, with checks for conflicting declarations and source identity.
+7. **Independent source/ABI/runtime boundaries.** A third-party linker is an interoperability choice, not a requirement that Paracine compile through C++, LLVM, or a foreign compiler to create its native instructions.
+8. **Optional C++ inspection/export view.** `emit cpp` and a C++ IR emitter provide a textual translation of verified PCIR for analysis, interoperability experiments, and comparison against foreign codegen. The exported view is distinct from the direct-native production compilation architecture.
+
+## A.11. Text, string, array, console, filesystem, and process APIs
+
+1. **Qualified console output.** `std.io.print(value)` writes text without a terminating newline; `std.io.println(value)` includes the line ending. A qualified `std.io` path resolves directly to compiler-known I/O behavior and participates in the effect system.
+2. **Whole-stream input.** `std.io.read_all`/the corresponding stream-read intrinsic provides a convenient route for reading an input stream into an owning text-capable value, with the required I/O and allocation behavior.
+3. **UTF-8 borrowed text inspection.** Text operations include `count`, `byte_at`, `codepoint_at`, `codepoint_count`, `is_ascii`, `slice`, and `equals`. Byte indexing and Unicode-scalar indexing are distinct operations so callers can choose between encoded storage and decoded character semantics.
+4. **Text search and predicates.** Search facilities include `find`, `rfind`, `find_byte`, `find_from`, `contains`, `contains_byte`, `starts_with`, and `ends_with`, along with lexicographic `compare`. Bytewise search and code-point operations have explicitly distinguishable meanings.
+5. **Text hashing.** A `hash64` intrinsic exposes a defined 64-bit text hash operation in the native IR. The source's PMIR representation identifies an FNV-1a-style hash primitive; this does not redefine the randomized-hash policy already specified for default hash maps.
+6. **UTF-8 slice integrity.** Slices that represent valid borrowed text preserve UTF-8 boundaries. Splitting a multibyte code point is not silently treated as a valid Unicode text slice; appropriate checked outcomes and traps are preserved by optimization.
+7. **Owned string operations.** `string` supports ownership transfer, clearing, appending, moving, disposal, conversion to borrowed text, and conversion from borrowed text. The operations make the allocation and lifetime distinctions between `text` and `string` visible.
+8. **Fixed-array aggregate primitives.** `array.index`, `array.store`, and `array.sum` connect checked element access and native reduction operations to the array type/layout system.
+9. **Native UTF-8 file existence.** `std.fs.exists(path)` tests a filesystem path using native platform conventions without treating the path as locale-dependent ANSI text.
+10. **Native full-file text read.** `std.fs.read_text(path)` reads a UTF-8-named file into an owning text/string representation and incorporates file errors and cleanup into its library contract.
+11. **Native full-file text write.** `std.fs.write_text(path, contents)` writes supplied text, including empty content and files larger than a single native I/O chunk; errors such as a missing parent directory are distinguished from success.
+12. **Native process launch.** `std.process.run(command)` invokes a child process through platform APIs and reports the completion/exit result. Command text, Unicode conversion, handle disposal, and the process effect are part of the operation's contract.
+13. **UTF-8 command-line arguments for entry points.** An entry routine may receive `view<text>` arguments, including quotation-aware Windows command-line decoding, count/index access, and iteration over individual UTF-8 arguments.
+14. **Windows UTF-16 boundary conversion.** Native runtime adapters translate between UTF-8 language values and Windows wide-character filesystem, argument, and process interfaces as needed, without exposing accidental code-page behavior to Paracine programs.
+15. **Explicit checked mathematical intrinsics.** `fib`, `fib_big`, boolean negation, and checked numeric conversions use dedicated source/IR/target handling. These mechanisms preserve the previously specified bounds, exactness, and signed/unsigned contracts.
+
+## A.12. Package management, lockfiles, registries, and publishing security
+
+**Dependency packaging is separate from the existing `paracine.toml` build-configuration format.** The source describes `paracine.pkg` for package identity and dependencies, `paracine.lock` for pinned resolutions, `.paracine/registries.conf` for configured registries, `.paracine/trust.conf` for namespace trust, and a local `.paracine/cache` for verified package material.
+
+1. **Project package initialization.** `paracine package init [--name NAME] [--version VERSION]` creates the package's identity and dependency manifest.
+2. **Dependency editing.** `paracine package add NAME VERSION [SOURCE]`, `remove NAME`, and `list` manage named direct dependencies without invoking arbitrary dependency scripts.
+3. **Portable package names.** Package identities use a bounded lowercase portable namespace, with path-sensitive or reserved device names rejected to avoid filesystem ambiguity on Windows and Unix systems.
+4. **Version validation.** Dependency and release versions use a validated numeric version shape, so a malformed or ambiguous version cannot quietly become a different release identity.
+5. **Filesystem and HTTPS registries.** `paracine package registry list` and `registry add fs|https LOCATION` configure controlled registry sources. HTTPS URLs follow credential-free source notation; shell execution and Git-based transport are excluded from this package resolution protocol.
+6. **Explicit package fetching.** `package fetch NAME VERSION [SOURCE]` resolves a package into a local verified cache and reports its source and digest.
+7. **SHA-256 dependency lockfiles.** `package lock` resolves declared dependencies and records package name, version, source, and content digest. `package lock --update` still applies the release-identity trust and consistency rules rather than accepting silent content replacement.
+8. **Offline verified installation.** `package install --offline` uses locally available content whose hashes match the lockfile, avoiding network dependency and preserving pinned identities.
+9. **Parallel bounded installation.** `package install --jobs N [--vendor-dir PATH]` supports parallel resolution with controlled concurrency, staged verification, and a destination for vendored package sources.
+10. **Lock/manifest coherence.** Installation checks that the manifest's declared dependency names, versions, and sources agree with lockfile entries. Missing or conflicting pins are not silently resolved to arbitrary new versions.
+11. **Immutable releases.** A registry release occupies a unique namespace/version identity. Publishing a changed release requires a new version instead of overwriting an existing artifact.
+12. **Publication metadata.** `package publish PACKAGE fs REGISTRY NAME VERSION [--hmac-env VARIABLE]` creates an immutable source release and corresponding metadata with a source-content digest.
+13. **Release lifecycle statuses.** `package status` manages `active`, `deprecated`, and `yanked` lifecycle classifications. Resolution can apply a registry's status policy without deleting the historical release record.
+14. **Namespace ownership pinning.** `package trust NAMESPACE SOURCE BEARER_ENV|\- HMAC_ENV|\-` records a source and authentication boundary for a package namespace. A trust binding is not silently replaced by a new registry.
+15. **Authenticated provenance.** SHA-256 establishes content identity while optional HMAC authentication binds release metadata to a trusted secret. Bearer credentials and signing/authentication keys are referenced through environment variables rather than embedded in source manifests.
+16. **Bounded input and aggregate resource policies.** Package reads enforce size budgets for individual source files, registry metadata, and aggregate installation. Excessive inputs fail before uncontrolled memory or disk use.
+17. **Safe filesystem traversal.** Registry and cache writes use canonical/contained paths, path-escape checks, and atomic staging/rename techniques, guarding against traversal, symlink escape, and partially written releases.
+18. **Hash-checked vendor materialization.** Before installing, the manager verifies cached bytes against the pinned digest, then writes package material to the intended vendor directory through atomic file operations.
+19. **Reproducible dependency provenance.** Manifest, lockfile, registry source, namespace trust, release digest, and local cache combine into a traceable package origin without permitting package-supplied scripts to run implicitly.
+
+## A.13. SHA-256 native artifact caching and reproducible compilation
+
+1. **Content-addressed native artifact cache.** `paracine build|pe|obj SOURCE --cache [--cache-dir PATH]` stores and loads native artifacts using keys derived from relevant source and configuration content.
+2. **Compiler identity in cache keys.** Cache identity considers the compiler binary/build identity and feature contract, so artifacts from incompatible compilers cannot masquerade as compatible outputs.
+3. **Transitive source dependency hashing.** Imported source contents affect the cache key, allowing a change in any participating module to invalidate stale artifacts.
+4. **Target, optimization, ABI, and debug inputs.** The cache configuration includes target profile, entry choice, optimization level, vectorization, register reuse, pinned optimizer profile, selected diagnostics, and debug-information settings.
+5. **External dependency fingerprints.** `--cache-input`, `--cache-library`, `--cache-linker`, and `--cache-build-script` identify files whose contents can affect reproducible output. They are fingerprinted as dependencies; simply listing one does not execute or link it.
+6. **Environment fingerprinting.** Relevant process-environment values contribute to cache identity, preventing accidental reuse when ambient build settings differ.
+7. **Authenticated cache envelopes.** An artifact cache entry carries magic/version information, its expected key, and a SHA-256 digest of the payload; truncated, corrupted, or modified entries are discarded as cache misses.
+8. **Atomic concurrent cache writes.** Completed artifacts are first written to unique temporary paths and atomically moved into place so other processes do not observe partial cache content.
+9. **Source mutation guards.** Dependency inputs are rechecked before a cached artifact is used and before a newly generated artifact is cached, preventing a mid-build edit from being attributed to the wrong content hash.
+10. **Write-if-different output behavior.** Artifact emission can avoid rewriting an output file whose bytes already match, preserving stable outputs and reducing unnecessary downstream rebuilds.
+11. **Semantic checks on cache reuse.** Cache hits remain subject to the required source/diagnostic acceptance boundary instead of treating possession of a cached binary as proof that the current input is semantically valid.
+
+## A.14. Command-line interface and developer workflows
+
+The following command families augment the already documented native compiler pipeline. `SOURCE` denotes a `.pcn` file, `TARGET` a registered target triple/name, and `FILE` an output or input path as appropriate.
+
+| Command or option | Added developer-facing purpose |
+| --- | --- |
+| `paracine tokens SOURCE` | Show token class, exact spelling, line/column, and layout `INDENT`/`DEDENT` events. |
+| `paracine ast-diagram SOURCE [-o FILE]` | Render the parsed syntax/declaration hierarchy and branch/dependency relationships. |
+| `paracine check SOURCE [--json]` | Run semantic analysis and emit human-readable or structured diagnostics. |
+| `paracine sage SOURCE [-o FILE]` | Inspect the Semantic Knowledge Model and resolved semantic relationships. |
+| `paracine ast SOURCE` | View a textual abstract-syntax representation. |
+| `paracine ir SOURCE [-o FILE]` | Emit the canonical PCIR listing. |
+| `paracine mir SOURCE [-o FILE]` | Emit target-aware PMIR for inspection. |
+| `paracine asm SOURCE [-o FILE]` | Emit x86-64 instruction text and corresponding encoded bytes. |
+| `paracine inspect SOURCE` | Summarize native-pipeline details, rich ABI layout, and parameter-escape analysis. |
+| `paracine explain SOURCE` | Summarize SAGE/effect findings and PCIR characteristics in accessible terms. |
+| `paracine abi SOURCE [--json] [--target TARGET]` | Show rich value and calling-convention layout rules as human-readable or machine-readable data. |
+| `paracine targets [--target TARGET] [--json]` | Describe available target profiles and target metadata. |
+| `paracine runtime-contract [--target TARGET] [--json]` | Explain target-specific runtime and platform assumptions. |
+| `paracine obj SOURCE [--target TARGET]` | Write a target-specific native relocatable object. |
+| `paracine elf SOURCE` / `paracine macho SOURCE` | Select Unix native object-format workflows. |
+| `paracine build SOURCE --target linux-x86_64` | Select the Linux static ELF executable path. |
+| `paracine link ... [--lto] [--dll] [--libpath PATH]` | Combine native source, objects, archives, resources, and DLL settings through an explicit linking workflow. |
+| `paracine emit cpp SOURCE` | Present verified PCIR as optional C++ text for debugging or interoperability analysis. |
+| `paracine test SOURCE` | Compare PCIR oracle output with generated native execution. |
+| `paracine selftest` | Run the compiler's broad internal conformance and regression matrix. |
+| `paracine verify-bin FILE [...]` | Independently inspect and validate generated native binary structure. |
+| `paracine fmt SOURCE [--check\|--write\|-o FILE]` | Apply a conservative, token-validated formatting pass or check. |
+| `paracine package SOURCE [-o FILE.zip]` | Create a deterministic source/object/executable distribution archive. |
+| `paracine package init\|add\|remove\|list\|lock\|install\|registry\|fetch\|publish\|trust\|status` | Manage package identity, dependencies, release provenance, and registries. |
+| `paracine deps SOURCE [-o FILE]` | Report the local source dependency graph and its SHA-256 identities. |
+| `paracine hash FILE [FILES...]` | Compute reproducible SHA-256 file digests. |
+| `paracine profile SOURCE` | Break down wall-clock compilation time by compiler phase. |
+| `paracine size SOURCE [--json]` | Report native `.text` size and per-function contribution. |
+| `paracine audit SOURCE [--json]` | Compare compile time, machine size, PCIR blocks, and instruction counts across optimization levels. |
+| `paracine bench SOURCE [--iterations N]` | Benchmark repeated compiler invocations, separately from generated-program runtime. |
+| `paracine tune SOURCE [--iterations N] [-o PROFILE] -O3` | Compare backend configurations and produce a reproducibly pinned optimization profile. |
+| `paracine init DIRECTORY` | Create a starter Paracine project with source, readme, and ignore rules. |
+| `paracine doctor` | Inspect host, target, and optional external-tool environment information. |
+| `paracine version` | Display compiler identity. |
+| `paracine capabilities` | Print the compiler's language/target capability inventory for integration tooling. |
+| `paracine bootstrap-status` | Report self-hosting bootstrap-stage identities and associated verification gates. |
+| `paracine probe-stdio` | Exercise the qualified `std.io.println` lowering path as an isolated pipeline probe. |
+| `paracine clean SOURCE` | Remove common generated outputs associated with a source file. |
+| `--jobs N` | Set bounded parallel compiler work for eligible independent functions. |
+| `-g`, `--debug-linker PATH` | Select source-level debugging and external Windows PDB tooling. |
+| `--warning-level`, `--warnings-as-errors`, `--allow-warning`, `--deny-warning` | Tune diagnostics without redefining language semantics. |
+| `--optimizer-profile FILE --profile-sha256 HASH` | Use an explicitly pinned optimization configuration. |
+| `--cache`, `--cache-dir`, `--cache-input` and related flags | Reuse native outputs with declared content-addressed dependencies. |
+
+**Formatting contract.** The conservative formatter normalizes line endings, trailing horizontal whitespace, and the final newline while preserving identifier spelling, comments, literal content, operator spacing, and structural indentation. It checks original and formatted token streams instead of aggressively rewriting partially edited code.
+
+**Compilation-time measurement contract.** `profile`, `bench`, `audit`, and `tune` measure compiler work, size, and optimizer settings; none of these metrics by itself proves a generated program is faster, behaviorally correct, or production qualified. Paracine's independent PCIR/native conformance tests retain that responsibility.
+
+## A.15. Deterministic distribution bundles and build provenance
+
+1. **Self-describing distribution archives.** A packaging workflow can create an archive containing `manifest.json`, `README.txt`, original `.pcn` source, an emitted COFF `.obj`, and a PE32+ `.exe`. The manifest records compiler identity, target, entry routine, source identity, and archive inventory.
+2. **Reproducible ZIP structure.** ZIP32 stored entries use stable order, fixed archive timestamps, UTF-8 filename flags, and deterministically calculated CRC32 values; identical inputs can create identical bundle bytes.
+3. **Nonexecuting distribution construction.** Producing an archive is an artifact-generation operation. Packaging does not require invoking the application, executing downloaded scripts, or trusting an external dependency's build step.
+4. **Binary provenance through hashes.** SHA-256 file hashes, dependency graph hashes, compiler identity, cached-object hashes, and package-lock digests form complementary records of where an executable came from.
+5. **Local project scaffolding.** `init` supplies `src/main.pcn`, a starter README, and generated-file ignore patterns so a project can be compiled without first designing a directory layout.
+
+## A.16. Validation laboratory, isolated execution, and bootstrap engineering
+
+1. **Compiler-wide regression matrix.** Internal tests address lexing, NFC normalization, type checking, loop semantics, generics, capabilities, closure captures, string ownership, SAGE borrowing, IR verification, ABI layout, PMIR, machine emission, packages, and native binary formats.
+2. **Positive and negative language tests.** Valid programs are checked for expected semantic/native results while invalid programs are expected to produce precise compiler diagnostics. Invalid ownership, type mismatches, bad Unicode, malformed ranges, and inconsistent control flow have dedicated negative cases.
+3. **Multiple optimization-level equivalence.** Selected computations are compared at `-O0` and `-O3` so optimizations cannot silently change integer wraparound, trap behavior, output ordering, array semantics, or captured state.
+4. **Native execution isolation on Linux test hosts.** Generated x86-64 instructions can be placed into a child-process memory region with an explicit write-to-execute protection transition. The child is isolated from the compiler process, with bounded execution time, memory/resource limits, and process-result communication.
+5. **Windows ABI test shims.** Test adapters model selected Windows process, I/O, UTF-8/UTF-16 conversion, heap, file, and command-line functions so native Windows-ABI instructions can be checked against a controlled host environment.
+6. **Owned-memory and handle accounting.** Native differential tests track heap allocations, frees, and child-process handles and detect leaked test resources when a computation completes.
+7. **Failure containment.** Machine-code faults, runaway loops, signals, excessive recursion, and unexpected child exits are separated from the parent compiler's own process and reported as validation failures.
+8. **Cross-format native artifact tests.** COFF, PE32+, ELF, and Mach-O validators are exercised with both legal artifacts and deliberately malformed headers, symbols, relocations, or section relationships.
+9. **Determinism under concurrency.** Parallel optimization and lowering results are compared against serial artifacts to verify that scheduling does not affect emitted bytes or semantic results.
+10. **Self-hosting bootstrap ladder.** The toolchain recognizes a stage-0 C++23 compiler, Paracine-written scanner/typed-IR seed stages, a Paracine-written full frontend/backend/linker stage, and later reproducible compiler-built-by-itself verification. Each stage has its own code-identity and conformance expectations; a bootstrap-stage label is not a replacement for independent validation.
+11. **Robustness and complexity budgets.** Frontend nesting, generic specialization depth and quantity, aggregate instance size, compiler traces, package inputs, and sandboxed test execution all have explicit resource-control mechanisms to keep diagnostics and builds bounded.
+
+## A.17. Integration examples and recommended engineering usage
+
+**Inspecting a Paracine program from source to native code:**
+
+```console
+paracine tokens src/main.pcn
+paracine ast-diagram src/main.pcn
+paracine check src/main.pcn --json
+paracine sage src/main.pcn
+paracine ir src/main.pcn
+paracine mir src/main.pcn
+paracine asm src/main.pcn
+paracine abi src/main.pcn --json
+paracine inspect src/main.pcn
+```
+
+The progression exposes lexical form, syntax, semantic relationships, the two intermediate representations, machine instructions, and layout metadata. It is useful when investigating a compiler regression, documenting a language feature, or verifying that a source statement has not acquired an unexpected effect.
+
+**Building with pinned artifacts and optimizer settings:**
+
+```console
+paracine deps src/main.pcn
+paracine hash src/main.pcn
+paracine build src/main.pcn -O3 --cache --cache-dir .paracine-cache
+paracine audit src/main.pcn --json
+paracine tune src/main.pcn -O3 --iterations 5 -o optimization.profile
+```
+
+A tuning profile is consumed only alongside its exact SHA-256 hash using `--optimizer-profile` and `--profile-sha256`. This separates empirical optimizer selection from semantic authority and makes build choices explicit.
+
+**Preparing an authenticated package dependency workflow:**
+
+```console
+paracine package init --name demo --version 1.0.0
+paracine package registry add fs ./registry
+paracine package add useful_lib 1.2.0
+paracine package lock
+paracine package install --offline --vendor-dir vendor
+```
+
+The registry must be trusted and the locked sources present in a verified local cache for offline installation. Packages are source/dependency inputs, not arbitrary executable build scripts.
+
+**Checking native correctness and artifact structure:**
+
+```console
+paracine test src/main.pcn
+paracine obj src/main.pcn -o main.obj
+paracine verify-bin main.obj
+paracine selftest
+```
+
+Native validation is strongest when the same program is assessed through typed semantic checks, PCIR oracle execution, encoded machine execution, object verification, and platform-specific ABI tests.
+
+## A.18. Compatibility and interpretation
+
+The appendix documents additional interfaces and engineering behavior apparent in the companion compiler source. The following constraints preserve the existing frozen language contract:
+
+- The Windows x86-64 Microsoft-ABI direct-native route remains canonical. Unix x86-64, target registration, and foreign link/debug tools add targets and inspection paths without making LLVM, C++ transpilation, or a foreign compiler mandatory.
+- `paracine.pkg` describes dependency-package metadata, while the existing `paracine.toml` material describes build and language configuration. Their roles are complementary.
+- Optional `emit cpp` output is an inspection/interoperability artifact. It does not supersede the semantic frontend → SAGE → PCIR → PMIR → native machine-code architecture.
+- Unicode, ranges, compatibility keywords, and editor-facing parser features do not silently rewrite the reserved grammar or the four-space layout contract in Sections 3–6.
+- Numeric parsing is checked and locale-independent; integer execution still obeys Paracine's defined modular arithmetic. Checked casts, UTF-8 slice checks, and terminal traps keep their distinct semantics.
+- Package hashes, HMAC trust policies, caches, and native binary validators strengthen provenance and structural checks; none alone proves arbitrary foreign code, unsafe operations, or emitted binaries are secure.
+- Optional tuning, cross-block optimization, SIMD, parallel passes, and source LTO may change code shape or compile time only within the language's authoritative semantic and effect rules.
+- Safe/unsafe guarantees continue to be governed by Section 16. No optimization, ABI report, conformance test, or packaging tool expands the safe-language promise beyond its documented trust boundary.
+
+**Appendix summary:** Paracine's additional source-identified capabilities encompass internationalized and incremental source processing, richer concrete syntax and diagnostics, cross-module semantic analysis, generic/closure/ownership reasoning, inspectable typed IR, native vectorizing optimization, target-aware ABI and debug workflows, Unix object formats, secure package supply-chain tooling, content-addressed builds, compilation analysis, deterministic distribution packaging, and layered native conformance testing—all expressed as additions without deleting or rewriting any preceding specification text.
