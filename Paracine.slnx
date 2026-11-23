@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="Paracine.vcxproj" Id="c966609d-f559-44bf-942c-d59d99d958d8" />
+</Solution>

@@ -1,0 +1,29 @@
+{
+  "schema": "paracine.conformance-corpus.v1",
+  "cases": [
+    {
+      "name": "ledger-summary",
+      "expected": 42,
+      "scalar": true,
+      "source": "routine summarize(seed: int) gives int\n    var balance: int = seed\n    from day = 1 to 7\n        if day < 4\n            balance += day * 2\n        else\n            balance -= 1\n    give balance\nroutine main() gives int\n    give summarize(34)\n"
+    },
+    {
+      "name": "bitset-population",
+      "expected": 42,
+      "scalar": true,
+      "source": "routine population(bits: int) gives int\n    var remaining: int = bits\n    var count: int = 0\n    while remaining > 0\n        count += remaining & 1\n        remaining = remaining >> 1\n    give count\nroutine main() gives int\n    give population(255) + population(65535) + population(262143)\n"
+    },
+    {
+      "name": "record-ledger-transfer",
+      "expected": 42,
+      "scalar": false,
+      "source": "record Account\n    label: text\n    balance: int\nroutine main() gives int\n    var original: Account = Account{label: \"savings\", balance: 40}\n    let starting: int = original.balance\n    var snapshot: Account = original\n    snapshot.balance = snapshot.balance + 2\n    if snapshot.label == \"savings\" and starting == 40\n        give snapshot.balance\n    give 0\n"
+    },
+    {
+      "name": "utf8-owned-text-pipeline",
+      "expected": 42,
+      "scalar": false,
+      "source": "routine main() gives int\n    var document: string = \"report\".to_string()\n    document.append(\":ready\")\n    let contents: text = document.to_text()\n    if contents.starts_with(\"report\") and contents.ends_with(\"ready\") and contents.count() == 12\n        give 42\n    give 0\n"
+    }
+  ]
+}

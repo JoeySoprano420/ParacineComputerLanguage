@@ -1,0 +1,60 @@
+name: Target and runtime conformance
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 4 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  conformance:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build Windows host compiler
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'MSVC x64 tools not found' }
+          $setup = Join-Path $installation 'VC\Auxiliary\Build\vcvars64.bat'
+          & $env:ComSpec /c "call `"$setup`" >nul && cl /nologo /std:c++20 /EHsc /utf-8 /O1 /bigobj main.cpp /Fe:paracine.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build Unix host compiler
+        if: runner.os != 'Windows'
+        shell: bash
+        run: clang++ -std=c++20 -O1 -pthread main.cpp -o paracine
+      - name: Seeded cross-target contracts and behavior
+        shell: pwsh
+        run: |
+          $compiler = if ($IsWindows) { '.\paracine.exe' } else { './paracine' }
+          python tools/test_target_contracts.py $compiler
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/test_diagnostics.py $compiler
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Windows full embedded suite including package and archive defenses
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\paracine.exe selftest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Scheduled extended campaign
+        if: github.event_name == 'schedule'
+        shell: pwsh
+        run: |
+          $compiler = if ($IsWindows) { '.\paracine.exe' } else { './paracine' }
+          python tools/test_target_contracts.py $compiler --seed 12648430 --cases 256 --modules 128 --stress-rounds 20
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

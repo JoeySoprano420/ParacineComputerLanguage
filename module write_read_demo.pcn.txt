@@ -1,0 +1,9 @@
+module write_read_demo
+
+import std.io
+import std.fs
+
+routine main() gives int with io, alloc, trap
+    let contents: string = std.fs.read_text("example.txt")
+    std.io.println(contents.to_text())
+    give 0

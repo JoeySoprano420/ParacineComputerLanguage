@@ -1,0 +1,5 @@
+module immutable_test
+routine main() gives int
+    let count: int = 7
+    count += 1 # Error E15: cannot assign to immutable let
+    give count

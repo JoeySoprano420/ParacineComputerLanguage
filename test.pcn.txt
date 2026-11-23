@@ -1,0 +1,192 @@
+routine add(a: int, b: int) gives int
+    give a + b
+
+routine answer() gives int
+    let x: int = 20
+    let y: int = 22
+    give add(x, y)
+
+module demo.program
+
+record parse_error
+    @derive(printable)
+    msg: text
+
+routine parse_int(t: text) gives result<int, parse_error>
+    var acc: int = 0
+    for ch in t
+        if ch < '0' or ch > '9'
+            fail parse_error("non-digit")
+        let digit = (ch - '0')
+        acc = acc * 10 + digit
+    give acc
+
+routine sum_numbers(xs: view<text>) gives result<int, parse_error>
+    var total: int = 0
+
+    # zero‑allocation closure capturing `total` by exclusive borrow
+    let add_one = routine(x: int)
+        total = total + x
+
+    for t in xs
+        let value = try parse_int(t)
+        add_one(value)
+
+    give total
+
+routine print_result(r: result<int, parse_error>) gives void
+    choose r
+        when ok(v)
+            std.io.println("sum = " .. v)
+        when err(e)
+            std.io.println("error: " .. e.msg)
+
+routine main(args: view<text>) gives int
+    if args.count == 0
+        std.io.println("no numbers provided")
+        give 1
+
+    let result = sum_numbers(args)
+    print_result(result)
+    give 0
+
+routine square(x: double) gives double
+    give x * x
+
+routine main() gives int
+    let x: double = 1.5
+    let y: double = square(x)
+    let z: double = y + 0.75
+
+    if z == 3.0
+        give 31
+
+    give 1
+
+record Point
+    x: int
+    y: int
+
+routine main() gives int with trap
+    var numbers: array<int,3> = [3, 4, 5]
+
+    numbers[1] = 17
+
+    var point: Point = Point{x: 1, y: 2}
+    point.x = numbers[1]
+
+    give point.x + point.y
+
+const BASE: double = 1.5
+const SCALED: double = BASE * 2.0
+const APPROX: float = 0.1 + 0.2
+
+routine main() gives int
+    if SCALED == 3.0 and APPROX > 0.29
+        give 43
+    give 1
+
+
+routine main() gives int with alloc, trap, io
+    var message = "Paracine ".to_string()
+    message.append("runs native code!")
+    message.append("\n")
+
+    let view = message.to_text()
+
+    if view.stdout_write()
+        give 0
+
+    give 1
+
+routine main() gives int
+    let source: text = "alpha.beta.alpha"
+
+    if source.compare("alpha.beta.alpha") != 0
+        give 1
+
+    if not source.contains("beta")
+        give 2
+
+    if source.rfind("alpha") != 11
+        give 3
+
+    give 73
+
+routine main() gives int
+    var total: int = 0
+    var x: int = 0
+    while x < 10
+        total += x
+        x += 1
+    give total
+
+routine sum_before_limit(values: view<int>, limit: int) gives int
+    var total: int = 0
+    for value in values while value < limit
+        total += value
+    give total
+
+routine sum_inclusive(first: int, last: int) gives int
+    var total: int = 0
+    from number: int = first to last
+        total += number
+    give total
+
+routine descending_digits() gives int
+    var digits: int = 0
+    from digit: int = 3 to 1
+        digits = digits * 10 + digit
+    give digits
+
+routine factorial(n: int) gives int
+    if n < 0
+        give -1
+    var product: int = 1
+    if n == 0
+        give product
+    from number: int = 1 to n
+        product *= number
+    give product
+
+routine count_to(limit: int) gives int
+    var count: int = 0
+    continue until count >= limit
+        count += 1
+    give count
+
+routine count_with_continue() gives int
+    var count: int = 0
+    continue until count >= 3
+        count += 1
+        continue
+    give count
+
+routine main() gives int
+    if sum_inclusive(1, 5) != 15
+        give 1
+    if sum_inclusive(3, 1) != 6
+        give 2
+    if sum_inclusive(7, 7) != 7
+        give 3
+    if descending_digits() != 321
+        give 4
+    if factorial(5) != 120
+        give 5
+    if factorial(0) != 1
+        give 6
+    if count_to(3) != 3
+        give 7
+    if count_to(0) != 1
+        give 8
+    if count_with_continue() != 3
+        give 9
+    give 0
+
+
+import std.io
+
+routine main() gives int
+    io.println("Hello, World!")
+    give 0
+

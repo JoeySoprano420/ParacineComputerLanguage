@@ -1,0 +1,8 @@
+module example
+
+# This small program is accepted by TinyParacine v2.
+routine main() gives int
+    var count: int = 6 * 7
+    count += 5
+    count -= 5 # count is 42 again
+    give count

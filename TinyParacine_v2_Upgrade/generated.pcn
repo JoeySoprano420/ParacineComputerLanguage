@@ -1,0 +1,3 @@
+module generated
+routine main() gives int
+    give 42
