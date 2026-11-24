@@ -1197,3 +1197,1239 @@ C.3 Key conflicts reconciled
 C.4 Final status statement
 This Unified Master Draft 0.4 contains the consolidated 2026 foundation, source-derived Appendix A, proposed 2027 feature register and details, algebraic conjecture closure optimization, complete SAGE semantic analyzer architecture, and PITEL. Its 2027 contents are proposed future language and compiler requirements. It is neither a verified compiler implementation nor a frozen or formally proven Edition-2027 language specification. On completion of grammar, semantic test suites, ABI/security implementations, optimizer validation, PICR/PMIR/native differential tests, reproducibility and release gates, it may be advanced to a normative freeze by the project.
 PARACINE 2027 — Write with intent. Compile with certainty.
+
+
+
+
+# PARACINE 2027 — OFFICIAL MASTER SPECIFICATION ADDENDUM
+## SAGE Supreme Knowledge Intelligence, Whole-Program Blueprint Navigation & Path of Least Resistance (POLR)
+
+**Paracine: Write with intent. Compile with certainty.**
+
+**Edition:** Paracine 2027  
+**Specification:** 2.0 — Unified Native Production Standard  
+**Addendum classification:** Normative Language and Compiler Architecture Extension  
+**Primary subsystem:** SAGE — Semantic Analysis & Guidance Engine  
+**Integrated systems:** SKM, SCM, VSJ, PITEL, PCIR, PMIR, ACO  
+**New principal capabilities:** Fully Expanded Semantic Knowledge Model, Whole-Program Blueprint Intelligence, Path of Least Resistance (POLR)  
+**Architectural designation:** SAGE Comprehensive Programming Intelligence and Verified Navigation Framework
+
+---
+
+# I. OFFICIAL EXPANSION DECLARATION
+
+Paracine 2027 establishes a comprehensive expansion of the Semantic Analysis & Guidance Engine (SAGE), transforming its Semantic Knowledge Model into an integrated, whole-program intelligence architecture capable of understanding, representing, navigating, evaluating, and optimizing the complete structural and computational relationships of advanced software.
+
+SAGE maintains authoritative knowledge of the programming language, compiler, application architecture, execution constraints, program relationships, implementation requirements, and verified computational behavior.
+
+This expansion introduces two fundamental capabilities:
+
+**1. The Fully Expanded SAGE Knowledge Model:** A comprehensive, structured, continuously maintained representation of all relevant programming knowledge, language semantics, software architecture, computational relationships, resource constraints, design obligations, verified conclusions, and optimization opportunities.
+
+**2. Whole-Program Blueprint Navigation with Path of Least Resistance (POLR):** An integrated intelligence system that constructs navigable architectural blueprints of complete programs and determines the most efficient, valid, secure, maintainable, and semantically correct paths for accomplishing programming objectives.
+
+Together, these facilities enable SAGE to reason about an entire program rather than interpreting individual statements, types, functions, or compiler passes in isolation.
+
+The fundamental objective is:
+
+**Understand the entire program. Understand every relationship. Identify the intended outcome. Determine the most appropriate valid route. Verify the route. Execute or recommend it without violating the program's meaning.**
+
+These capabilities operate directly within the canonical C++23 compiler architecture and integrate with the Edition-2027 language, SAGE, PITEL, verified semantic judgments, algebraic optimization, and native compilation.
+
+---
+
+# II. FULLY EXPANDED SAGE KNOWLEDGE MODEL
+
+## 1. Purpose
+
+The Fully Expanded SAGE Knowledge Model provides a unified, authoritative, machine-navigable representation of the programming knowledge necessary for sophisticated modern software engineering.
+
+Its domain includes:
+
+- Language syntax, grammar, semantics, and editions.
+- Type systems, generics, capabilities, and reflection.
+- Algorithms, computational patterns, and data transformations.
+- Ownership, borrowing, lifetimes, and memory provenance.
+- Resource allocation, disposal, and lifetime management.
+- Concurrency, synchronization, and scheduling.
+- Security, authority, isolation, and trusted boundaries.
+- Native execution, intermediate representations, and ABI requirements.
+- Software architecture and intercomponent relationships.
+- Control flow, data flow, state transitions, and dependencies.
+- Numerical computation and mathematical domains.
+- Rendering, simulation, artificial intelligence, and training computations.
+- Error propagation, recoverable failures, and terminal traps.
+- Program requirements, contracts, invariants, and acceptance criteria.
+- Optimization opportunities, costs, and verified equivalence.
+- Testing, diagnostics, verification, and regression relationships.
+- Source provenance, specifications, revisions, and engineering decisions.
+
+The model is comprehensive without treating incomplete knowledge as certainty.
+
+Every authoritative fact is justified by a language rule, verified declaration, sound inference, validated contract, or explicitly trusted external assumption.
+
+## 2. Unified Knowledge Architecture
+
+The model consists of interconnected knowledge domains.
+
+| Knowledge domain | Responsibility |
+|---|---|
+| Lexical Knowledge | Tokens, identifiers, source spelling, Unicode, layout |
+| Syntactic Knowledge | Grammar, declarations, expressions, scopes and structural relationships |
+| Semantic Knowledge | Types, meanings, rules, validity and authoritative judgments |
+| Computational Knowledge | Algorithms, operations, evaluation order and computational dependencies |
+| Structural Knowledge | Modules, routines, records, variants, Capsules, Families and Chains |
+| Ownership Knowledge | Moves, borrows, lifetimes, aliasing, provenance and disposal |
+| Effect Knowledge | Allocation, I/O, threads, traps, unsafe operations and effect propagation |
+| State Knowledge | State machines, mutations, checkpoints, recovery and transactions |
+| Security Knowledge | Permissions, authorities, isolation, trust boundaries and threat-model obligations |
+| Numerical Knowledge | Arithmetic domains, precision, rounding, shapes and conversions |
+| Concurrency Knowledge | Task dependencies, synchronization, data races and scheduling constraints |
+| Resource Knowledge | Memory, CPU, stack, storage, limits, allocation and runtime budgets |
+| Architectural Knowledge | Whole-program organization, interfaces, responsibilities and subsystem boundaries |
+| Optimization Knowledge | Verified transformations, profitability, costs and rejected conjectures |
+| Native Knowledge | ABI, PCIR, PMIR, machine code, object formats and target capabilities |
+| Verification Knowledge | Proof obligations, test coverage, contracts, diagnostics and established results |
+| Evolution Knowledge | Source changes, dependency invalidation, compatibility and revision history |
+| Conceptual Knowledge | Thesaurus relationships, etymological associations and programming concepts |
+| Guidance Knowledge | Candidate solutions, recommendations, trade-offs and POLR navigation |
+
+These domains form an interconnected knowledge graph rather than isolated databases.
+
+## 3. Canonical Knowledge Representation
+
+Every knowledge entity has a stable identity, declared category, originating context and validation status.
+
+The internal model includes:
+
+```text
+SAGEKnowledgeEntity
+    entity_id
+    entity_kind
+    canonical_identity
+    semantic_type
+    source_location
+    module_identity
+    edition_identity
+    target_requirements
+    authoritative_status
+    provenance
+    dependencies
+    related_entities
+    constraints
+    verification_records
+    revision_identity
+    content_hash
+```
+
+Relationships are represented as typed directed edges.
+
+```text
+SAGEKnowledgeRelation
+    source_entity
+    target_entity
+    relation_kind
+    semantic_context
+    ownership_context
+    effect_context
+    authority_context
+    dependency_context
+    proof_obligations
+    provenance
+    verification_status
+```
+
+Supported relationships include:
+
+```text
+defines
+declares
+contains
+references
+calls
+returns
+owns
+borrows
+transfers
+mutates
+depends_on
+implements
+inherits
+extends
+specializes
+authorizes
+prohibits
+isolates
+synchronizes
+produces
+consumes
+transforms
+validates
+invalidates
+optimizes
+lowers_to
+equivalent_to
+conflicts_with
+```
+
+Relationships may be direct, transitive, conditional, contextual, speculative, or formally established.
+
+A relationship is never assumed authoritative merely because two entities have similar names or conceptual descriptions.
+
+## 4. Knowledge Classification and Authority
+
+The existing SAGE hierarchy remains binding:
+
+**Authoritative Semantic Knowledge (SKM)** contains established facts.
+
+**Semantic Conjecture Model (SCM)** contains hypotheses, prospective solutions, optimization ideas, and unverified alternatives.
+
+**Verified Semantic Judgments (VSJ)** contain checkable derivations and discharged obligations.
+
+Conceptual, thesaurus, etymological, statistical, and adaptive associations remain advisory until supported by authoritative evidence.
+
+SAGE distinguishes:
+
+```text
+Observed
+Derived
+Conditional
+Conjectured
+Proven
+Refuted
+Unknown
+```
+
+The expanded knowledge model does not blur these states.
+
+A suggested algorithm is not automatically correct.
+
+A recognized architectural pattern does not automatically establish its security.
+
+A probable optimization is not automatically legal.
+
+A successful previous transformation does not establish correctness for a changed program.
+
+**Knowledge is authoritative only to the extent that its premises and verification justify it.**
+
+---
+
+# III. COMPREHENSIVE SUPPORT FOR ADVANCED MODERN PROGRAMMING TASKS
+
+## 5. Whole-Domain Programming Intelligence
+
+SAGE comprehensively represents the language-level and computational requirements of advanced modern programming tasks.
+
+These include:
+
+### 5.1 Systems and Native Programming
+
+Memory layout, alignment, ABI compatibility, raw authority, ownership, storage, resource lifetimes, concurrency, machine-level execution, and native target constraints.
+
+### 5.2 Application and Software Architecture
+
+Modular design, component responsibilities, public interfaces, dependency management, encapsulation, contracts, state organization, and controlled extension.
+
+### 5.3 Advanced Algorithms and Data Structures
+
+Graph algorithms, multidimensional collections, search, sorting, transformations, dynamic programming, traversal, numerical computation, and complexity analysis.
+
+### 5.4 Secure Computing
+
+Capsule isolation, capability authority, policy enforcement, trusted boundaries, serialization, data integrity, permissions, and resource constraints.
+
+### 5.5 Artificial Intelligence and Machine Learning
+
+Typed training computations, tensor and matrix relationships, numerical constraints, inference graphs, resource budgets, deterministic and stochastic execution, and data transformations.
+
+### 5.6 Game and Simulation Programming
+
+Entity relationships, simulation states, physics calculations, animation dependencies, navigation, gameplay logic, mission graphs, resource streaming, and deterministic state progression.
+
+### 5.7 Networking and Distributed Computation
+
+Typed requests, responses, communication failure, serialization, authorization, consistency, concurrency, transaction boundaries, and external effects.
+
+### 5.8 Numerical and Scientific Computing
+
+Bit-precise arithmetic, floating-point precision, decimal formats, complex numbers, posit arithmetic, shape-aware matrices, vectorization, and verified numerical transformations.
+
+### 5.9 Compilers and Language Engineering
+
+Lexing, parsing, semantic resolution, intermediate representations, code generation, optimization, linking, debugging metadata, and formal language rules.
+
+### 5.10 Resource-Constrained and Specialized Execution
+
+Memory budgets, bounded computation, explicit failure behavior, restricted operations, target-dependent capabilities, and execution predictability.
+
+The model supports these domains through language-defined semantics, verified algorithms, architectural facts, and target contracts.
+
+Knowledge of a programming technique does not imply that every hardware capability or external service is available.
+
+---
+
+# IV. WHOLE-PROGRAM BLUEPRINT INTELLIGENCE
+
+## 6. Definition
+
+Whole-Program Blueprint Intelligence is SAGE's comprehensive capability to construct, inspect, traverse, compare, and reason about the architecture of a complete Paracine program.
+
+Rather than examining only individual routines or files, SAGE maintains a connected representation of the program's entire structure.
+
+The blueprint includes:
+
+```text
+Program
+    |
+    +-- Packages and Modules
+    |      |
+    |      +-- Imports
+    |      +-- Exports
+    |      +-- Types
+    |      +-- Routines
+    |
+    +-- Data Architecture
+    |      |
+    |      +-- Records and Variants
+    |      +-- Capsules and Families
+    |      +-- Collections and Matrices
+    |      +-- Ownership Relationships
+    |
+    +-- Computational Architecture
+    |      |
+    |      +-- Call Graphs
+    |      +-- Control-Flow Graphs
+    |      +-- Chains
+    |      +-- State Machines
+    |      +-- Data-Flow Graphs
+    |
+    +-- Security Architecture
+    |      |
+    |      +-- Authorities
+    |      +-- Isolation Profiles
+    |      +-- Trusted Boundaries
+    |      +-- Protected Requests
+    |
+    +-- Resource Architecture
+    |      |
+    |      +-- Allocation
+    |      +-- Memory Lifetimes
+    |      +-- Effect Propagation
+    |      +-- Resource Limits
+    |
+    +-- Verification Architecture
+    |      |
+    |      +-- Contracts
+    |      +-- Proof Obligations
+    |      +-- Conformance Tests
+    |      +-- Diagnostics
+    |
+    +-- Native Architecture
+           |
+           +-- Verified PCIR
+           +-- Optimized PCIR
+           +-- PMIR
+           +-- ABI
+           +-- Native Artifacts
+```
+
+Every blueprint component maintains traceability to its originating program facts.
+
+## 7. Multi-Level Navigation
+
+SAGE supports navigation at multiple levels of abstraction.
+
+**Program level:** Identifies subsystems, major dependencies, target requirements, architectural constraints, and integration boundaries.
+
+**Module level:** Identifies declarations, imports, exports, types, responsibilities, and affected dependencies.
+
+**Type level:** Identifies members, generics, contracts, ownership, layouts, inheritance, and authority.
+
+**Routine level:** Identifies inputs, outputs, effects, control flow, borrowing, failure and data dependencies.
+
+**Instruction level:** Connects semantic operations to PCIR, PMIR and native realization.
+
+**Verification level:** Connects accepted facts to proofs, diagnostics, contracts and tests.
+
+A developer can navigate from a high-level application requirement to the exact source declarations and semantic relationships responsible for implementing it.
+
+Likewise, SAGE can trace a low-level operation upward through its routine, module, subsystem and overall program purpose.
+
+## 8. Blueprint Questions
+
+The Whole-Program Blueprint supports questions such as:
+
+- Which components implement a specified behavior?
+- Which declarations depend on a particular type?
+- Which operations modify a given state?
+- What ownership relationships prevent a proposed transformation?
+- Which Capsule boundaries must be crossed?
+- What is the shortest verified dependency path between two operations?
+- Which modules are affected by a changed contract?
+- Which routines introduce allocation or I/O effects?
+- What prevents two computations from executing concurrently?
+- Which changes would invalidate existing proofs?
+- What is the least disruptive way to extend a program?
+- What tests and contracts must be revalidated?
+- Which operations dominate the computational critical path?
+- Which portions of the program can be reused without modification?
+
+Answers retain their supporting semantic facts and provenance.
+
+A question whose answer depends on unavailable measurements or external assumptions is identified accordingly.
+
+---
+
+# V. PATH OF LEAST RESISTANCE (POLR)
+
+## 9. Official Definition
+
+**POLR — Path of Least Resistance** is SAGE's verified, constraint-aware architectural navigation and solution-selection framework.
+
+POLR determines the most appropriate feasible path from an existing program state to a declared programming objective.
+
+It evaluates possible solutions against correctness, ownership, security, dependencies, implementation complexity, resource requirements, maintainability, performance, and verification obligations.
+
+Its purpose is to reduce unnecessary engineering work while preserving all mandatory program semantics.
+
+POLR does not mean choosing the shortest source code, the fewest machine instructions, or the easiest-looking algorithm regardless of consequences.
+
+It means choosing the best valid route according to the applicable hard constraints and declared engineering priorities.
+
+**POLR law: The least resistant path is the least costly valid path under the complete set of governing obligations.**
+
+## 10. POLR Operating Principles
+
+POLR obeys seven permanent principles.
+
+**1. Correctness before convenience.** An invalid solution is never preferred because it is easier.
+
+**2. Safety before optimization.** A path violating memory, authority, or isolation requirements is eliminated.
+
+**3. Reuse before unnecessary reconstruction.** Existing valid program capabilities are preferred where they satisfy the objective.
+
+**4. Minimal justified change.** Avoid modifications unrelated to the requested outcome unless they are required for correctness, compatibility, or explicit constraints.
+
+**5. Evidence before certainty.** Estimated benefits remain estimates until verified or measured.
+
+**6. Explicit trade-offs.** Competing valid paths are compared through declared criteria rather than arbitrary rankings.
+
+**7. Deterministic selection.** Identical inputs, objectives, cost profiles, and verified knowledge produce the same selected route.
+
+## 11. POLR Navigation Process
+
+```text
+PROGRAMMING OBJECTIVE
+        |
+        v
+Understand Intended Outcome
+        |
+        v
+Locate Relevant Blueprint Regions
+        |
+        v
+Collect Existing Verified Knowledge
+        |
+        v
+Identify Constraints and Dependencies
+        |
+        v
+Generate Feasible Candidate Routes
+        |
+        v
+Eliminate Invalid Routes
+        |
+        v
+Estimate Engineering and Runtime Costs
+        |
+        v
+Rank Feasible Alternatives
+        |
+        v
+Discharge Mandatory Proof Obligations
+        |
+        v
+SELECT VERIFIED PATH
+        |
+        v
+Produce Implementation Guidance
+        |
+        v
+Apply Authorized Transformations
+        |
+        v
+Validate Result and Update Knowledge
+```
+
+PITEL accelerates graph traversal, dependency discovery, candidate evaluation, and reusable proof processing throughout this sequence.
+
+---
+
+# VI. POLR COST AND DECISION MODEL
+
+## 12. Multi-Dimensional Cost Evaluation
+
+POLR evaluates candidate paths against the following dimensions.
+
+| Dimension | Evaluation |
+|---|---|
+| Semantic correctness | Whether the path preserves required behavior |
+| Ownership legality | Borrowing, moves, aliasing, provenance and disposal |
+| Security compliance | Authority, isolation and trust constraints |
+| Implementation complexity | Necessary changes and conceptual burden |
+| Dependency impact | Affected modules, types, calls, contracts and artifacts |
+| Runtime performance | Estimated or measured time and computational work |
+| Memory efficiency | Allocation, storage, lifetime and traffic |
+| Resource consumption | CPU, stack, memory and declared budgets |
+| Maintainability | Future modification complexity and architectural clarity |
+| Verification effort | Required proofs, tests and audits |
+| Reusability | Existing components and knowledge that remain valid |
+| Compatibility | Edition, ABI and interface preservation |
+| Reliability | Failure exposure and ability to maintain invariants |
+| Change risk | Uncertainty and scope of potential unintended consequences |
+
+Safety and semantic correctness are mandatory constraints, not costs that can be traded away for greater speed.
+
+## 13. Formal POLR Selection
+
+Let \(P\) represent the set of possible candidate paths.
+
+Let \(F\subseteq P\) represent the paths satisfying all mandatory constraints.
+
+For each feasible path \(p\), POLR evaluates a normalized cost vector:
+
+\[
+C(p) =
+\left(
+C_{\mathrm{complexity}},
+C_{\mathrm{change}},
+C_{\mathrm{runtime}},
+C_{\mathrm{memory}},
+C_{\mathrm{verification}},
+C_{\mathrm{maintenance}},
+C_{\mathrm{risk}}
+\right)
+\]
+
+The objective profile determines applicable priorities and weights.
+
+A deterministic scalar ranking may use:
+
+\[
+C_{\mathrm{POLR}}(p)=
+\sum_{i=1}^{n} w_i\widehat{C_i(p)}
+\]
+
+where:
+
+- \(w_i\) is an explicit nonnegative priority weight.
+- \(\widehat{C_i(p)}\) is the normalized estimate or measurement of a cost dimension.
+- Each cost retains its measurement unit, provenance, confidence, and estimation method.
+- Mandatory correctness and security constraints are already satisfied before ranking.
+
+The selected path is:
+
+\[
+p^* =
+\operatorname*{arg\,min}_{p\in F}
+C_{\mathrm{POLR}}(p)
+\]
+
+If multiple paths have equivalent costs, POLR uses a stable, documented tie-breaking policy.
+
+When no single scalar cost adequately represents competing engineering objectives, POLR retains a Pareto frontier of nondominated feasible alternatives and applies the declared policy priorities.
+
+A mathematically minimum score is claimed only for the candidate space actually explored and evaluated. Bounded search does not establish a global optimum across all possible programs.
+
+## 14. POLR Operating Profiles
+
+The system defines configurable decision profiles.
+
+| Profile | Primary optimization objective |
+|---|---|
+| `balanced` | Minimize overall engineering and runtime cost |
+| `performance` | Prioritize runtime efficiency while preserving obligations |
+| `memory` | Minimize memory footprint and allocation pressure |
+| `security` | Prefer stronger enforceable boundaries and smaller authority exposure |
+| `minimal-change` | Minimize affected code and dependencies |
+| `maintainability` | Prioritize clear structure and manageable dependencies |
+| `compile-throughput` | Minimize compilation and semantic recomputation work |
+| `resource-constrained` | Operate within strict declared resource budgets |
+| `verification` | Prefer paths with straightforward, checkable correctness obligations |
+
+All profiles obey identical language semantics and mandatory safety rules.
+
+A `performance` profile cannot justify removing security mediation.
+
+A `minimal-change` profile cannot preserve an invalid implementation merely to avoid edits.
+
+A `security` profile does not silently assign authorities or change the program's threat model.
+
+---
+
+# VII. ADVANCED POLR APPLICATIONS
+
+## 15. Implementation Planning
+
+When a developer requests a new capability, POLR identifies the relevant architecture and determines an appropriate implementation route.
+
+For example:
+
+**Objective:** Introduce a new gameplay state to a complex simulation.
+
+POLR determines:
+
+1. Which state types define the existing simulation.
+2. Which routines consume or modify those states.
+3. Which transitions and variants require extension.
+4. Which ownership relationships are affected.
+5. Which dependent Chains and contracts require revision.
+6. Which conformance tests must be updated.
+7. Which modules can remain unchanged.
+8. Which implementation route minimizes unnecessary architectural changes.
+
+The resulting guidance references actual declarations and their dependency relationships.
+
+## 16. Performance Optimization
+
+**Objective:** Reduce computation time in a frequently executed routine.
+
+POLR evaluates:
+
+- Existing loop structures.
+- Alias and borrow constraints.
+- Vectorization opportunities.
+- Redundant closure environments.
+- Allocation frequency.
+- Stage fusion.
+- Data representation.
+- Memory traffic.
+- Effects and trap ordering.
+
+It may compare several solutions:
+
+**Route A:** Preserve the source architecture and apply verified scalar optimization.
+
+**Route B:** Fuse compatible Chain stages.
+
+**Route C:** Replace intermediate storage with a direct traversal.
+
+**Route D:** Change a collection representation under an explicitly authorized interface migration.
+
+POLR selects or recommends the best valid route according to the declared cost profile and available evidence.
+
+Source-level refactoring and native optimizer transformations remain separate operations with distinct authorization requirements.
+
+## 17. Security Architecture
+
+**Objective:** Allow a component to process untrusted input without gaining unauthorized access to application state.
+
+POLR determines:
+
+- The component's required capabilities.
+- Its data dependencies.
+- Existing trusted interfaces.
+- Appropriate isolation profile.
+- Serialization requirements.
+- Lifetime restrictions.
+- Failure behavior.
+- Resource limits.
+- Threat-model constraints.
+
+It evaluates whether existing valid mechanisms can satisfy the objective.
+
+If deep isolation is mandatory, a logical capsule is not considered an acceptable substitute.
+
+## 18. Compiler and Native Optimization
+
+POLR integrates with ACO to compare verified native realization paths.
+
+The system evaluates:
+
+- Direct versus indirect calls.
+- Concrete versus dynamically represented closures.
+- Scalar versus vectorized execution.
+- Specialized versus generic routines.
+- Inlined versus uninlined calls.
+- Alternative valid register and instruction selections.
+- Fused versus separate traversals.
+- Stack versus heap representation where observability permits.
+
+These decisions preserve the source program's semantic contract.
+
+Optimization candidates lacking a sufficient proof are rejected or left unselected.
+
+## 19. Error Diagnosis and Resolution
+
+POLR assists in identifying appropriate repair routes.
+
+For example:
+
+```text
+Problem:
+    Borrowed value escapes its lifetime.
+
+Root Cause:
+    Returned reference originates from local storage.
+
+Candidate A:
+    Return an owned value.
+
+Candidate B:
+    Borrow from a valid caller-owned input.
+
+Candidate C:
+    Redesign the interface using a validated handle.
+```
+
+POLR compares the valid alternatives according to interface contracts, lifetime requirements, ownership costs and architectural impact.
+
+It never silently changes a function's ownership semantics merely to make compilation succeed.
+
+Suggested repairs require explicit developer adoption unless they are separately authorized semantics-preserving transformations.
+
+---
+
+# VIII. KNOWLEDGE-GUIDED BLUEPRINT NAVIGATION
+
+## 20. Goal-to-Implementation Navigation
+
+SAGE's Whole-Program Blueprint supports forward navigation from a declared programming goal to the implementation regions that can satisfy it.
+
+```text
+User Objective
+    |
+    v
+Required Behavior
+    |
+    v
+Relevant Program Subsystems
+    |
+    v
+Required Types and Interfaces
+    |
+    v
+Ownership / Effects / Authority
+    |
+    v
+Candidate Computational Structures
+    |
+    v
+POLR Route Selection
+    |
+    v
+Verified Implementation Plan
+```
+
+This allows large programming tasks to be decomposed according to actual dependency relationships rather than arbitrary file order.
+
+## 21. Implementation-to-Purpose Navigation
+
+SAGE also supports reverse navigation.
+
+```text
+Native Instruction
+    |
+    v
+PMIR Operation
+    |
+    v
+PCIR Instruction
+    |
+    v
+Source Expression
+    |
+    v
+Routine and Type
+    |
+    v
+Module and Subsystem
+    |
+    v
+Architectural Responsibility
+```
+
+This provides traceability from a low-level operation to its role in the application.
+
+Where a source requirement or architectural purpose has not been declared or established, SAGE identifies the missing relationship rather than inventing one.
+
+## 22. Change-Impact Intelligence
+
+Every proposed program modification is analyzed for direct and transitive effects.
+
+SAGE identifies:
+
+- Affected declarations.
+- Changed interfaces.
+- Borrow and lifetime consequences.
+- Effect changes.
+- Invalidated contracts.
+- Family and inheritance compatibility.
+- Chain dependency changes.
+- Capsule security consequences.
+- ABI changes.
+- Invalidated compiler knowledge.
+- Required testing and verification.
+
+POLR evaluates whether a narrower valid change can accomplish the same objective.
+
+The result is a traceable plan that avoids unnecessary restructuring while preserving correctness.
+
+---
+
+# IX. PITEL INTEGRATION
+
+## 23. Progressive Knowledge Navigation
+
+PITEL accelerates the expanded SAGE Knowledge Model and POLR framework through incremental, dependency-aware reasoning.
+
+Its six established stages incorporate the following responsibilities.
+
+**Stage I — Immediate Recognition:** Identify relevant program declarations, entities, direct relationships, and existing verified knowledge.
+
+**Stage II — Relational Analysis:** Traverse ownership, effects, types, dependencies, security boundaries, and architectural relationships.
+
+**Stage III — Deductive Expansion:** Derive necessary consequences and propagate constraints through the Whole-Program Blueprint.
+
+**Stage IV — Speculative Exploration:** Generate candidate implementation routes, optimizations, refactorings, and architectural alternatives within resource bounds.
+
+**Stage V — Authoritative Verification:** Check mandatory obligations and eliminate invalid or unjustified routes.
+
+**Stage VI — Consolidation:** Select or recommend feasible paths, preserve proof records, and update the verified program blueprint.
+
+## 24. Incremental Knowledge Maintenance
+
+A change to any authoritative program input triggers dependency-correct invalidation.
+
+```text
+Source / Configuration / Target Change
+                |
+                v
+Affected Blueprint Entities
+                |
+                v
+Knowledge Dependency Analysis
+                |
+                v
+Invalidation of Dependent Facts
+                |
+                v
+Incremental SAGE Reanalysis
+                |
+                v
+Updated POLR Candidate Routes
+                |
+                v
+Required Proof Revalidation
+                |
+                v
+Verified Whole-Program Blueprint
+```
+
+Unchanged facts with valid provenance are reused.
+
+Changed contracts, security policies, type relationships and source declarations invalidate dependent proof records.
+
+No stale knowledge is promoted to authority.
+
+## 25. Parallel Blueprint Reasoning
+
+Independent knowledge-graph regions may be analyzed concurrently.
+
+PITEL schedules work using:
+
+- Dependency readiness.
+- Proof priority.
+- Resource cost.
+- Reuse opportunity.
+- Graph connectivity.
+- Change impact.
+- Candidate relevance.
+- Verification obligations.
+
+Parallel evaluation produces deterministic authoritative conclusions and stable route rankings under identical declared inputs.
+
+The scheduler never prioritizes optional conjecture exploration over required correctness checks in a manner that prevents mandatory analysis from completing within its governing resource contract.
+
+---
+
+# X. DEVELOPER-FACING SAGE BLUEPRINT AND POLR INTERFACES
+
+## 26. Whole-Program Inspection
+
+The Paracine developer interface includes the following Edition-2027 semantic inspection operations:
+
+```bash
+paracine sage src/main.pcn --blueprint
+```
+
+Produces the Whole-Program Blueprint.
+
+```bash
+paracine sage src/main.pcn --knowledge
+```
+
+Displays knowledge entities, relationships and authoritative status.
+
+```bash
+paracine sage src/main.pcn --dependencies
+```
+
+Displays module, type, routine and computational dependencies.
+
+```bash
+paracine sage src/main.pcn --ownership-map
+```
+
+Displays ownership, borrowing and lifetime relationships.
+
+```bash
+paracine sage src/main.pcn --effect-map
+```
+
+Displays effects and their propagation.
+
+```bash
+paracine sage src/main.pcn --security-map
+```
+
+Displays Capsule authority, isolation and trust boundaries.
+
+```bash
+paracine sage src/main.pcn --change-impact
+```
+
+Displays the affected program regions under a supplied revision or declared modification.
+
+## 27. POLR Inspection
+
+POLR provides:
+
+```bash
+paracine sage src/main.pcn --polr
+```
+
+to inspect eligible optimization and architectural navigation opportunities.
+
+For an explicit objective, a structured objective file supplies goals, required invariants and constraints.
+
+```bash
+paracine sage src/main.pcn \
+    --polr-objective objective.json \
+    --polr-profile balanced
+```
+
+Available profiles include:
+
+```text
+balanced
+performance
+memory
+security
+minimal-change
+maintainability
+compile-throughput
+resource-constrained
+verification
+```
+
+Reports distinguish:
+
+- Authoritative facts.
+- Candidate paths.
+- Verified feasible paths.
+- Rejected paths.
+- Conditional paths.
+- Cost estimates.
+- Measured costs.
+- Proof obligations.
+- Selected recommendations.
+
+Optional machine-readable output uses versioned schemas and includes dependency provenance.
+
+These interfaces expose the reasoning system without making POLR directives mandatory source-language syntax.
+
+---
+
+# XI. POLR GUIDANCE REPORT
+
+## 28. Standard Report Structure
+
+A POLR report contains:
+
+```text
+SAGE POLR REPORT
+
+Objective:
+    Declared programming goal
+
+Program:
+    Source and edition identity
+
+Target:
+    Declared execution profile
+
+Blueprint:
+    Relevant program regions
+
+Existing Knowledge:
+    Verified applicable facts
+
+Constraints:
+    Type
+    Ownership
+    Effects
+    Security
+    Resources
+    Contracts
+    ABI
+    Compatibility
+
+Candidate Routes:
+    Route A
+    Route B
+    Route C
+
+Rejected Routes:
+    Invalid or unproved alternatives
+
+Cost Evaluation:
+    Complexity
+    Change impact
+    Runtime
+    Memory
+    Verification
+    Maintainability
+    Risk
+
+Selected Path:
+    Best feasible route under declared profile
+
+Verification:
+    Discharged obligations
+    Remaining assumptions
+
+Expected Result:
+    Defined implementation outcome
+
+Provenance:
+    Source, rule, target and knowledge hashes
+```
+
+A report cannot label estimated performance as measured performance.
+
+Nor may it describe an implementation recommendation as already applied when no corresponding source change or compiler transformation has occurred.
+
+---
+
+# XII. SAFETY, DETERMINISM, AND AUTHORITY
+
+## 29. Permanent POLR Safety Laws
+
+POLR is subordinate to the Paracine language specification and SAGE's authoritative semantic rules.
+
+It cannot:
+
+1. Change program meaning merely to reduce cost.
+2. Create ownership from an invalid reference.
+3. Ignore conflicting mutable borrows.
+4. Bypass required Capsule mediation.
+5. Weaken declared isolation.
+6. Invent type compatibility.
+7. Remove required checks without proof.
+8. Ignore externally observable effects.
+9. Assume speculative equivalence is established.
+10. Convert uncertain knowledge into authoritative proof.
+11. Reuse invalidated semantic facts.
+12. Change ABI requirements without explicit authorization.
+13. Convert a terminal trap into recoverable failure or vice versa without an edition-authorized semantic change.
+14. Perform unauthorized source refactoring.
+15. Claim global optimality without establishing it for the relevant search space.
+
+## 30. Fail-Closed Reasoning
+
+When no valid path exists, POLR reports the unsatisfied constraints.
+
+When multiple valid paths exist, POLR selects according to declared priorities.
+
+When insufficient information exists, it presents conditional alternatives and identifies the missing evidence.
+
+When resource bounds prevent complete exploration, it returns the best verified candidate found within the declared budget, clearly identifying the incomplete optimization search.
+
+When a mandatory semantic obligation cannot be established, the compiler rejects the affected program or operation according to the governing language contract.
+
+POLR never substitutes convenience for correctness.
+
+---
+
+# XIII. CONFORMANCE AND ACCEPTANCE
+
+## 31. Fully Expanded Knowledge Model Verification
+
+The SAGE Knowledge Model is qualified through tests covering:
+
+- Complete symbol and type relationships.
+- Source and semantic provenance.
+- Cross-module dependencies.
+- Ownership and borrow relationships.
+- Effect propagation.
+- Capsule and Family relationships.
+- Chain dependency graphs.
+- Numerical and resource facts.
+- Invalid knowledge rejection.
+- Revision-correct invalidation.
+- Stable deterministic identities.
+- Resource-bounded graph processing.
+
+## 32. Whole-Program Blueprint Verification
+
+Blueprint conformance includes:
+
+- Forward and reverse program navigation.
+- Complete transitive dependency tracking.
+- Call and data-flow relationship accuracy.
+- Cross-compartment boundary identification.
+- Type and lifetime relationship accuracy.
+- Source-to-PCIR-to-PMIR provenance.
+- Change-impact correctness.
+- Deterministic navigation.
+- Accurate handling of unavailable information.
+
+## 33. POLR Verification
+
+POLR conformance includes:
+
+- Candidate feasibility evaluation.
+- Hard-constraint enforcement.
+- Invalid-route rejection.
+- Cost-model consistency.
+- Deterministic ranking.
+- Pareto alternative preservation.
+- Correct proof dependency tracking.
+- No unauthorized source changes.
+- No implicit security downgrade.
+- No semantics-changing optimization.
+- Resource-bounded navigation.
+- Explicit unknown and conditional outcomes.
+- Correct separation of estimated and measured performance.
+
+Differential tests verify that POLR-selected compiler transformations preserve the relevant observable program behavior.
+
+Where POLR recommends an architectural source change, the resulting modified program undergoes ordinary full semantic checking and the applicable acceptance tests.
+
+---
+
+# XIV. INTEGRATION INTO THE PARACINE 2027 MASTER STANDARD
+
+## 34. Mandatory Integration Points
+
+This addendum extends the following normative areas of the complete Paracine 2027 specification.
+
+| Master section | Integrated extension |
+|---|---|
+| §6 — SAGE Foundation | Expanded semantic knowledge and authority model |
+| §7 — PCIR and Optimization | Blueprint provenance and POLR-guided verified optimization |
+| §11 — Constitutional Laws | POLR safety, feasibility and determinism laws |
+| §15 — Feature Register | Knowledge navigation, blueprint intelligence and POLR |
+| §19 — Algebraic Conjecture Optimization | Candidate generation and cost-guided selection |
+| §21 — Cost Reporting | POLR multidimensional optimization reports |
+| §22 — Complete SAGE Analyzer | Fully Expanded Knowledge Model |
+| §23 — Thesaurus and Etymological Logic | Conceptual knowledge integration |
+| §24 — Inference and Judgments | POLR proof and conclusion mapping |
+| §25 — SAGE Diagnostics | Whole-program navigation and guidance |
+| §26 — PITEL Architecture | Progressive knowledge traversal |
+| §27 — PITEL Throughput | Incremental and parallel blueprint reasoning |
+| §28 — Compiler Integration | Knowledge-aware optimization and source provenance |
+| §29 — Conformance Gates | Knowledge completeness, blueprint correctness and POLR verification |
+| Appendix A | New inspection and guidance interfaces |
+| Appendix C | Expanded semantic and architectural traceability |
+
+The existing Edition-2026 semantic rules, Edition-2027 ownership and authority contracts, no-unwind terminal traps, numerical laws, and native ABI obligations remain unchanged.
+
+This addendum extends SAGE's intelligence and navigation architecture without introducing unauthorized changes to the meaning of existing programs.
+
+---
+
+# XV. FINAL CONSTITUTIONAL ADDITIONS
+
+## The Complete Knowledge Law
+
+SAGE maintains a comprehensive, provenance-aware semantic representation of the program and its applicable programming knowledge.
+
+## The Whole-Program Law
+
+Every relevant architectural component, computational dependency, ownership relationship, security obligation, and native realization is navigable through the Whole-Program Blueprint.
+
+## The POLR Law
+
+Among feasible routes, SAGE identifies the least costly valid path according to explicit constraints, declared priorities, and available verified evidence.
+
+## The Feasibility Law
+
+Correctness, memory safety, authority, isolation, resource obligations, and edition compatibility are mandatory constraints, never optional cost preferences.
+
+## The Knowledge Authority Law
+
+Observed source facts, derived semantic facts, conjectures, conditional assumptions, and verified judgments remain distinct.
+
+## The Change-Minimization Law
+
+POLR preserves valid existing structure and minimizes unnecessary modification without sacrificing required behavior or safety.
+
+## The Proof Preservation Law
+
+No navigation recommendation, optimization hypothesis, or cost estimate overrides mandatory semantic verification.
+
+## The Progressive Intelligence Law
+
+PITEL accelerates knowledge acquisition, relationship traversal, dependency analysis, candidate evaluation, and proof reuse without changing language semantics.
+
+## The Engineering Transparency Law
+
+Every selected route retains its rationale, constraints, assumptions, cost basis, provenance, and verification results.
+
+---
+
+# XVI. OFFICIAL FINAL DECLARATION
+
+## SAGE — COMPREHENSIVE PROGRAMMING INTELLIGENCE
+
+With the Fully Expanded Knowledge Model, Whole-Program Blueprint Navigation, and Path of Least Resistance framework, Paracine 2027 establishes an integrated semantic engineering architecture that connects the programmer's objective to the program's complete structure and its verified native realization.
+
+SAGE does not merely recognize declarations.
+
+It understands their established relationships.
+
+It does not merely inspect routines.
+
+It navigates the dependencies among components, state, resources, and execution.
+
+It does not merely suggest improvements.
+
+It evaluates feasible alternatives against authoritative requirements.
+
+It does not merely optimize isolated instructions.
+
+It connects optimization opportunities to whole-program meaning, resource costs, ownership, and architectural obligations.
+
+It does not treat the easiest-looking route as automatically best.
+
+It identifies the least costly **valid** route within the declared search and engineering constraints.
+
+The governing principle is:
+
+**Know the program comprehensively. Navigate its architecture intelligently. Discover the valid alternatives. Choose the path of least resistance. Preserve correctness without compromise.**
+
+### PARACINE 2027
+
+**Write with intent. Compile with certainty.**
+
+**Understand completely. Navigate intelligently. Optimize decisively. Verify conclusively.**
+
+**Clear to people. Obvious to machines.**
+
+**Official Addendum — Fully Expanded SAGE Knowledge Model, Whole-Program Blueprint Navigation & POLR.**
+
+
+
+
