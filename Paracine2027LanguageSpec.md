@@ -1,1039 +1,1763 @@
-### PARACINE 2027
+PARACINE 2027
 
-Native Programming Language — Unified Next-Generation Edition Proposal
+Ultimate Advanced Native Programming Language — Unified Next-Generation Edition Proposal
 
-Consolidated Feature & Architecture Specification • Preliminary Draft 0.1 • November 23, 2026
+Consolidated Feature & Architecture Specification
 
-PLANNED LANGUAGE EDITION
-
-Tentative
-
-### Paracine 2027
+Preliminary Draft: 0.2
+Revision Date: November 23, 2026
+Language Edition: 2027
+Target Release: December 2027 — Tentative
+Specification Status: Proposed / Unfrozen
+Source Extension: ".pcn"
+Compiler Architecture: Independent Direct-Native
+Canonical Implementation Language: C++23
+Canonical Tier-1 Target: Windows x86-64
+Canonical Semantic IR: PCIR
+Canonical Machine IR: PMIR
+Canonical Analysis Framework: SAGE — Semantic Analysis & Guidance Engine
 
 Paracine: Write with intent. Compile with certainty.
 
-Target release window
+---
 
-December 2027
+REVISION 0.2 — CONSOLIDATED ADDITIONS
 
-Specification status
+This revision preserves the complete Edition-2027 proposal established in Draft 0.1, including:
 
-Proposed / Unfrozen
+- Capsules combining enhanced classes with enforceable execution/security compartments.
+- Chains and Families.
+- Advanced inheritance, extensions, smart nesting, smart layering, and typed reflection.
+- Contracts, masking, permissions, authority, resource limits, and deep isolation.
+- Checkpoints, revert, rollback, recovery, and controlled state transitions.
+- Smart arrays, lists, matrices, and linear/nonlinear traversal.
+- Bit-precise integers, decimal floating-point, complex numbers, and posit numerical types.
+- Typed rendering, training, temporal operations, and adaptive computation.
+- The complete previously defined Edition-2027 feature register.
+- The existing 2026 canonical direct-native architecture and qualified safety contract.
 
-Source extension
+Draft 0.2 adds a major optimization and closure-language expansion:
 
-`.pcn`
+Algebraic Conjecture Optimization — SAGE/PCIR Equality Saturation, Closure Escape Resolution, Environment Scalarization, Fusion, and Algebraic Liveness.
 
-Compiler architecture
+This introduces the following proposed capabilities:
 
-Independent direct-native
+1. Typed, effect-aware E-graph equality saturation.
+2. Abstract interpretation for value, effect, provenance, range, escape, and lifetime reasoning.
+3. SAGE Structural Analysis candidate synthesis.
+4. Optional stylometric/adaptive optimization candidate prioritization.
+5. Interprocedural closure escape analysis.
+6. Defunctionalization and closure call devirtualization.
+7. Closure environment scalarization through SROA.
+8. Nested closure fusion and higher-order pipeline fusion.
+9. Partial evaluation and currying collapse.
+10. Loop-invariant closure environment hoisting.
+11. Specialized immediate-operand lowering.
+12. Algebraic liveness and reference-management simplification.
+13. Conditional allocation and drop-glue elimination.
+14. Explicit heap-backed dynamically escaping closures.
+15. Deterministic closure-environment ownership and disposal.
+16. Verified closure ABI transitions and Windows x64 calling thunks.
+17. Semantic equivalence validation against the PCIR reference interpreter.
+18. Performance-oriented zero-cost abstraction realization where proven legal.
 
-This proposal incorporates all the previously requested 2027 features, Chains, Families, the dual-purpose Capsule system, and the recommended numerical, reflection, representation, safety, and engineering extensions. It describes an intended future edition, not implemented or independently verified functionality.
+These mechanisms are strictly divided into:
 
-### 1\. The defining vision of Paracine 2027
+Semantic extensions: New Edition-2027 closure capabilities involving dynamic ownership, allocation, and escape behavior.
 
-Paracine 2027 is proposed to evolve beyond a language that merely defines computations into one that can also express and enforce relationships, authority, isolation, structure, resource limits, recovery, and controlled interactions.
+Optimization extensions: New analyses and transformations that may also optimize existing valid Edition-2026 programs without changing their language semantics.
 
-The central architectural innovation is the combination of three new language systems:
+No compiler heuristic, algebraic identity, profile, or conjecture can independently establish semantic validity.
 
-* Capsules: Enhanced classes that encapsulate data and behavior while simultaneously establishing enforceable execution and security compartments.
+---
 
-* Chains: First-class, typed compositions of operations, decisions, transformations, and communications, with explicit ordering and dependency rules.
+1. DEFINING VISION — ADDITION
 
-* Families: Structured relationships among types, capsules, and capabilities, supporting inheritance, common contracts, compatibility, and controlled specialization.
+Paracine 2027 expands the language's existing architectural vision to include intelligent optimization of high-level abstractions without making those abstractions inherently expensive.
 
-Surrounding these are new systems for smart arrays, matrices, traversal, checkpoints, rollback, recoverable state, resource zones, masking, extensions, rendering, time, numerical precision, and constrained program adaptation.
+The language shall permit programmers to express computations using capsules, families, chains, closures, smart collections, structured traversal, and higher-order operations while enabling the compiler to eliminate representation and execution overhead whenever equivalence is established.
 
-The goal is not to make every operation automatic. It is to make sophisticated behavior explicit, composable, verifiable, and efficient.
+Its optimization philosophy is extended by the following principle:
 
-### The architectural foundation remains intact
+«Express abstractions naturally. Analyze their actual behavior. Eliminate costs only when equivalence is established.»
 
-Paracine 2027 Source
+A programmer should not need to manually flatten every chain, closure, or higher-order expression into low-level imperative instructions merely to obtain efficient machine code.
 
-Capsules • Chains • Families • Advanced Language Features
+However, the language shall not guarantee that every abstraction can be eliminated.
 
-SAGE 2027
+When runtime identity, dynamic dispatch, escaping environments, observable allocation, external effects, or compartment security requires an actual runtime representation, that representation must be preserved.
 
-Semantic analysis, ownership, authority, contracts, isolation, type/resource reasoning
+The defining goal is:
 
-PCIR 2027
+Maximum abstraction freedom consistent with precise semantics, verifiable safety, and direct-native efficiency.
 
-Verified state, control flow, transactions, capsule boundaries, semantic optimization
+---
 
-PMIR 2027
+2. ADDITIONAL CONSTITUTIONAL LAWS
 
-Target-aware instruction selection, layout, register and resource allocation
+The existing thirteen proposed constitutional laws from Draft 0.1 remain unchanged.
 
-Direct Native Machine Code
+The following laws are added.
 
-Canonical Windows x86-64 / COFF / PE32+ path retained
+Law| Proposed requirement
+Algebraic conjecture separation| An algebraic conjecture is a candidate equality or transformation hypothesis, not proof of equivalence.
+Equality saturation safety| E-graph rules must preserve types, mathematical meaning, effects, traps, ownership, and observable behavior.
+Closure representation independence| A statically typed closure does not require mandatory heap allocation or dynamic dispatch.
+Explicit dynamic escape| A closure requiring heap-backed dynamic lifetime management must use an authorized, allocation-accounted representation.
+Escape-analysis authority| Compiler analysis may eliminate closure storage only when the actual lifetime and escape obligations are proven.
+Allocation observability| Allocation and disposal may be removed only when their elimination preserves every language-observable result and failure.
+Cleanup integrity| Destructor, release, and cleanup behavior may not be removed when it has required observable effects.
+Refcount correctness| Reference-management operations may be simplified only when ownership, synchronization, and lifetime invariants remain valid.
+Effect-preserving fusion| Pipeline fusion must preserve evaluation order, short-circuit behavior, failure, and permitted side effects.
+Trap-order preservation| Algebraic transformations must not remove, invent, or reorder required terminal traps.
+ABI preservation| Closure optimization cannot change required public, exported, foreign, or dynamically resolved ABI behavior.
+Security-boundary preservation| Optimization cannot bypass capsule isolation, authority validation, protected calls, or required compartment mediation.
+Optimization reproducibility| Identical declared build inputs must yield deterministic optimization decisions and reproducible artifacts.
+Performance honesty| Zero-cost abstraction is a proven optimization outcome in eligible cases, not a universal source-language guarantee.
 
-Paracine remains self-contained at the canonical compiler level. Nothing in the new language requires transpilation through C++, LLVM, an external assembler, or an external linker.
+These additional laws apply throughout SAGE, PCIR, PMIR, closure specialization, chains, capsules, and native lowering.
 
-The 2026 rules for integer arithmetic, safe borrowing, explicit effects, terminal traps, and four-space indentation remain binding unless a future edition explicitly and incompatibly changes them.
+---
 
-### 2\. Proposed constitutional laws of Edition 2027
+3. CAPSULES — OPTIMIZATION INTEGRATION
 
-These principles govern all of the new features.
+All Capsule provisions in Draft 0.1 remain part of the proposed Edition-2027 language.
 
-| Law                            | Proposed requirement                                                                                                      |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Semantic authority             | SAGE's authoritative semantic rules determine validity. No adaptive suggestion substitutes for proof.                     |
-| Capsule duality                | A capsule is both an encapsulated behavioral type and an isolation compartment.                                           |
-| Authority preservation         | Inheritance, extensions, families, and chains cannot silently create privileges.                                          |
-| Explicit isolation             | A requested isolation guarantee must be enforced or rejected, never silently downgraded.                                  |
-| Ownership continuity           | New constructs preserve valid ownership, lifetime, aliasing, and disposal obligations.                                    |
-| No mandatory hidden allocation | The basic value forms do not require heap allocation; allocation-dependent facilities expose their resource requirements. |
-| Deterministic semantics        | Equal valid inputs and specified state yield the same results, except where nondeterminism is explicitly permitted.       |
-| Transactional honesty          | Rollback is guaranteed only for operations the transaction model can actually reverse.                                    |
-| Contract integrity             | Contracts state real obligations; they do not magically prove themselves.                                                 |
-| Controlled extensibility       | New abstraction mechanisms preserve type identity, visibility, and interface compatibility.                               |
-| Resource accountability        | Limits and budgets have defined units, enforcement points, and failure behavior.                                          |
-| Reproducible optimization      | Adaptive and profile-guided choices must obey declared, pinned build inputs.                                              |
-| Edition compatibility          | Existing Edition-2026 programs retain their established interpretation when compiled in 2026 mode.                        |
+Capsules continue to combine:
 
-### A crucial safety distinction
+- Enhanced class-like encapsulation.
+- Protected state and methods.
+- Construction and disposal.
+- Contracts and invariants.
+- Ownership-aware access.
+- Typed interfaces.
+- Explicit resource limits.
+- Logical, memory, or deep security isolation.
+- Authorized communication.
+- Recovery and transactional facilities.
 
-Three different forms of isolation must be distinguishable:
+3.6 Capsule-Aware Algebraic Optimization
 
-Logical isolation
+SAGE may optimize the internal computations of a capsule when doing so preserves the capsule's contracts, authority boundaries, ownership rules, and isolation guarantees.
 
-Access control, field visibility, borrow checking, effects, and compiler-enforced capability boundaries.
+Eligible transformations may include:
 
-Memory isolation
+- Inlining internal capsule routines.
+- Scalarizing eligible capsule-local temporary aggregates.
+- Removing redundant authorized internal calls.
+- Folding constant capsule-local calculations.
+- Eliminating provably redundant temporary closure environments.
+- Fusing pure internal collection transformations.
+- Simplifying verified invariant-preserving control flow.
 
-Runtime-checked or otherwise enforced restrictions preventing unauthorized memory access within the supported threat model.
+However, optimization shall not:
 
-Deep security isolation
+1. Remove a required authorization check.
+2. Access a deep-isolated capsule through unauthorized direct memory access.
+3. Eliminate a contract check without proof that its condition always holds.
+4. Reorder observable operations across an isolation boundary.
+5. Extend a borrowed reference beyond its permitted lifetime.
+6. Replace a required mediated compartment call with an ordinary direct call unless the declared isolation mechanism explicitly permits an equivalent implementation.
+7. Weaken a capsule's effective security policy.
 
-A compartment boundary enforced through appropriate operating-system, process, memory-protection, or hardware mechanisms, rather than relying only on private fields and safe-language syntax.
+A deep-isolated capsule is not merely an optimization barrier. Its boundary is part of the program's semantics and security contract.
 
-These levels are not interchangeable. A capsule cannot claim to resist hostile native code simply because its fields are marked `private`.
+If a call can legally be optimized while preserving that boundary, the compiler may optimize it.
 
-### 3\. Capsules — the unified enhanced-class and security-compartment system
+If the boundary requires actual cross-process, hardware-protected, or otherwise mediated communication, the compiler must preserve the required mediation.
 
-Capsules become the centerpiece of Paracine 2027.
+---
 
-A capsule combines:
+4. FAMILIES — OPTIMIZATION INTEGRATION
 
-* Encapsulated data and methods.
+All Family provisions from Draft 0.1 remain unchanged.
 
-* Constructors, controlled disposal, and instance identity.
+Families continue to represent structured relationships among types, capsules, capabilities, common contracts, and controlled inheritance.
 
-* Visibility and inheritance rules.
+4.3 Family-Aware Specialization
 
-* Contracts and invariants.
+SAGE may specialize calls involving family members when the concrete receiver type and required behavior are known.
 
-* Ownership-aware storage.
+This includes:
 
-* Isolated execution authority.
+- Resolving inherited methods.
+- Devirtualizing statically known calls.
+- Inlining permitted family methods.
+- Specializing generic methods for concrete family-member types.
+- Eliminating redundant behavioral-wrapper objects.
+- Folding family-contract facts established by authoritative analysis.
 
-* Protected communication interfaces.
+Family relationships may provide semantic facts to the optimizer.
 
-* Resource budgets.
+They may not grant unproven access privileges.
 
-* Explicit state recovery.
+A derived capsule's specialized method must preserve inherited contracts and any applicable isolation requirements.
 
-* Optional stronger memory and hardware-backed isolation.
+---
 
-### 3.1 Capsule types
+5. CHAINS — ALGEBRAIC COMPOSITION AND FUSION
 
-A capsule is a nominal type. Its instance contains or controls its state according to a defined representation and isolation policy.
+All Chain provisions in Draft 0.1 remain in force.
 
-```text
+Chains continue to support:
 
-capsule SecureAccount
-    isolate deep
+- Typed computational stages.
+- Linear composition.
+- Nonlinear dependency graphs.
+- Conditional branching.
+- Effect propagation.
+- Ownership-aware value transfer.
+- Controlled capsule communication.
+- Recoverable failures.
+- Verified scheduling constraints.
 
-    private var balance: long = 0
-    private var account_id: ulong
+5.5 Algebraic Chain Optimization
 
-    limit memory = 16_777_216
-    contract invariant balance >= 0
+Chains are eligible for algebraic simplification when the transformations preserve their semantics.
 
-    public routine balance_of(self) gives long
-        give self.balance
+Potential transformations include:
 
-    public routine deposit(
-        var self,
-        amount: long
-    ) gives result<void, AccountError>
+Stage fusion: Combining compatible consecutive stages into one computation.
 
-        if amount <= 0
-            fail AccountError.invalid_amount
+Stage elimination: Removing a stage whose result is provably unused and whose effects are unobservable under the language contract.
 
-        if amount > 1_000_000 - self.balance
-            fail AccountError.limit_exceeded
+Constant-stage evaluation: Evaluating stages whose inputs and operations are compile-time known.
 
-        checkpoint @deposit
-            self.balance += amount
+Dependency simplification: Eliminating redundant dependency edges without changing required ordering.
 
-        give
-```
+Call specialization: Replacing a dynamically represented stage with a statically known implementation.
 
-Proposed 2027 source form. The example assumes construction establishes the account identifier and a balance within the declared range. The precise grammar and runtime representation still require formalization.
+Closure environment elimination: Removing intermediate closure objects that do not need runtime representation.
 
-The intended behavior:
+Loop fusion: Combining compatible collection-processing stages into one traversal.
 
-* `private` prevents ordinary external field access.
+5.6 Chain Fusion Safety
 
-* `isolate deep` requires a supported hardened security boundary.
+The optimizer must preserve:
 
-* `limit` imposes an enforceable resource budget.
+- Input and output types.
+- Stage dependency ordering.
+- Required effect ordering.
+- Error propagation.
+- Terminal trap ordering.
+- Ownership and borrowing.
+- Iteration and short-circuit semantics.
+- Required allocation/failure behavior.
+- Capsule authority and isolation boundaries.
+- Observable communications.
 
-* `contract invariant` expresses the state condition that must be maintained.
+A chain containing dependent or observable I/O, synchronization, security, or external transactions cannot be freely rearranged.
 
-* Public routines establish the permitted interface.
+Likewise, graph stages that appear mathematically independent may still have ordering dependencies through effects, shared resources, failure behavior, or externally visible state.
+
+Chain optimization is therefore governed by semantic equivalence, not merely by graph shape.
+
+---
+
+6. COMPLETE EDITION-2027 FEATURE REGISTER — CONTINUITY AND ADDITIONS
 
-* `checkpoint` records a reversible state region.
+The complete Draft-0.1 feature register remains incorporated into this revision.
 
-* `result` provides recoverable failures.
+6.1 Types, Relationships, Identity, and Structural Intelligence
 
-A deep-isolated capsule may require an opaque runtime handle rather than exposing its state as an ordinary directly addressable object.
+Feature| Proposed design
+Extensions| Type-associated behavior without unauthorized layout or visibility changes.
+Inheritance| Controlled state and behavioral inheritance.
+Resolvers / resolutions| Deterministic semantic and conflict resolution.
+Mismatch| Typed representation of incompatible values, shapes, schemas, or signatures.
+Deduce| Authoritative type, shape, effect, or constraint deduction.
+Instances| Explicit identity, lifetime, construction, and reference semantics.
+Smart layering| Verified ordered composition of behavior, data, and policies.
+Smart nests| Checked hierarchical containment and ownership.
+Reframes| Verified changes of representation or computational perspective.
+Unused| Explicit management of intentionally unused values and results.
+Reuse| Legal reuse of values, allocations, or resources.
+Designate| Assign recognized roles to declarations, resources, or operations.
+Identify| Typed identity and metadata inquiry.
+Qualifiers| Expanded isolation, mutability, representation, and authority qualifiers.
+Wrap| Verified value and representation wrappers.
+Create| Checked initialization and resource acquisition.
+Dissolve| Controlled decomposition, disposal, or ownership transfer.
 
-Its isolation policy is therefore part of the capsule's type and construction contract.
+6.2 Security, Authority, Memory, and Resources
 
-### 3.2 Capsule isolation profiles
+Feature| Proposed design
+Masking| Typed bit masking and separately defined access masking.
+Limits| Enforceable memory, execution, count, depth, and resource bounds.
+Avoid| Declarative exclusion of specified effects or invalid behaviors.
+Deep isolation| Enforced security compartment boundaries.
+Zone| Named resource, execution, authority, or lifetime regions.
+Smart scopes| Ownership-, effect-, and authority-aware scope management.
+Store| Safe storage with explicit initialization and lifetime rules.
+Tamper| Defined protected-state integrity verification.
+Allow| Capability-authorized permission.
+Deny| Explicit prohibition with conservative conflict resolution.
+Contracts| Preconditions, postconditions, invariants, and obligations.
+Availability| Typed resource readiness and availability observation.
+Smart aliasing| Provenance-aware sharing and disjointness analysis.
 
-| Profile | Meaning                                                                  | Enforcement                                                        |
-| ------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| logical | Class-style encapsulation plus authority-restricted execution interfaces | Type system, effects, ownership, capability checks                 |
-| memory  | Logical isolation plus enforced restrictions on memory access            | Verified runtime or supported memory-protection mechanism          |
-| deep    | Explicit security compartment with restricted interaction and access     | Appropriate process, OS, hardware, or equivalent security boundary |
+6.3 Collections, Numerical Structures, and Transformations
 
-Every capsule participates in the capsule access-authority system. `logical` is the proposed minimum profile, not a claim of protection against arbitrary malicious native memory access.
+Feature| Proposed design
+Lists| Typed ordered collections with defined ownership and growth.
+Smart arrays| Shape-aware arrays with checked access and storage policies.
+Matrix| Multidimensional mathematical values with shape constraints.
+Linear traversal| Ordered single-path iteration.
+Nonlinear traversal| Graph, tree, dependency, or multidimensional visitation.
+Gap| Explicit missing intervals or positions in compatible structures.
+Sequence| Typed ordered value or computation sequences.
+Fill| Checked bounded population of collection regions.
+Rearrange| Verified reordering and permutation.
+Scaling| Defined numerical and structural scaling.
+Taper| Explicit gradual transformation or reduction.
+Trim| Bounded selection or removal.
+Cut| Validated splitting and extraction.
+Posit| Configurable posit numerical types.
+Embed| Verified compile-time resource embedding.
 
-A deep capsule must fail construction or execution when its declared isolation mechanism is unavailable. It must not silently downgrade to `memory` or `logical`.
+6.4 Execution, Recovery, Interaction, and Adaptation
 
-Likewise, a request for physical separation is not automatically satisfied by placing objects in different compiler-defined memory zones.
+Feature| Proposed design
+Checkpoints| Explicit reversible state boundaries.
+Continue| Expanded continuation contexts with 2026 compatibility.
+Revert| Restore versioned values or state.
+Rollback| Reverse eligible transactional changes.
+Conditions| Typed composable predicates.
+Smart rendering| Typed rendering graphs and resource-aware rendering operations.
+Postpone| Controlled deferred execution.
+Recover| Recoverable error handling and valid state restoration.
+Toggle| Checked transitions among permitted states.
+Ask| Typed request invocation.
+Respond / responses| Typed protocol outcomes.
+Smart ping| Bounded liveness/readiness observations.
+Durations / spans| Typed temporal intervals.
+Train| Bounded program training and separately governed compiler tuning.
 
-### 3.3 Capsule interfaces and authority
+6.5 Newly Integrated Closure and Optimization Capabilities
 
-Capsules can use three distinct interaction forms:
+Feature| Proposed design
+Algebraic conjectures| Candidate semantic equalities and optimization hypotheses.
+Typed E-graphs| Equality-saturation structures constrained by types and effects.
+Abstract interpretation| Conservative static reasoning over program behavior.
+Escape analysis| Determine whether closure environments leave valid regions.
+Defunctionalization| Replace eligible higher-order calls with statically resolved operations.
+Closure environment scalarization| Decompose eligible closure environments into scalar SSA values.
+Closure fusion| Combine equivalent nested closure computations.
+Pipeline fusion| Combine legal map/filter/fold-like stages.
+Partial evaluation| Specialize computation using known inputs and captured values.
+Currying collapse| Simplify nested partial applications where semantics permit.
+Algebraic liveness| Analyze lifetime-sensitive operation cancellation.
+Retain/release elimination| Remove proven redundant reference-management operations.
+Allocation/drop elimination| Eliminate unobservable temporary allocation and disposal.
+Dynamic escaping closures| Explicit heap-backed ownership for closures requiring dynamic lifetimes.
+Closure ABI thunks| Verified calling-convention adapters for eligible foreign-visible closure interfaces.
+Zero-cost abstraction optimization| Produce equivalent low-overhead native forms where proven possible.
 
-| Interface              | Purpose                                                                                   |
-| ---------------------- | ----------------------------------------------------------------------------------------- |
-| Direct authorized call | Efficient interaction when the caller and callee share a permitted execution boundary     |
-| Typed capsule request  | Transfer an explicitly permitted operation and its arguments across an isolation boundary |
-| Typed response         | Return authorized results, failures, refusals, or other declared outcomes                 |
+---
 
-Security-sensitive interactions cannot silently pass private pointers, unrestricted mutable borrows, or arbitrary raw addresses across compartment boundaries.
+7. NUMERICAL AND COMPILE-TIME LANGUAGE EXPANSION — CONTINUITY
 
-Where separation requires serialization or copying, those costs and effects must be part of the contract.
+The following Draft-0.1 numerical and compile-time provisions remain proposed.
 
-### 3.4 Capsule construction, inheritance, and disposal
+7.1 Bit-Precise Integers
 
-The proposed model provides:
+"bitint<N>" and "ubitint<N>" define signed and unsigned N-bit integer types with Paracine's modular arithmetic semantics.
 
-* `create` for verified instance initialization.
+The edition must specify width limits, conversion legality, layout, interoperability, and exact constant-evaluation behavior.
 
-* `dissolve` for controlled decomposition or destruction.
+7.2 Decimal Floating-Point
 
-* `inherit` for approved parent relationships.
+"decimal32", "decimal64", and "decimal128" provide explicit decimal floating-point representations and rounding rules.
 
-* `extension` for adding behavior without automatically modifying storage.
+7.3 Complex Numbers
 
-* `contract` for invariants and method obligations.
+"complex<T>" provides typed complex-number operations for supported real component types.
 
-* `allow` and `deny` for authority restrictions.
+7.4 Posit Numerics
 
-* `zone` for permitted resource and lifetime regions.
+"posit<N, ES>" introduces optional posit-family numerical representations with explicitly specified exceptional and conversion behavior.
 
-* `checkpoint`, `rollback`, and `recover` for reversible state operations.
+7.5 Verified Explicit Layouts
 
-Capsules may have value-like representation when their protection requirements permit. Stronger isolation may instead require separate runtime storage and mediated access.
+Paracine 2027 proposes checked control over alignment, offsets, bit-fields, packed representations, and compatible foreign layouts.
 
-Zero mandatory heap allocation applies to eligible ordinary value capsules, not to security compartments whose declared enforcement requires runtime resources.
+7.6 Typed Static Reflection
 
-### 3.5 Capsule inheritance policy
+A bounded reflection and declaration-generation system extends SAGE metadata access and "@derive" without introducing unrestricted textual macros.
 
-I recommend the following 2027 inheritance rules.
+7.7 Algebraic Numerical Optimization
 
-* Single state inheritance is permitted under explicit compatibility conditions.
+The new E-graph and conjecture framework must use operation-specific mathematical and semantic rules.
 
-* Multiple behavioral capability inheritance is permitted.
+For ordinary Paracine integer operations, equality reasoning must respect modular arithmetic at the exact operand width.
 
-* Inherited names and method conflicts require deterministic resolution.
+For floating-point operations, equality reasoning must respect the edition's floating-point rules, including signed zero, NaN, rounding, exceptional behavior, and the restrictions outside "@fastmath".
 
-* Parent-private fields remain inaccessible to derived capsules.
+Decimal, complex, and posit operations require their own verified rewrite rules.
 
-* Parent contracts remain binding.
+An algebraic identity valid over mathematical real numbers is not automatically legal for finite-precision machine arithmetic.
 
-* Derived methods may not strengthen caller preconditions or weaken guaranteed postconditions when used through a parent-compatible interface.
+---
 
-* Derived types may not increase authority merely through inheritance.
+8. FEATURE INTERACTION — ADDITION
 
-* Destruction, resource cleanup, and ownership transfer must follow a defined order.
+All previously defined interaction rules for smart arrays, matrices, traversal, smart nesting, smart layering, rendering, training, checkpoints, and recovery remain in force.
 
-* Cross-isolation inheritance cannot silently expose parent storage or bypass compartment boundaries.
+8.6 Higher-Order Operations and Algebraic Optimization
 
-This gives capsules class-like expressiveness without adopting unrestricted inheritance semantics.
+Paracine 2027 proposes a unified approach to optimizing higher-order computations.
 
-### 4\. Families — structured type relationships
+Consider a conceptual sequence:
 
-Families are first-class groupings of related types, capsules, and behavioral contracts.
+items
+    -> map(f)
+    -> map(g)
+    -> fold(h)
 
-A family is not automatically a class, object, namespace, or runtime security group. It is primarily a declared relationship and compatibility system.
+The program may be represented using multiple intermediate callables and traversal stages.
 
-### 4.1 Proposed family syntax
+SAGE may conjecture that some or all of those stages can be combined.
 
-```text
+For example, mathematical function composition suggests:
 
-family AccountFamily
-    member BaseAccount
-    member SavingsAccount
-    member BusinessAccount
+[
+\operatorname{map}(g)\circ\operatorname{map}(f)
+\equiv
+\operatorname{map}(g\circ f)
+]
 
-    contract shared valid_balance
+This identity is only directly applicable when the program's types, evaluation order, effect rules, failure behavior, ownership obligations, and iteration semantics make the transformation equivalent.
 
-capsule SavingsAccount inherit BaseAccount
-    private var interest_rate: double
+A legal optimization may transform a chain of compatible higher-order operations into one traversal.
 
-    public routine rate(self) gives double
-        give self.interest_rate
-```
+However, a map/filter transformation cannot automatically change which elements are evaluated, when a closure is invoked, or whether a trap or allocation occurs.
 
-Illustrative family-membership and inheritance syntax.
+An effectful "map", a short-circuiting "filter", and a state-dependent "fold" require stricter proof than pure pointwise transformations.
 
-### 4.2 Family capabilities
+Floating-point reductions cannot be reassociated unless the program's declared arithmetic mode permits the resulting behavior.
 
-Families would support:
+The compiler must use authoritative semantic evidence rather than treating a mathematical identity as universally valid machine-level equivalence.
 
-| Capability             | Proposed meaning                                                            |
-| ---------------------- | --------------------------------------------------------------------------- |
-| Membership             | Declare which nominal types belong to the family                            |
-| Common contracts       | Require shared behavior or state guarantees                                 |
-| Behavioral inheritance | Reuse capability and method requirements                                    |
-| State inheritance      | Allow verified parent state relationships where explicitly declared         |
-| Specialization         | Define permitted family-member differences                                  |
-| Resolution             | Resolve inherited name and method ambiguity                                 |
-| Compatibility          | Determine whether a member satisfies a required family interface            |
-| Visibility             | Expose family-approved interfaces without revealing unrelated private state |
-| Sealing                | Restrict the introduction of new family members where required              |
-| Reflection             | Provide compile-time inspection of permitted family relationships           |
+---
 
-Family membership is not a universal authorization token.
+9. UNIFIED SOURCE EXAMPLE — CLOSURE ENHANCEMENT
 
-Two capsules in the same family may share a contract while remaining completely isolated from one another.
+The existing SecureInventory capsule, family, and chain example from Draft 0.1 remains a representative integration example.
 
-### 5\. Chains — typed computational and interaction structures
+The following additional example demonstrates the planned closure optimization behavior.
 
-Chains become first-class constructs for composing multiple operations and their dependencies.
+9.1 Static Capturing Closure
 
-They are intended to express more than ordinary function pipelines. A chain can describe the order in which computation, state validation, requests, and recoverable operations must occur.
+routine compute(values: view<int>, factor: int) gives int
+    let multiply =
+        move routine(value: int) gives int
+            => value * factor
 
-### 5.1 Linear chains
+    var total: int = 0
 
-A linear chain has a defined succession of stages.
+    for value in values
+        total += multiply(value)
 
-```text
+    give total
 
-chain AccountReview
-    stage identify = identify(account)
-    stage validate = check(account)
-    stage evaluate = evaluate(validate)
-    stage respond = respond(evaluate)
-```
+This is illustrative 2027 syntax.
 
-Each stage has a declared or inferred type. Effects and failure possibilities propagate through the chain.
+Conceptually, the "multiply" closure captures "factor" by ownership.
 
-### 5.2 Nonlinear chains
+When the closure target and captured value are statically known, SAGE can consider:
 
-Nonlinear chains allow branching and dependency-aware execution.
+1. Resolving the closure's concrete call target.
+2. Eliminating indirect dispatch.
+3. Scalarizing its environment.
+4. Moving the captured value directly into SSA computation.
+5. Inlining the closure body.
+6. Combining the multiplication and accumulation into the enclosing loop.
 
-```text
+A possible equivalent lower-level form is:
 
-chain Approval
-    stage identity = verify_identity(request)
-    stage limits = verify_limits(request)
+routine compute(values: view<int>, factor: int) gives int
+    var total: int = 0
 
-    stage decision after identity, limits
-        if identity and limits
-            give approved
+    for value in values
+        total += value * factor
 
-        give denied
-```
+    give total
 
-The execution structure is a dependency graph rather than necessarily a single ordered list.
+This transformation is eligible only when all original semantics are preserved.
 
-Independent stages may be eligible for concurrent evaluation only when their effect, ownership, and ordering obligations permit it.
+The closure does not require heap allocation merely because it captures a value.
 
-A dependency graph must not accidentally become an unbounded recursive computation. Cyclic feedback requires an explicitly defined bounded or terminating loop form.
+9.2 Explicit Dynamic Closure
 
-### 5.3 Chain guarantees
+A proposed dynamically escaping closure interface might take the following form:
 
-A conforming chain system must:
+routine make_multiplier(
+    factor: int
+) with alloc gives result<
+    own dyn_closure<(int), int>,
+    AllocationError
+>
+    let operation =
+        move routine(value: int) gives int
+            => value * factor
 
-* Check stage types and compatible inputs.
+    give try box_closure(operation)
 
-* Preserve observable effect ordering.
+This is a proposed Edition-2027 API design, not frozen grammar.
 
-* Respect borrowed and owned value lifetimes.
+The important properties are:
 
-* Verify dependencies before permitting execution.
+- Dynamic ownership is explicit.
+- Allocation requirements are explicit.
+- Allocation failure is recoverable.
+- The closure captures "factor" by ownership.
+- Its environment remains valid until its owning lifetime ends.
+- Disposal is deterministic under normal ownership and cleanup rules.
+- No garbage collector is required.
+- The implementation must not conceal an unbounded allocation behind an ordinary static-closure operation.
 
-* Prevent unauthorized capsule access.
+An allocation-backed closure is not automatically required simply because it is returned from a routine.
 
-* Represent recoverable failures explicitly.
+Returning a concrete owned closure value may remain allocation-free.
 
-* Preserve deterministic results where deterministic execution is promised.
+Dynamic allocation is needed only when the chosen representation and lifetime contract require it.
 
-* Distinguish local reversible changes from externally visible effects.
+---
 
-* Require explicit scheduling and resource contracts for parallel operation.
+10. SAGE 2027 — ALGEBRAIC CONJECTURE ARCHITECTURE
 
-A chain is not a security bypass, implicit transaction, or automatic parallel scheduler.
+The existing three-level SAGE authority hierarchy remains unchanged:
 
-### 5.4 Chains working across capsules
+Semantic Analysis — authoritative
 
-Family: FinancialAccounts
+Structural Analysis — descriptive
 
-Common interfaces and contract requirements
+Stylometric and Adaptive Analysis — advisory/guided
 
-Source Capsule
+The governing rule remains:
 
-Protected state A
+«Stylometry may suggest. Semantics must prove.»
 
-Destination Capsule
+Draft 0.2 introduces Algebraic Conjecture Optimization as a distinct optimization discipline governed by that hierarchy.
 
-Protected state B
+10.1 Meaning of Algebraic Conjecture
 
-Transfer Chain
+An algebraic conjecture is a proposed relationship between two computational expressions, graph regions, closure representations, or instruction sequences.
 
-Request → Authorize → Prepare → Commit → Respond
+It asserts that a transformation might preserve the program's observable behavior while reducing computational cost.
 
-Explicit transaction protocol and failure handling
+A conjecture may arise from:
 
-A chain coordinating multiple isolated capsules may require prepare/commit acknowledgments, idempotent operation identifiers, and compensating actions.
+- E-graph equality saturation.
+- Structural pattern recognition.
+- Abstract interpretation.
+- Interprocedural escape analysis.
+- Known mathematical identities.
+- Closure and higher-order composition.
+- Resource and liveness reasoning.
+- Profile-guided profitability estimates.
+- Project-local stylometric optimization suggestions.
+- Previously validated transformation patterns.
 
-A local checkpoint does not automatically make such a multi-compartment operation atomic.
+A conjecture is not a proof.
 
-### 6\. Complete Edition-2027 feature register
+SAGE Semantic Core must establish that the proposed transformation is legal under the Paracine language contract before optimized PCIR can accept it.
 
-The following catalog incorporates every previously named feature. These are proposed language meanings, with explicit distinctions where multiple mechanisms might otherwise overlap.
+10.2 New SAGE Pipeline
 
-### 6.1 Types, relationships, identity, and structural intelligence
+The proposed expanded pipeline is:
 
-| Feature                 | Adopted proposed design                                                                                                                        |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Extensions              | Add type-associated behavior without modifying existing stored layouts or bypassing visibility.                                                |
-| Inheritance             | Single-state inheritance and multiple behavioral inheritance, subject to compatibility and authority checks.                                   |
-| Resolvers / resolutions | Deterministic name, type, overload, capability, inheritance, and conflict-resolution rules. A resolution is the verified result of a resolver. |
-| Mismatch                | Typed detection or representation of incompatible values, shapes, schemas, signatures, and declared expectations.                              |
-| Deduce                  | Explicitly request type, shape, effect, or constraint deduction from semantic evidence.                                                        |
-| Instances               | First-class capsule and object instance rules, including identity, lifetime, construction, and permitted references.                           |
-| Smart layering          | Compose behaviors, data views, contracts, or execution policies in explicitly ordered layers with predictable precedence.                      |
-| Smart nests             | Hierarchical structures with checked nesting, containment, visibility, ownership, and lifetime relationships.                                  |
-| Reframes                | Perform verified representation changes, shape transformations, or changes of computational perspective without unauthorized reinterpretation. |
-| Unused                  | Mark deliberately unused bindings, parameters, or results and distinguish them from accidentally discarded resources.                          |
-| Reuse                   | Reuse values or storage only when ownership, initialization, and lifetime conditions permit it.                                                |
-| Designate               | Assign a recognized purpose or semantic role to a value, declaration, region, or operation.                                                    |
-| Identify                | Inspect or establish permitted type, variant, instance, family, or resource identity.                                                          |
-| Qualifiers              | Extend type and declaration metadata for isolation, mutability, representation, authority, and resource constraints.                           |
-| Wrap                    | Construct verified wrappers around values, resources, or representations; separate from existing modular-arithmetic semantics.                 |
-| Create                  | Initialize instances with checked constructor obligations and explicit required resources.                                                     |
-| Dissolve                | Controlled disassembly, disposal, or ownership transfer of an instance while preserving disposal and isolation obligations.                    |
+.pcn source
+    |
+    v
+Normalization / Lexer / Parser
+    |
+    v
+Semantic Analysis
+    |
+    v
+Semantic Knowledge Model (SKM)
+    |
+    v
+Ownership / Effects / Provenance
+    |
+    v
+Structural Analysis
+    |
+    v
+Closure Escape + Abstract Interpretation
+    |
+    v
+Algebraic Candidate Synthesis
+    |
+    +--> Typed Equality Saturation (E-graphs)
+    |
+    +--> Structural Pattern Conjectures
+    |
+    +--> Optional Adaptive Prioritization
+    |
+    v
+Semantic Equivalence Validation
+    |
+    v
+Verified PCIR Transformation
+    |
+    v
+Cost-Guided Extraction
+    |
+    v
+PCIR Verification
+    |
+    v
+PMIR Lowering
+    |
+    v
+Native x86-64
 
-### 6.2 Security, authority, memory, and resource control
+The optimizer may operate iteratively. The diagram expresses authority and dependency relationships, not a requirement that all optimization passes execute exactly once in that order.
 
-| Feature        | Adopted proposed design                                                                                                             |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Masking        | Two distinct facilities: typed bit masking and access/visibility masking. Their meanings cannot be confused.                        |
-| Limits         | Typed capacity, count, time, memory, depth, and operation limits with explicit enforcement and failure rules.                       |
-| Avoid          | Declaratively exclude specified effects, access conditions, behaviors, or invalid execution paths.                                  |
-| Deep isolation | Security compartments backed by the enforcement mechanism required by the selected threat model.                                    |
-| Zone           | Named memory, authority, execution, or resource region with explicit rules for crossing its boundary.                               |
-| Smart scopes   | Lexical or structured scopes managing ownership, permissions, cleanup, and other defined obligations.                               |
-| Store          | Place a value into owned or borrowed storage with initialization, lifetime, and authorization checks.                               |
-| Tamper         | Check protected-state integrity against declared mechanisms, including version checking or authenticated integrity where specified. |
-| Allow          | Authorize operations within a defined authority scope without fabricating missing privileges.                                       |
-| Deny           | Prohibit a declared operation or effect; conflicting permission rules resolve conservatively.                                       |
-| Contracts      | Preconditions, postconditions, invariants, and caller/callee obligations, with proof or runtime-check semantics.                    |
-| Availability   | Typed readiness or availability inquiry, acknowledging that resource status may change after observation.                           |
-| Smart aliasing | Provenance-aware alias analysis, controlled reference sharing, and explicit static or primitive-established disjointness.           |
+10.3 Typed E-Graphs and Equality Saturation
 
-### 6.3 Collections, matrices, traversal, and data transformations
+An E-graph represents groups of expressions considered equivalent under proven rewrite rules.
 
-| Feature             | Adopted proposed design                                                                                                    |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Lists               | Typed ordered collections with defined ownership, growth, indexing, and iterator invalidation.                             |
-| Smart arrays        | Shape-aware arrays with checked views, dimensions, transformations, and explicitly fallible dynamic storage.               |
-| Matrix              | Native multidimensional mathematical abstraction with shape and element-type requirements.                                 |
-| Linear traversal    | Ordered, single-path iteration over a defined structure.                                                                   |
-| Nonlinear traversal | Graph, tree, multidimensional, or dependency-directed visitation with explicit cycle and ordering policies.                |
-| Gap                 | Represent an intentional missing interval, position, or region in a compatible sequence or editable structure.             |
-| Sequence            | A typed ordered progression of values or computations with defined evaluation rules.                                       |
-| Fill                | Populate a bounded region using values or a generator, with checked capacity and ownership.                                |
-| Rearrange           | Validated reordering or permutation without losing owned elements or duplicating exclusive references.                     |
-| Scaling             | Scale numbers, coordinates, vectors, matrices, or bounded structures according to the relevant numerical contracts.        |
-| Taper               | Apply an explicitly defined gradual progression or reduction across a sequence or numerical domain.                        |
-| Trim                | Remove or select a bounded portion, distinguishing borrowed views from mutating or owning operations.                      |
-| Cut                 | Split or extract a collection using validated boundaries and declared ownership behavior.                                  |
-| Posit               | Introduce optional bit-configurable posit numerical types; logical propositions remain a separate contract facility.       |
-| Embed               | Include verified compile-time bytes or structured constant resources through explicit source declarations and size limits. |
+Equality saturation explores multiple equivalent forms without immediately committing to one local rewrite.
 
-### 6.4 Execution control, state recovery, interaction, and adaptive work
+Paracine's E-graph system must be:
 
-| Feature             | Adopted proposed design                                                                                                          |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Checkpoints         | Define reversible state regions with explicit snapshots, logs, or equivalent mechanisms.                                         |
-| Continue            | Extend continuation contexts while preserving all existing Edition-2026 loop behavior.                                           |
-| Revert              | Restore a chosen value or configuration version according to explicit versioning rules.                                          |
-| Rollback            | Undo eligible reversible changes within a checkpoint or transaction, then transfer control predictably.                          |
-| Conditions          | Reusable typed predicates and conditional obligations, with boolean semantics.                                                   |
-| Smart rendering     | Typed rendering descriptions and transformation graphs with explicit allocation, device, and output effects.                     |
-| Postpone            | Defer an operation to a declared later point, with bounded lifetime and scheduling requirements.                                 |
-| Recover             | Handle recoverable state errors or failed transactions while preserving established invariants.                                  |
-| Toggle              | Transition among explicitly permitted states; checked transitions replace ambiguous uncontrolled flips.                          |
-| Ask                 | Send a typed request to a routine, resource, chain, or capsule boundary.                                                         |
-| Respond / responses | Typed outcomes including success, failure, refusal, or declared protocol-specific alternatives.                                  |
-| Smart ping          | Bounded readiness/liveness probe yielding a typed observation rather than permanent availability guarantees.                     |
-| Durations / spans   | Typed temporal intervals and bounded windows, separate from the existing memory span<T>.                                         |
-| Train               | Typed, bounded training computations and distinct compiler-guided heuristic training, each with explicit effects and provenance. |
+- Type-aware.
+- Effect-aware.
+- Ownership-aware.
+- Trap-aware.
+- Alias-aware.
+- Provenance-aware.
+- Arithmetic-mode-aware.
+- Resource-bounded.
 
-The standard spelling proposed for the previously entered `reapond` is `respond`, and `extentions` and `inheritence` are normalized to `extensions` and `inheritance`. These are naming decisions for the proposed edition, not source compatibility guarantees for misspellings.
+The optimizer may explore alternative computation shapes and extract a candidate according to a defined cost model.
 
-### 7\. Additional numerical and compile-time features
+The cost model may consider:
 
-The earlier recommendations for closing gaps in Paracine's language-level capabilities are also incorporated into this proposal.
+- Estimated instruction count.
+- Machine code size.
+- Register pressure.
+- Spill count.
+- Direct versus indirect calls.
+- Memory traffic.
+- Allocation requirements.
+- Dependency depth.
+- Branch behavior.
+- Expected execution frequency.
+- Compile-time optimization cost.
 
-### 7.1 Bit-precise integers
+However, the cheapest-looking representation is not necessarily the fastest on real hardware.
 
-Add:
+Cost estimates select candidates; they do not establish semantic equivalence.
 
-* `bitint<N>` — signed N-bit integer.
+10.4 Abstract Interpretation
 
-* `ubitint<N>` — unsigned N-bit integer.
+Abstract interpretation supplies conservative facts about program behavior without executing every possible concrete input.
 
-These retain Paracine's modular integer semantics at their declared widths.
+Proposed abstract domains include:
 
-```text
+- Constant values.
+- Integer ranges.
+- Known bit patterns.
+- Nullability.
+- Object initialization.
+- Borrow regions.
+- Pointer provenance.
+- Alias relationships.
+- Closure capture identities.
+- Escape classifications.
+- Effect summaries.
+- Potential trap conditions.
+- Loop invariants.
+- Ownership liveness.
 
-let flags: ubitint<3> = 5
-let temperature: bitint<17> = 45000
+These facts may establish when an E-graph rewrite is legal.
 
-let a: bitint<17> = 50000
-let b: bitint<17> = 20000
-let total = a + b
-```
+For instance, an abstract interpretation result might prove that a closure environment remains within a caller's execution extent.
 
-The final addition wraps according to 17-bit signed arithmetic.
+That proof could permit scalarization or stack allocation.
 
-The language must define permitted widths, layout and padding, conversions, interoperability, and how mixed-width expressions are resolved. It must not introduce implicit narrowing conversions.
+If the proof cannot be established, the optimizer must preserve a valid representation.
 
-### 7.2 Decimal floating-point
+10.5 Structural and Stylometric Conjecture Generation
 
-Introduce the types:
+SAGE Structural Analysis may recognize:
 
-`decimal32`, `decimal64`, `decimal128`
+- Repeated closure invocation patterns.
+- Map/filter/fold sequences.
+- Nested currying.
+- Redundant wrapper closures.
+- Allocation and release pairs.
+- Constant captures.
+- Repeated projection operations.
+- Common loop bodies.
+- Resource conversion chains.
+- Closure-valued fields that never escape.
+- Redundant higher-order abstractions.
 
-They would represent decimal floating-point values with explicitly specified rounding and exceptional-value semantics.
+Optional Stylometric and Adaptive Analysis may prioritize optimization candidates based on project-local observations.
 
-A decimal computation should not silently change to binary floating-point simply because one representation is more convenient.
+Such information can influence which candidates are examined first and how much optimization effort is spent.
 
-### 7.3 Complex numbers
+It cannot determine:
 
-Introduce:
+- Type validity.
+- Ownership correctness.
+- Alias legality.
+- Lifetime legality.
+- Security authority.
+- Effect equivalence.
+- Trap equivalence.
+- Unsafe correctness.
+- The truth of an algebraic identity.
 
-`complex<T>`
+Every accepted transformation remains subject to authoritative semantic requirements.
 
-The initial intended domain is compatible real floating-point element types.
+---
 
-```text
+11. PCIR ALGEBRAIC OPTIMIZATION AND CLOSURE REALIZATION
 
-let z: complex<double> = complex(3.0, 4.0)
-let w: complex<double> = complex(1.0, 2.0)
-let combined = z + w
-```
+PCIR remains Paracine's authoritative semantic intermediate representation.
 
-The language must specify complex arithmetic, constructors, conversions, special values, and the relevant representation rules.
+Draft 0.2 adds a set of closure-aware optimization capabilities.
 
-### 7.4 Posit numerical types
+11.1 Defunctionalization and Environment Scalarization
 
-Introduce a separate family:
+Conjecture
 
-`posit<N, ES>`
+An apparently escaping closure may not actually escape beyond the dynamic extent of its known caller.
 
-Where `N` specifies the posit bit width and `ES` its exponent-size parameter.
+Alternatively, a closure's captured state may be constant or reducible to scalar values.
 
-This is an optional numerical facility, not a replacement for binary or decimal floating-point.
+A nested closure chain may therefore not require persistent environment objects.
 
-A normative 2027 specification would need to define supported configurations, rounding, exceptional representations, conversions, arithmetic behavior, and reproducibility before qualifying the feature.
+Analysis
 
-### 7.5 Explicit safe layouts
+SAGE performs interprocedural escape analysis.
 
-Expand representation control through verified declarations for:
+It determines:
 
-* Alignment.
+- Where the closure is created.
+- Which values it captures.
+- Whether those values are borrowed or owned.
+- Where the closure is stored.
+- Whether it is returned.
+- Whether its concrete type is known.
+- Whether it can be invoked after its source region ends.
+- Whether it crosses a dynamic dispatch or FFI boundary.
+- Whether it crosses a thread or security compartment boundary.
+- Whether its environment identity or allocation is observable.
 
-* Field offsets.
+If the compiler proves that the environment does not need its original aggregate representation, PCIR may scalarize it.
 
-* Bit-packed representations.
+Optimization
 
-* Fixed-width storage fields.
+The original conceptual form:
 
-* Externally compatible records.
+MakeClosure(environment)
+CallClosure(closure, argument)
+DisposeClosure(closure)
 
-* Explicitly sized trailing storage.
+May become:
 
-Safe layout declarations must remain subject to bounds, alignment, initialization, lifetime, and ownership rules. Unchecked representation reinterpretation remains unsafe.
+DirectCall(captured_scalar, argument)
 
-### 7.6 Typed static reflection and generation
+Or the call may be completely inlined.
 
-Add a bounded, type-safe reflection facility building on SAGE's semantic knowledge.
+Potential instruction reduction
 
-Proposed capabilities include:
+Eligible transformations may remove:
 
-* Inspecting field names, types, offsets, and visibility where permitted.
+- Environment allocation.
+- Closure descriptor construction.
+- Environment pointer loads.
+- Indirect calls.
+- Environment field extraction.
+- Temporary object transfers.
+- Redundant disposal operations.
+- Associated register and stack traffic.
 
-* Inspecting routine signatures and effects.
+Safety requirements
 
-* Inspecting variant alternatives.
+Scalarization must preserve:
 
-* Inspecting family and capsule relationships.
+- Capture values.
+- Ownership transfers.
+- Borrow lifetimes.
+- Mutable capture semantics.
+- Required disposal.
+- Required effects.
+- Observable identity and allocation.
+- Synchronization.
+- Trap ordering.
 
-* Inspecting compile-time constraints.
+The optimization is not legal merely because an object appears temporary.
 
-* Generating verified declarations through an expanded typed `@derive`.
+11.2 Closure Fusion and Map/Filter Algebraic Identities
 
-* Rejecting generated declarations that violate ownership or other semantic rules.
+Conjecture
 
-For example, a proposal might allow:
+Multiple compatible higher-order stages may be composed into one equivalent computation.
 
-```text
+For suitable pure functions:
 
-record Vector2
-    x: double
-    y: double
+[
+\operatorname{map}(g)\circ\operatorname{map}(f)
 
-@derive(Eq, Debug)
-reflect<Vector2>
-```
+\operatorname{map}(g\circ f)
+]
 
-Conceptual reflection and derive syntax; no final syntax is established.
+This mathematical identity suggests that two map stages may be fused.
 
-Reflection metadata is not automatically a runtime disclosure of private fields. Capability and visibility restrictions remain binding.
+Optimization
 
-The facility would not introduce arbitrary textual preprocessor macros or unrestricted compiler-executed scripts.
+Conceptually:
 
-### 8\. How the new features interact
+items
+    -> map(f)
+    -> map(g)
+    -> fold(h)
 
-The biggest engineering requirement for Paracine 2027 is that its advanced features work together coherently rather than acting as disconnected extensions.
+May be transformed into one traversal performing the equivalent operations directly.
 
-### 8.1 Checkpoints, revert, rollback, and recover
+Potential instruction reduction
 
-These mechanisms receive distinct semantics.
+When legal, fusion can eliminate:
 
-Checkpoint
+- Intermediate collections.
+- Temporary closure environments.
+- Extra iterator objects.
+- Repeated loop tests.
+- Redundant bounds checks.
+- Repeated element loads.
+- Intermediate stores.
+- Indirect calls.
+- Temporary allocations.
 
-Establishes a boundary within which specified state changes can be recorded and reversed.
+Restrictions
 
-Revert
+Fusion must preserve:
 
-Restores an explicitly versioned value or state to an earlier valid version.
+1. Exact element visitation semantics.
+2. Evaluation order.
+3. Required closure invocation counts.
+4. Early termination behavior.
+5. Effects and synchronization.
+6. Recoverable failure propagation.
+7. Terminal trap behavior.
+8. Ownership and cleanup.
+9. Floating-point evaluation semantics.
+10. Resource and allocation behavior required by the contract.
 
-Rollback
+The compiler must not assume general monad laws apply automatically to effectful operations.
 
-Reverses the eligible modifications of a checkpoint or transaction.
+The mathematical identity is a candidate transformation, not an unconditional authorization.
 
-Recover
+11.3 Partial Evaluation and Currying Collapse
 
-Handles a recoverable failure and establishes a valid continuation state.
+Conjecture
 
-The proposed transaction model uses these rules:
+A closure capturing another closure may contain values that remain invariant across a hot loop or call region.
 
-* An ordinary successful checkpoint commits its reversible changes.
+For example:
 
-* Explicit rollback reverses eligible changes before leaving the checkpoint.
+outer_fn(inner_closure)
 
-* Recoverable failure propagation rolls back an active transactional checkpoint when that behavior is declared.
+The captured values and callable targets may be statically known.
 
-* Externally observable operations cannot be reversed merely by restoring memory.
+Optimization
 
-* Terminal traps preserve Edition-2026 semantics: immediate process termination without unwinding, deferred cleanup, or guaranteed rollback.
+SAGE may:
 
-Consequently, a transaction capable of recovery after a process crash would require a stronger explicit persistence protocol. A normal in-memory checkpoint is not sufficient.
+- Identify invariant captures.
+- Specialize the inner callable.
+- Inline known closure calls.
+- Hoist environment construction.
+- Eliminate constant fields.
+- Merge compatible closure layers.
+- Replace captured values with direct SSA operands.
 
-### 8.2 Smart arrays, lists, and matrices
+PMIR realization
 
-These would constitute three related but separate collection abstractions.
+An unoptimized closure chain may require operations equivalent to:
 
-| Type                        | Role                                 | Key guarantees                                                  |
-| --------------------------- | ------------------------------------ | --------------------------------------------------------------- |
-| array<T,N>                  | Existing fixed-size array            | Preserved Edition-2026 semantics                                |
-| smart_array<T,Shape,Policy> | Shape-aware, policy-controlled array | Checked shape, access, transformation, and storage requirements |
-| list<T,Policy>              | Ordered collection                   | Defined growth, iteration, mutation, and element ownership      |
-| matrix<T,R,C>               | Mathematical multidimensional value  | Shape compatibility and defined numerical operations            |
+mov rax, [rcx + 8]
+mov rdx, [rax + 16]
 
-```text
+The optimized form may use a directly available register value or encoded immediate instead.
 
-let samples: smart_array<int, 4> = [4, 8, 12, 16]
+This is conditional on register allocation, operand encoding, calling convention, and semantic legality.
 
-let weights: matrix<double, 3, 3>
+Benefits
 
-let selected = samples.cut(1..3)
-let expanded = selected.fill(to: 6, value: 0)
+Potential benefits include:
 
-let transformed = weights.scale(2.0)
-```
+- Reduced pointer chasing.
+- Fewer memory loads.
+- Reduced call overhead.
+- Smaller closure environments.
+- Lower register pressure in some cases.
+- Improved constant propagation.
+- Improved inlining opportunities.
 
-Illustrative 2027 collection interfaces. Whether operations return views, owned values, or fallible results will be specified individually.
+These benefits must be measured. Aggressive inlining or specialization can also increase code size and register pressure.
 
-Storage policies must not change mathematical results or bypass borrowing rules.
+11.4 Algebraic Liveness and Reference-Management Elimination
 
-For example, a dynamically growing `list` may require allocation, while a fixed-capacity smart array need not. Both must expose their relevant storage and failure contracts.
+Conjecture
 
-### 8.3 Linear and nonlinear traversal
+Certain reference-management operations may cancel because the compiler can prove that their net observable effect is unnecessary.
 
-Traversal becomes a reusable semantic abstraction rather than just a collection of loop patterns.
+Examples include:
 
-Linear
+retain(value)
+release(value)
 
-Ordered traversal through a known sequence
+Or:
 
-Nonlinear
+allocate(environment)
+use(environment)
+free(environment)
 
-Branching traversal of a graph or hierarchy
+Optimization
 
-A nonlinear traversal must specify how cycles, repeated nodes, visitation order, and resource bounds are handled.
+SAGE may remove eligible operations when it proves that:
 
-It must not automatically imply parallel processing. Traversal order and execution scheduling are different concepts.
+- Object lifetime remains valid.
+- Ownership obligations are preserved.
+- The environment's identity does not escape.
+- Required destructor behavior is preserved.
+- Allocation failure behavior is preserved or proven impossible/redundant.
+- No observer can distinguish the removed operations under the specified semantics.
+- Atomic ordering and synchronization obligations remain satisfied.
 
-### 8.4 Smart nesting and smart layering
+Potential instruction reduction
 
-Smart nesting governs containment relationships. Smart layering governs ordered composition.
+Eligible programs may avoid:
 
-A nested structure must satisfy parent-child lifetime, access, and destruction constraints.
+- Atomic reference-count increments.
+- Atomic reference-count decrements.
+- Lock-prefixed reference-management instructions.
+- Heap allocation calls.
+- Heap release calls.
+- Unnecessary cleanup blocks.
+- Redundant ownership bookkeeping.
 
-A layered structure must specify conflict precedence, transformation order, visibility, and interaction among layers.
+Critical restriction
 
-A smart layer must not silently override a capsule's isolation requirements or a family's inherited contracts.
+Reference counting is not mandatory for all Paracine closures.
 
-### 8.5 Rendering and training
+These optimizations apply only where reference management actually exists in the selected representation.
 
-Smart rendering is proposed as a typed description of graphical computations and their dependencies. It may support layout transformations, rendering passes, reusable graphical resources, scaling, and explicit execution targets.
+Additionally, an atomic retain/release pair is not automatically removable.
 
-Training is proposed in two domains:
+Atomic synchronization may have observable consequences, and disposal operations may release resources or perform effects.
 
-Program training describes data transformations, trainable parameters, objectives, updates, and resource limits. Numerical and shape requirements must be checked, and nondeterministic behavior must be declared.
+Allocation may also fail, trap, affect resource limits, or expose identity.
 
-Compiler heuristic training extends SAGE's existing adaptive analysis. It may learn which legal transformations are profitable, but cannot learn new language semantics or authorize invalid optimizations.
+Removing such behavior requires an appropriate semantic proof.
 
-Both systems require explicit accounting for effects, resources, and reproducibility. Neither requires a particular external AI service or graphics library as part of the language definition.
+---
 
-### 9\. Proposed unified source example
+12. EDITION-2027 DYNAMIC ESCAPING CLOSURES
 
-The following example illustrates how multiple 2027 features could coexist in one program.
+This section introduces an explicitly proposed language-semantic extension beyond the frozen 2026 static closure model.
 
-It is a design sketch, not a verified compilable program. It uses provisional keywords and interfaces that must be resolved through the final grammar.
+12.1 Existing Closure Foundation
 
-```text
+Edition 2026 specifies statically typed, monomorphized capturing closures without mandatory heap allocation, boxing, garbage collection, or dynamic dispatch.
 
-module secure.inventory
+Concrete closure values may capture state by shared borrow, exclusive borrow, or ownership.
 
-family InventoryFamily
-    member InventoryBase
-    member SecureInventory
+Valid owned closure values may be moved or returned according to their types and lifetime rules.
 
-    contract shared nonnegative_stock
+A closure does not require heap storage solely because it is returned from a function.
 
-capsule InventoryBase
-    isolate logical
+12.2 New Dynamic Closure Representation
 
-    private var stock: int = 0
+Edition 2027 proposes a distinct dynamically owned closure form for programs that require a longer-lived, type-erased, or dynamically stored callable representation.
 
-    contract invariant stock >= 0
+Its precise final spelling is unresolved.
 
-    public routine quantity(self) gives int
-        give self.stock
+A candidate form is:
 
-capsule SecureInventory inherit InventoryBase
-    isolate deep
+dyn_closure<Arguments, Result>
 
-    private var items: smart_array<int, 16>
+Construction may use an explicit allocation-capable operation such as:
 
-    zone inventory_state
-        deny external_mutation
-        deny raw_export
-        allow verified_updates
+box_closure(...)
 
-    limit memory = 1_048_576
+This representation would support closure environments whose concrete storage cannot remain exclusively within an ordinary caller-local representation.
 
-    public routine update(
-        var self,
-        index: size,
-        value: int
-    ) gives result<void, InventoryError>
+12.3 Allocation Contract
 
-        if value < 0
-            fail InventoryError.invalid_quantity
+A heap-backed closure constructor must disclose its allocation behavior through the effect system.
 
-        if index >= 16
-            fail InventoryError.out_of_bounds
+A fallible constructor returns an appropriate "result" or equivalent recoverable outcome.
 
-        checkpoint @update
-            self.items[index] = value
+The compiler must not silently introduce an unaccounted heap allocation into ordinary static closure semantics.
 
-        give
+This preserves Paracine's preference for predictable resource usage and no mandatory heap allocation for ordinary closures.
 
-chain InventoryReview
-    stage identify = identify(inventory)
-    stage available = availability(inventory)
+12.4 Ownership and Disposal
 
-    stage report after identify, available
-        if available
-            respond inventory.quantity()
+A dynamically owned closure has a defined owning lifetime.
 
-        respond unavailable
-```
+The language must specify:
 
-The design combines nominal capsule identity, inheritance, family membership, deep isolation, protected zones, resource limits, smart arrays, contracts, checkpoints, requests, and chain-level responses.
+- Who owns the closure environment.
+- Whether ownership can be transferred.
+- Whether shared ownership is permitted.
+- How shared ownership is synchronized.
+- Which references may be retained.
+- How borrowed captures are restricted.
+- When the environment is disposed.
+- Whether disposal has observable effects.
+- What happens when allocation fails.
 
-For a deep-isolated inventory, the chain's `quantity` operation would be lowered through its authorized compartment interface rather than directly borrowing its private memory.
+Normal disposal follows ownership and cleanup rules.
 
-The final type system must define that distinction clearly.
+Terminal traps continue to obey the existing no-unwind policy.
 
-### 10\. Grammar and semantic integration policy
+The runtime is not required to perform general garbage collection.
 
-Adding dozens of new features does not require reserving dozens of new words.
+12.5 Thread Escape
 
-I recommend three levels of syntax.
+A closure transferred across threads must satisfy the required thread-safety and ownership constraints.
 
-| Syntax category                     | Intended uses                                                      | Examples                                         |
-| ----------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------ |
-| Primary declarations                | Constructs introducing new language-level identities               | capsule, family, chain, extension                |
-| Contextual statements and modifiers | Constructs requiring special control-flow or authority behavior    | isolate, contract, checkpoint, rollback, inherit |
-| Typed operations and intrinsics     | Operations representable through ordinary typed calls or built-ins | fill, trim, cut, identify, scale, smart_ping     |
+Borrowed captures cannot escape their permitted regions.
 
-This minimizes accidental collisions with existing source identifiers and helps preserve 2026 compatibility.
+Shared mutable state requires sound synchronization.
 
-### Important naming and semantic distinctions
+The ability to move a closure across threads is not automatically granted by the presence of a dynamic closure handle.
 
-* `continue` retains its existing loop-jump and post-test-loop meanings; any new continuation form must be unambiguous.
+Where the closure's concrete environment can be moved safely as a value, a heap allocation may still be unnecessary.
 
-* Temporal spans are not interchangeable with the existing memory `span<T>`.
+12.6 Dynamic Collections
 
-* `wrap` as a typed wrapper operation is distinct from ordinary modular integer arithmetic.
+A dynamically typed collection of callables may require uniform closure handles or an explicitly defined representation.
 
-* `masking` for access visibility is distinct from bitwise masking.
+Examples include lists containing closure implementations with different capture layouts.
 
-* `posit<N,ES>` names a numerical representation; a logical proposition belongs to the contract system.
+The compiler may optimize such collections when it proves the concrete call targets and storage behavior.
 
-* `postpone` is not an implicit promise of asynchronous execution. Deferred work beyond a lexical scope requires an explicit scheduling and ownership contract.
+Where actual heterogeneous dynamic storage is necessary, the language must preserve its allocation, dispatch, ownership, and disposal requirements.
 
-* `train` may describe program computation or compiler heuristic adaptation, but those mechanisms have different authority.
+12.7 DLL and FFI Boundaries
 
-* `recover` cannot catch the terminal traps established by Edition 2026.
+Closure values cannot automatically cross a foreign ABI boundary merely because their machine-level components resemble pointers.
 
-No automatic rewriting of existing 2026 program meanings is permitted merely because a new edition recognizes a similar name.
+Foreign-visible callbacks require a declared compatible interface.
 
-### 11\. SAGE 2027 — expanded authoritative analysis
+Where appropriate, Paracine may generate a Windows x64 ABI thunk that adapts a closure to an explicitly supported callback representation.
 
-The new language facilities require SAGE to understand additional semantic relationships.
+The thunk must preserve:
 
-| SAGE analysis domain        | New responsibilities                                                                 |
-| --------------------------- | ------------------------------------------------------------------------------------ |
-| Capsule analysis            | State visibility, construction, disposal, method authority, instance identity        |
-| Isolation analysis          | Compartment boundaries, permitted transfers, isolation enforcement contracts         |
-| Family analysis             | Membership, inheritance, shared contracts, compatibility, override legality          |
-| Chain analysis              | Stage dependencies, type compatibility, effect ordering, cycles, scheduling legality |
-| Transaction analysis        | Reversible storage, checkpoint regions, rollback conditions, external effects        |
-| Collection analysis         | Shape, dimensions, capacity, aliasing, mutation, element lifetime                    |
-| Numerical analysis          | Bit widths, decimal/posit formats, conversions, rounding, precision                  |
-| Reflection analysis         | Permitted metadata access, generated declarations, type integrity                    |
-| Resource analysis           | Memory, temporal, operation, depth, and other bounded obligations                    |
-| Rendering/training analysis | Effect requirements, execution resources, determinism, shape compatibility           |
+- Calling convention.
+- Argument and return layout.
+- Environment lifetime.
+- Ownership.
+- Error and trap boundaries.
+- Thread affinity.
+- Callback reentrancy.
+- Permitted synchronization.
+- Foreign pointer validity.
 
-The existing three-tier authority model remains:
+A closure crossing a DLL boundary may require an environment pointer and an agreed callback or release protocol.
 
-Semantic truth > Structural classification > Stylometric/adaptive suggestion.
+Foreign code is not guaranteed to respect Paracine ownership rules.
 
-Probability-weighted optimization, heuristic learning, and structural pattern recognition may improve compiler decisions, but cannot determine whether a program satisfies a capsule's security contract or a family's inheritance requirements.
+The appropriate unsafe/FFI contract remains mandatory.
 
-### 12\. PCIR and native semantics
+12.8 True Dynamic Escape Fallback
 
-Paracine 2027 should extend PCIR with explicit representations for the new language-level operations.
+When analysis cannot prove that a dynamically owned closure can be scalarized or retained in a smaller valid representation, the compiler must preserve the required dynamic representation.
 
-Proposed semantic operation families include:
+For an explicitly allocation-capable dynamic closure, the fallback may use:
 
-| IR family                             | Purpose                                                           |
-| ------------------------------------- | ----------------------------------------------------------------- |
-| Capsule construction/destruction      | Represent initialization, ownership, and disposal                 |
-| Capsule boundary calls                | Represent authorized cross-compartment interactions               |
-| Authority verification                | Preserve permission and capability checks                         |
-| Contract verification                 | Model preconditions, postconditions, and invariants               |
-| Family resolution                     | Preserve proven inheritance and compatibility facts               |
-| Chain control-flow graphs             | Represent stage dependencies and ordered execution                |
-| Checkpoint and transaction operations | Record reversible state and defined rollback transitions          |
-| Shape-aware collection operations     | Validate array and matrix transformations                         |
-| Typed numeric operations              | Preserve bit-precise, decimal, complex, and posit semantics       |
-| Temporal and resource operations      | Represent enforced bounds and availability outcomes               |
-| Rendering and training operations     | Carry typed resource and effect information until target lowering |
+- A deterministic heap environment.
+- Provenance-tracked allocation.
+- Exact ownership metadata.
+- Explicit allocation-effect accounting.
+- Required disposal behavior.
+- A statically known or dynamically selected call target.
+- Verified ABI thunks where applicable.
 
-These are semantic categories, not final opcode names.
+This fallback does not introduce a tracing garbage collector.
 
-### Native realization requirements
+It does not eliminate the possibility of allocation failure.
 
-A conforming backend must preserve:
+It must remain compatible with Paracine's memory-safety, ownership, and external-contract rules.
 
-* No silent loss of capsule authority checks.
+---
 
-* No direct access across isolation boundaries when mediation is required.
+13. ZERO-COST ABSTRACTION REALIZATION
 
-* No invalid reordering of effects across a checkpoint or potential failure.
+The optimization objective is to allow high-level, closure-heavy programs to compile to machine code comparable to a manually flattened equivalent.
 
-* No undefined behavior introduced through bit-precise arithmetic.
+13.1 Best-Case Outcome
 
-* No unauthorized overlapping exclusive references.
+For eligible code, the compiler may achieve:
 
-* No unverified elimination of contract checks.
+- Zero heap allocations attributable to eliminated closure environments.
+- Zero indirect closure calls.
+- Zero redundant retain/release operations.
+- Zero unnecessary intermediate collections.
+- One fused iteration loop.
+- Direct scalar register arguments.
+- Constant/immediate folding.
+- Reduced redundant loads.
+- Reduced avoidable register spills.
+- Equivalent trap, effect, and cleanup behavior.
 
-* No incorrect shape transformations.
+In favorable cases, the resulting x86-64 instruction sequence may be identical to, or operationally equivalent to, that produced from a hand-written flat loop.
 
-* No claims of deep isolation when enforcement is unavailable.
+For instance, a nested higher-order computation may reduce to the same machine-level arithmetic and control flow as a direct "from ... to" loop.
 
-The independent direct-native architecture remains authoritative.
+13.2 Limits of the Claim
 
-Support for a particular physical isolation mechanism is a declared target capability. Unsupported mechanisms must be rejected, not approximated with insufficient protection.
+The language does not guarantee:
 
-### 13\. Validation and production qualification
+- Identical machine-code bytes for all equivalent programs.
+- Zero allocation for every escaping closure.
+- Zero indirect calls for dynamically unknown callable targets.
+- Minimal register spills for every function.
+- Global optimality of instruction count.
+- Identical optimization decisions across different target profiles.
+- Faster execution in every workload.
+- Elimination of required capsule or security boundaries.
 
-The 2027 specification should not become frozen merely because its features have been documented.
+The compiler's cost model can seek a minimal representation within its search space and budget.
 
-Every proposed facility needs positive and negative conformance tests, semantic-interpreter comparisons where applicable, native code tests, and explicit acceptance evidence.
+It is not generally possible to guarantee discovery of globally minimal machine code for every arbitrary program.
 
-Proposed acceptance gates
+The correct specification claim is:
 
-0 of 12 marked
+Paracine 2027 is designed to realize zero-cost higher-order abstractions wherever authoritative semantic analysis proves that their runtime representation and overhead can be eliminated.
 
-Grammar and Edition-2026 compatibility
+13.3 Optimization Cost Accounting
 
-Capsule construction, visibility, ownership, and inheritance
+The compiler may report:
 
-Capsule memory/deep-isolation enforcement and fail-closed behavior
+- Initial closure count.
+- Retained closure count.
+- Scalarized closure environments.
+- Removed indirect calls.
+- Fused pipeline stages.
+- Eliminated temporary allocations.
+- Removed proven-redundant reference operations.
+- Remaining dynamic environments.
+- Estimated register pressure.
+- Actual machine-code size.
+- Applied and rejected algebraic conjectures.
+- Reasons for rejected transformations.
 
-Family and chain semantic verification
+These diagnostics may be included in SAGE explanation or optimization-report facilities.
 
-Contracts, effects, qualifiers, and resource limits
+They are measurements or analysis reports, not substitutes for correctness proofs.
 
-Checkpoint, rollback, revert, and recovery semantics
+---
 
-Lists, smart arrays, matrices, and traversal
+14. PCIR, PMIR, AND NATIVE VERIFICATION
 
-Bit-precise, decimal, complex, and posit numerical rules
+Draft 0.2 extends the proposed optimizer architecture without changing Paracine's canonical compilation path.
 
-Typed reflection, layout, and generated declarations
+.pcn
+  |
+  v
+Semantic Frontend
+  |
+  v
+SAGE
+  |
+  v
+PCIR
+  |
+  +--> Abstract Interpretation
+  |
+  +--> Escape Analysis
+  |
+  +--> Typed E-Graph Exploration
+  |
+  +--> Algebraic Conjecture Generation
+  |
+  +--> Semantic Equivalence Validation
+  |
+  +--> Closure Scalarization / Fusion
+  |
+  +--> Verified Optimization
+  |
+  v
+PMIR
+  |
+  +--> Instruction Selection
+  |
+  +--> Register Allocation
+  |
+  +--> Immediate Folding
+  |
+  +--> Call Lowering
+  |
+  +--> ABI Thunks
+  |
+  v
+x86-64 Machine Code
+  |
+  v
+COFF
+  |
+  v
+Native Linker
+  |
+  v
+PE32+
 
-Rendering, training, and temporal/resource behavior
+14.1 PCIR Requirements
 
-PCIR interpreter vs. native executable equivalence
+The IR must preserve:
 
-Security, reproducibility, and release conformance
+- Closure capture provenance.
+- Ownership and lifetime semantics.
+- Explicit allocation and disposal.
+- Dynamic versus concrete callable representations.
+- Required effect ordering.
+- Trap behavior.
+- Alias and synchronization facts.
+- Capsule authority boundaries.
+- Chain dependencies.
+- Typed numerical operations.
+- Source mapping.
 
-This is an interactive planning checklist, not verified implementation status. Marking an item here does not qualify the compiler.
+14.2 Verification Requirements
 
-### Minimum safety testing
+Every accepted optimization must pass the relevant PCIR structural and semantic checks.
 
-Capsule tests must cover hostile and malformed attempts to access private storage, bypass boundaries, retain invalid references, escalate authority through inheritance, or invoke an unavailable isolation mechanism.
+The compiler must not treat the existence of an E-graph equivalence class as independent proof that all its expressions are valid under every surrounding context.
 
-Transaction tests must cover recoverable failure, explicit rollback, nesting, ownership transfer, resource exhaustion, and the existing no-unwind terminal-trap policy.
+Rewrite rules must have verified preconditions.
 
-Numerical tests must cover boundary widths, overflow, exceptional values, conversion, rounding, and consistency between constant evaluation and native execution.
+Selected transformations must also satisfy the ordinary IR verification rules.
 
-The language contract should also require deterministic error reporting for unsupported constructs instead of silently substituting weaker behaviors.
+Where appropriate, translation validation, proof obligations, or an independently checked equivalence representation should be used to validate transformation legality.
 
-### 14\. Proposed development order and release policy
+14.3 Reference-Interpreter Differential Testing
 
-* Foundation — source grammar and type system
+The PCIR reference interpreter remains an important correctness oracle.
 
-    Finalize capsules, families, chains, inheritance, extensions, qualifiers, smart scopes, and their interaction with existing ownership and effects.
+Tests shall compare:
 
-* State and authority — contracts and compartments
+- Unoptimized PCIR behavior.
+- Optimized PCIR behavior.
+- Native machine execution.
+- Recoverable failures.
+- Terminal trap outcomes.
+- Ownership-sensitive outcomes.
+- Observable output.
+- Closure capture state.
+- Dynamic environment lifetime.
+- Resource behavior where semantically observable.
 
-    Define isolation profiles, capability authority, memory zones, masking, limits, requests/responses, checkpoints, rollback, and recovery.
+Differential testing provides evidence of correctness but does not, by itself, prove equivalence for every possible input.
 
-* Data and numerical expansion
+14.4 PMIR Optimization Requirements
 
-    Specify smart arrays, lists, matrices, linear/nonlinear traversal, bit-precise integers, decimal, complex, posit, and explicit layout.
+PMIR must support the lower-level realization of:
 
-* Static intelligence and high-level operations
+- Direct closure calls.
+- Indirect closure calls where necessary.
+- Specialized call targets.
+- Scalarized captured values.
+- Immediate operands.
+- Fused loop bodies.
+- Reduced temporary stack storage.
+- Register-aware environment access.
+- Appropriate calling thunks.
+- Preserved unwind and ABI requirements.
 
-    Formalize reflection, typed derive generation, chain optimization, rendering, training, temporal operations, and structured transformations.
+Instruction minimization is constrained by correctness, ABI rules, register availability, and target instruction encoding.
 
-* Native verification and conformance
+---
 
-    Extend SAGE, PCIR, PMIR, isolation enforcement, differential tests, semantic checks, and security qualification.
+15. VALIDATION, RELEASE QUALIFICATION, AND EDITION POLICY
 
-These phases describe a recommended engineering sequence, not completed milestones.
+The Draft-0.1 acceptance gates remain required.
 
-### Edition schedule
+Draft 0.2 adds mandatory conformance coverage for algebraic conjectures and dynamic closure behavior.
 
-| Edition     | Proposed policy                                                                               |
-| ----------- | --------------------------------------------------------------------------------------------- |
-| 2026        | Retain the frozen language baseline and its independent production-qualification requirements |
-| 2027        | Integrate the complete proposed feature register and target a December 2027 release           |
-| 2028 onward | Tentatively target December of each named edition year                                        |
+15.1 Expanded Acceptance Gates
 
-Every release window remains tentative. A feature should not be described as production-qualified merely because its planned edition date arrives.
+The preliminary release checklist now comprises the following categories:
 
-A feature requiring changes to Edition-2026 semantics must be edition-gated. A feature whose final security or behavioral contract is not implemented and verified must not be silently exposed as complete.
+1. Grammar and Edition-2026 compatibility.
+2. Capsule construction, visibility, ownership, and inheritance.
+3. Capsule memory/deep-isolation enforcement and fail-closed behavior.
+4. Family and chain semantic verification.
+5. Contracts, effects, qualifiers, and resource limits.
+6. Checkpoint, rollback, revert, and recovery semantics.
+7. Lists, smart arrays, matrices, and traversal.
+8. Bit-precise, decimal, complex, and posit numerical rules.
+9. Typed reflection, layout, and generated declarations.
+10. Rendering, training, and temporal/resource behavior.
+11. PCIR interpreter versus native executable equivalence.
+12. Security, reproducibility, and release conformance.
+13. Algebraic-conjecture soundness, closure escape analysis, scalarization, fusion, and dynamic closure lifetime validation.
 
-### 15\. Consolidated Paracine 2027 identity
+All thirteen remain proposed acceptance gates.
 
-### PARACINE 2027
+None is marked production-qualified merely by appearing in this specification.
+
+15.2 Algebraic Optimization Tests
+
+Mandatory test categories shall include:
+
+Closure escaping
+
+- Non-escaping local closures.
+- Returned concrete owned closures.
+- Returned borrowed closures that must be rejected.
+- Closures retained in nested aggregates.
+- Closures passed through generic routines.
+- Closures stored in dynamic collections.
+- Closures crossing thread boundaries.
+- Closures crossing FFI and DLL boundaries.
+
+Environment optimization
+
+- Constant captures.
+- Mutable captures.
+- Nested closure captures.
+- Scalarizable environments.
+- Environments requiring persistent storage.
+- Closure call devirtualization.
+- Inlining and partial evaluation.
+- Register pressure and spill behavior.
+
+Fusion
+
+- Pure map-map composition.
+- Compatible map/filter/fold fusion.
+- Early termination.
+- Effectful closures.
+- Recoverable failure.
+- Terminal trap ordering.
+- Ownership-sensitive iteration.
+- Floating-point reductions.
+- Alias-dependent operations.
+
+Reference and allocation behavior
+
+- Retain/release cancellation where legal.
+- Rejected retain/release cancellation where synchronization matters.
+- Allocation failure preservation.
+- Destructor and cleanup effects.
+- Resource-limit enforcement.
+- Dynamic closure disposal.
+- Rejection of use-after-free and double-disposal.
+
+Security interaction
+
+- Capsule-private closure captures.
+- Cross-zone references.
+- Deep-isolation boundary calls.
+- Unauthorized reference escape.
+- Required authorization checks.
+- Dynamic closure handles crossing compartment boundaries.
+
+15.3 Performance Tests
+
+Performance evaluation shall distinguish semantic correctness from optimization profitability.
+
+Benchmark groups should compare:
+
+- Hand-written flat loops.
+- Static capturing closures.
+- Nested capturing closures.
+- Higher-order chains.
+- Fused versus unfused pipelines.
+- Concrete owned closures.
+- Explicit heap-backed dynamic closures.
+- Direct versus indirect call lowering.
+- Scalarized versus retained environments.
+
+Measurements should include machine-code size, execution time, allocation count, indirect-call count, register spills, and compilation cost.
+
+No benchmark result may override a semantic-safety failure.
+
+15.4 Edition Compatibility
+
+The frozen Edition-2026 closure semantics remain unchanged when compiling source in Edition-2026 mode.
+
+Adding an E-graph optimization, closure scalarization, or another meaning-preserving compiler pass does not by itself require a language edition change.
+
+Such optimizations may be applied to existing valid 2026 programs if they preserve all 2026 semantics.
+
+By contrast, new public closure types, dynamic escape behavior, new allocation/effect requirements, or incompatible syntax and type-system rules are Edition-2027 language features.
+
+Edition-2027-specific semantics must remain gated to that edition.
+
+15.5 Planned Release Window
+
+Edition 2027 remains tentatively targeted for December 2027.
+
+Subsequent named editions are tentatively targeted for December of their respective release years.
+
+These are planning targets rather than promises of feature completion or production qualification.
+
+---
+
+16. ALGEBRAIC CONJECTURE OPTIMIZATION — AUTHORITATIVE PROPOSED ADDENDUM
+
+16.1 Definition
+
+Within Paracine 2027, Algebraic Conjecture Optimization is a compiler discipline that generates candidate equalities, transformations, and representation reductions, then accepts them only after authoritative semantic validation.
+
+Its purpose is to aggressively reduce unnecessary computation while preserving the exact language contract.
+
+It combines:
+
+- Equality saturation.
+- E-graphs.
+- Abstract interpretation.
+- Semantic Knowledge Model facts.
+- Escape and alias analysis.
+- Ownership-aware liveness.
+- Higher-order functional identities.
+- Closure specialization.
+- Control-flow and data-flow optimization.
+- Effect-sensitive transformation validation.
+- Optional adaptive profitability guidance.
+
+The fundamental distinction is:
+
+Conjecture proposes an equivalent computation. Semantic analysis establishes whether the replacement is legal.
+
+16.2 Relationship to SAGE Rules R47–R51
+
+The existing SAGE authority rules remain binding:
+
+- Semantic Analysis is deterministic and authoritative.
+- Structural Analysis identifies computational form but cannot change program meaning.
+- Stylometric Analysis is optional and advisory.
+- Every optimization requires semantic legality independently of stylistic suggestion.
+- Stylometry cannot establish type resolution, ownership, alias legality, synchronization legality, arithmetic meaning, or unsafe correctness.
+
+Algebraic conjectures operate beneath these rules.
+
+They do not replace them.
+
+16.3 First Optimization Family — Defunctionalization and Environment Scalarization
+
+An escaping closure may appear to require runtime allocation even when whole-program or interprocedural analysis proves its environment is unnecessary beyond a known region.
+
+SAGE may conjecture that:
+
+- The closure never actually escapes its caller's dynamic extent.
+- Its callable target is statically known.
+- Its captured state can be represented as scalar values.
+- Its nested closure-valued fields are constant or otherwise reducible.
+- Its environment allocation is semantically unobservable.
+
+If these conditions are proven, PCIR may replace the closure representation with direct scalar computation.
+
+The intended instruction-reduction path is:
+
+Escaping-looking closure
+    |
+    v
+Interprocedural Escape Analysis
+    |
+    v
+Capture and Lifetime Proof
+    |
+    v
+Environment Scalarization
+    |
+    v
+Direct Call or Inlined Computation
+    |
+    v
+Eliminated Temporary Environment
+
+This may remove heap allocation, indirect "CallClosure", and redundant drop glue.
+
+It does not permit the compiler to discard actually required ownership or disposal effects.
+
+16.4 Second Optimization Family — Closure Fusion and Functional Algebra
+
+SAGE may conjecture equivalence between compatible higher-order pipelines and fused computational forms.
+
+For suitable functions:
+
+[
+\operatorname{map}(g)\circ\operatorname{map}(f)
+
+\operatorname{map}(g\circ f)
+]
+
+Where the full program semantics permit, the compiler may fuse multiple traversal stages into one loop.
+
+Potential savings include:
+
+- Intermediate allocations.
+- Intermediate containers.
+- Temporary closure environments.
+- Additional iteration passes.
+- Repeated bounds checks.
+- Redundant loads and stores.
+- Indirect calls.
+
+Fusion must preserve iteration and effect semantics.
+
+The compiler cannot assume that all map/filter/fold pipelines satisfy unrestricted algebraic identities.
+
+16.5 Third Optimization Family — Partial Evaluation and Currying Collapse
+
+Nested closures may capture values that remain invariant.
+
+The compiler may use:
+
+- Constant propagation.
+- Interprocedural specialization.
+- Loop-invariant code motion.
+- Closure environment scalarization.
+- Known-callee substitution.
+- Immediate-operand selection.
+
+To reduce layered closure calls to direct computation.
+
+When machine-level constraints permit, environment pointer dereferences can become direct register operands or immediate constants.
+
+This can reduce pointer chasing and call overhead without changing the programmer's high-level expression.
+
+16.6 Fourth Optimization Family — Algebraic Liveness and Drop Elision
+
+SAGE may identify reference-management and disposal operations that are redundant under the actual ownership and effect model.
+
+It may remove paired retain/release operations or eligible allocation/disposal regions only when their absence is semantically indistinguishable.
+
+The proof must cover:
+
+- Lifetime validity.
+- Ownership uniqueness or shared ownership requirements.
+- Synchronization.
+- Observable destructor behavior.
+- Allocation failure.
+- Resource limits.
+- Pointer identity and provenance.
+- Program-visible effects.
+
+Atomic operations with meaningful synchronization cannot be canceled merely because their numerical reference-count changes sum to zero.
+
+16.7 Zero-Cost Abstraction Objective
+
+The best-case optimization outcome is a high-level computation that compiles to the same essential machine operations as its manually flattened equivalent.
+
+For eligible closure-heavy code, this may mean:
+
+- No closure heap allocation.
+- No indirect closure calls.
+- No unnecessary reference counting.
+- No intermediate collection allocations.
+- One fused traversal.
+- Direct register or immediate operands.
+- No redundant cleanup.
+
+This is a conditional target.
+
+The edition does not promise identical machine instructions for all programs.
+
+It does not promise that every genuinely dynamic closure can be eliminated.
+
+16.8 True Dynamic Escape Behavior
+
+If a closure genuinely requires dynamic lifetime or storage and cannot be represented safely as an ordinary concrete value, Edition 2027 provides an explicit allocation-capable representation.
+
+Its permitted implementation may retain:
+
+- A heap-allocated closure environment.
+- A deterministic ownership model.
+- Provenance metadata.
+- Explicit allocation effects.
+- Required disposal.
+- Dynamic dispatch when unavoidable.
+- Windows x64 ABI thunks where required.
+
+No hidden tracing garbage collector is introduced.
+
+The fallback must preserve the qualified Edition-2026 safety contract and the new Edition-2027 closure semantics.
+
+16.9 Effect and Trap Restrictions
+
+Algebraic transformations must preserve required:
+
+- "alloc"
+- "io"
+- "thread"
+- "trap"
+- "unsafe"
+
+Effects, together with all associated control-flow, ordering, ownership, and failure requirements.
+
+The mere presence of the "alloc" effect does not make allocation removable.
+
+Likewise, the absence of a programmer-visible closure object does not establish that its initialization or disposal is unobservable.
+
+Paracine's terminal traps retain their existing semantics.
+
+16.10 Reproducibility
+
+The optimization process must be deterministic for identical declared inputs.
+
+Guided heuristic profiles must be pinned and included among the declared build inputs.
+
+Adaptive optimization may change which proven legal candidates are explored and selected.
+
+It may not change program validity or language meaning.
+
+16.11 Required Verification
+
+A candidate transformation must satisfy:
+
+1. Type correctness.
+2. Ownership correctness.
+3. Lifetime correctness.
+4. Alias and provenance legality.
+5. Effect equivalence.
+6. Trap equivalence.
+7. Synchronization legality.
+8. Arithmetic equivalence.
+9. ABI compatibility.
+10. Capsule authority and isolation preservation.
+11. Resource-contract compliance.
+12. Applicable PCIR verification.
+
+A transformation that fails a required proof obligation must not be accepted.
+
+16.12 Binding Optimization Principle
+
+The final design rule is:
+
+«Generate conjectures aggressively. Establish equivalence rigorously. Remove overhead only when the language contract permits it.»
+
+This principle governs closure scalarization, pipeline fusion, partial evaluation, reference-management simplification, and future algebraic optimization systems.
+
+---
+
+17. UPDATED CONSOLIDATED PARACINE 2027 IDENTITY
+
+PARACINE 2027
 
 Write with intent. Compile with certainty.
 
-Language direction
+Language Direction
 
-A statically typed, ownership-aware, ahead-of-time native language combining rigorous semantics with advanced encapsulation, isolation, relationships, intelligent data operations, explicit state recovery, and constrained compile-time intelligence.
+A statically typed, ownership-aware, ahead-of-time native language combining rigorous semantic analysis with advanced encapsulation, enforceable isolation, structured relationships, intelligent data operations, explicit state recovery, constrained compile-time intelligence, and proof-governed algebraic optimization.
 
-Defining features
+Defining Systems
 
-Capsules
+System| Edition-2027 role
+Capsules| Enhanced classes and enforceable execution/security compartments
+Chains| Typed computational relationships and dependency structures
+Families| Shared contracts, controlled inheritance, and compatible type relationships
+Smart Structures| Arrays, lists, matrices, nesting, scopes, and traversal
+State Control| Checkpoints, rollback, revert, and recovery
+Advanced Numerics| Bit-precise, decimal, complex, and posit types
+Reflection| Typed compile-time inspection and declaration generation
+Authority| Permissions, contracts, zones, masking, and isolation
+Closure Evolution| Explicit dynamically owned closures with deterministic lifetime management
+Algebraic Conjecture Optimization| E-graphs, abstract interpretation, and semantic-proof-governed transformations
+Zero-Cost Abstraction Realization| Elimination of unnecessary higher-order overhead when equivalence is established
 
-Enhanced classes + enforced isolation
+Final Architecture
 
-Chains
+PARACINE 2027
+     |
+     v
+Language Frontend
+     |
+     v
+SAGE
+     |
+     +-- Semantic Knowledge Model
+     +-- Structural Analysis
+     +-- Escape & Ownership Analysis
+     +-- Abstract Interpretation
+     +-- Algebraic Candidate Synthesis
+     +-- Typed E-Graphs
+     +-- Semantic Equivalence Validation
+     |
+     v
+PCIR
+     |
+     +-- Constant Folding
+     +-- Closure Scalarization
+     +-- Defunctionalization
+     +-- Pipeline & Chain Fusion
+     +-- Partial Evaluation
+     +-- Algebraic Liveness
+     +-- Verified Transformation
+     |
+     v
+PMIR
+     |
+     +-- Instruction Selection
+     +-- Register Allocation
+     +-- Immediate Folding
+     +-- ABI Legalization
+     |
+     v
+x86-64 Machine Code
+     |
+     v
+COFF
+     |
+     v
+Integrated Native Linker
+     |
+     v
+PE32+
+     |
+     v
+Native Executable
 
-Typed computational dependencies
+FINAL DESIGN POSITION
 
-Families
+Paracine 2027 now combines four major architectural ambitions:
 
-Inheritance + shared contracts
+1. Controlled abstraction
 
-Smart structures
+Capsules, Families, Chains, smart structures, and typed reflection provide sophisticated programming constructs with explicit relationships and constraints.
 
-Collections, matrices, scopes
+2. Enforceable authority
 
-State control
+Isolation, permissions, contracts, ownership, and effects define what code may access and how it may execute.
 
-Checkpoints and recovery
+3. Recoverable state
 
-Advanced numerics
+Checkpoints, revert, rollback, and recover provide explicit handling of reversible program changes without pretending that all external or terminal failures can be undone.
 
-Bit-precise, decimal, complex, posit
+4. Proof-governed optimization
 
-Reflection
+SAGE and PCIR investigate algebraic relationships, closure escape behavior, redundant environments, higher-order composition, and resource liveness to remove unnecessary execution overhead.
 
-Typed inspection and derive
+The resulting design seeks to make high-level code as efficient as equivalent low-level code when the compiler can establish the necessary facts.
 
-Authority
+Where optimization cannot establish those facts, Paracine must retain the valid representation, required effects, and correct ownership behavior.
 
-Permissions and resource boundaries
+Final principle:
 
-Edition-2027 comprehensive proposed baseline • December 2027 target • No feature or implementation qualification implied
+Paracine allows the programmer to express sophisticated intent while requiring the compiler to preserve meaning, prove permitted transformations, and realize efficient native execution wherever possible.
 
-### Final design position
+---
 
-The full Paracine 2027 proposal now incorporates every feature you named and the recommendations developed throughout our discussion.
+Edition: 2027
+Specification: Preliminary Draft 0.2
+Release Window: December 2027 — Tentative
+Implementation Status: Not established by this proposal
+Conformance Status: Not yet qualified
+Edition-2026 Compatibility: Preserved through explicit edition rules
 
-Its most significant innovation is the Capsule–Family–Chain architecture:
-
-Capsules define protected objects and their execution authority. Families define how those objects and their behaviors relate. Chains define how their computations and authorized interactions proceed.
-
-The remaining facilities strengthen that architecture: smart storage and traversal organize data; contracts, qualifiers, masking, and zones constrain authority; checkpoints and rollback govern reversible changes; reflection and deduction expose verified structure; numerical extensions improve precision; and rendering and training introduce additional structured computational domains.
-
-Everything is designed to preserve Paracine's core principles: defined semantics, safe ownership, explicit effects, direct-native compilation, reproducibility, and a trustworthy boundary between verified behavior and programmer-authorized unsafe operations.
-
-Paracine 2027 is therefore a unified proposed next-generation language edition—not just a collection of new keywords. Its feature scope is consolidated, its architectural direction is established, and its individual syntax and guarantees remain subject to formal specification and conformance before the tentative December 2027 release.
+Paracine: Write with intent. Compile with certainty.
