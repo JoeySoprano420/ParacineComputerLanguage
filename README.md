@@ -5177,3 +5177,4 @@ That is the complete high-level component map across the master specification, i
 For maximum technical precision, the next level below this inventory would be a normative component-by-component reference manual, where each feature receives its exact grammar, accepted types, evaluation order, ownership rules, effects, failure conditions, PCIR operations, runtime obligations and conformance tests.
 
 
+
