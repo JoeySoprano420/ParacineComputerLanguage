@@ -5173,3 +5173,4 @@ ACO explores and verifies optimization opportunities.
 PCIR preserves the established semantics, PMIR maps them to machine-level operations, and the native backend and linker produce the executable.
 
 That is the complete high-level component map across the master specification, its supporting appendices, and your latest SAGE/POLR expansion.
+
