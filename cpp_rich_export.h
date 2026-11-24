@@ -10,6 +10,7 @@ static const char* portableRichRuntime() {
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <initializer_list>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -103,6 +104,33 @@ inline Value string_move(Value& source) {
 	if (!source.object || source.object->type != "string" || !source.object->storage) trap();
 	auto result = object("string"); result.object->storage = std::move(source.object->storage);
 	source.object->storage = std::make_shared<std::string>(); return result;
+}
+inline void move_owner_path(Value& source, Value& destination, const std::vector<std::string_view>& path, std::size_t depth) {
+	if (depth == path.size()) { destination = string_move(source); return; }
+	Value& sourceField = field(source, path[depth]);
+	Value& destinationField = field(destination, path[depth]);
+	if (!sourceField.object) trap();
+	if (destinationField.object == sourceField.object) {
+		auto copy = object(sourceField.object->type); *copy.object = *sourceField.object;
+		destinationField = std::move(copy);
+	}
+	move_owner_path(sourceField, destinationField, path, depth + 1);
+}
+inline Value closure_move(Value& source, std::initializer_list<std::string_view> ownerPaths) {
+	if (!source.object || !source.object->type.starts_with("closure$")) trap();
+	auto result = object(source.object->type); *result.object = *source.object;
+	for (const auto path : ownerPaths) {
+		std::vector<std::string_view> fields;
+		std::size_t begin = 0;
+		while (begin <= path.size()) {
+			const auto end = path.find('.', begin);
+			fields.push_back(path.substr(begin, end == std::string_view::npos ? path.size() - begin : end - begin));
+			if (end == std::string_view::npos) break;
+			begin = end + 1;
+		}
+		move_owner_path(source, result, fields, 0);
+	}
+	return result;
 }
 inline void dispose(Value& source) { if (!source.object || source.object->type != "string") trap(); source.object->storage = std::make_shared<std::string>(); }
 inline void clear(Value& source) { if (!source.object || source.object->type != "string" || !source.object->storage) trap(); source.object->storage->clear(); }
@@ -350,6 +378,27 @@ private:
 		case IROpcode::TextToString: assign("pcn_runtime::text(std::string(pcn_runtime::bytes(" + arg(0) + ")),true)"); break;
 		case IROpcode::StringToText: assign("pcn_runtime::borrow(" + arg(0) + ",0,pcn_runtime::bytes(" + arg(0) + ").size())"); break;
 		case IROpcode::StringMove: helper("string_move"); break;
+		case IROpcode::ClosureMove: {
+			const auto layout = abi.layout(i.valueType);
+			if (layout.kind != ABIRepresentationKind::Closure) throw std::runtime_error("C++ export closure.move requires a concrete environment");
+			std::vector<std::string> ownerPaths;
+			std::function<void(const std::string&, const std::string&, std::set<std::string>&)> collect =
+				[&](const std::string& type, const std::string& prefix, std::set<std::string>& active) {
+					if (type == "string") { ownerPaths.push_back(prefix); return; }
+					if (type.empty() || !active.insert(type).second) return;
+					const auto nested = abi.layout(type);
+					if (nested.kind == ABIRepresentationKind::Closure || nested.kind == ABIRepresentationKind::Aggregate)
+						for (const auto& field : nested.fields) if (!field.byReference)
+							collect(field.typeName, prefix + "." + field.name, active);
+					active.erase(type);
+				};
+			for (const auto& field : layout.fields) if (!field.byReference) {
+				std::set<std::string> active; collect(field.typeName, field.name, active);
+			}
+			std::string paths;
+			for (const auto& path : ownerPaths) { if (!paths.empty()) paths += ','; paths += quote(path); }
+			assign("pcn_runtime::closure_move(" + arg(0) + ",{" + paths + "})"); break;
+		}
 		case IROpcode::StringDispose: out << "    pcn_runtime::dispose(" << arg(0) << ");\n"; break;
 		case IROpcode::StringClear: out << "    pcn_runtime::clear(" << arg(0) << ");\n"; break;
 		case IROpcode::StringAppend: out << "    pcn_runtime::append(" << arguments(i) << ");\n"; break;

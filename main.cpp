@@ -2026,6 +2026,7 @@ namespace pcn {
         OptionSome,
         OptionNone,
         MakeClosure,
+        ClosureMove,
         Return,
         Nop
     };
@@ -6525,6 +6526,8 @@ namespace pcn {
             for (const auto& [_, rs] : routines_)for (const auto* r : rs) { add(r->returnType); for (const auto& p : r->parameters)add(p.typeName); }
         }
 
+        void pushScope() { scopes_.emplace_back(); }
+        void popScope() { if (scopes_.size() > 1) scopes_.pop_back(); }
         LiveSymbol* lookup(const std::string& name) {
             for (auto it = scopes_.rbegin(); it != scopes_.rend(); ++it) { auto f = it->find(name); if (f != it->end())return &f->second; }return nullptr;
         }
@@ -6689,7 +6692,7 @@ namespace pcn {
 
         void buildRoutine(const Routine& routine) {
             currentRoutineDeclaration_ = &routine;
-            currentRoutine_ = keyFor(routine); point_ = 0; scopes_.clear(); scopes_.push_back({}); closureValueBindings_.clear(); closureLastUse_.clear(); closureBorrowIndexes_.clear(); textViewBorrowBySymbol_.clear(); textViewBorrowByExpression_.clear();
+            currentRoutine_ = keyFor(routine); point_ = 0; scopes_.clear(); scopes_.push_back({}); closureValueBindings_.clear(); closureLastUse_.clear(); closureBorrowIndexes_.clear(); analyzedClosureIds_.clear(); textViewBorrowBySymbol_.clear(); textViewBorrowByExpression_.clear();
             for (const auto& p : routine.parameters)declare(p.name, p.typeName, p.mode == "var", true, p.mode, p.location, ++point_);
             walkStatements(routine.body, false);
             const std::size_t endPoint = ++point_;
@@ -6899,36 +6902,64 @@ namespace pcn {
         }
 
         void analyzeClosure(const ClosureExpr& c) {
+            if (!analyzedClosureIds_.insert(c.closureId).second) return;
             const auto checked = result_->checkedClosureSignatures.find(c.closureId);
             if (checked == result_->checkedClosureSignatures.end()) {
                 result_->diagnostics.push_back({ c.location,"E0344 closure is missing its checked concrete signature" });
                 return;
             }
-            ClosureSignatureFact sig; for (const auto& type : checked->second.parameterTypes) sig.parameters.push_back(semanticTypeName(type));
-            sig.returnType = semanticTypeName(checked->second.returnType); closureSignatures_[c.closureId] = sig;
-            std::set<std::string> inferredEffects; if (c.hasExpressionBody)inferClosureExprEffects(c.expressionBody, inferredEffects); else inferClosureStmtEffects(c.blockBody, inferredEffects);
-            std::set<std::string> declared(c.effects.begin(), c.effects.end()); if (!declared.empty())for (const auto& e : inferredEffects)if (!declared.contains(e))result_->diagnostics.push_back({ c.location,"E0360 closure effect '" + e + "' exceeds declared effect set" });
+            ClosureSignatureFact sig;
+            for (const auto& type : checked->second.parameterTypes) sig.parameters.push_back(semanticTypeName(type));
+            sig.returnType = semanticTypeName(checked->second.returnType);
+            closureSignatures_[c.closureId] = sig;
+            std::set<std::string> inferredEffects;
+            if (c.hasExpressionBody) inferClosureExprEffects(c.expressionBody, inferredEffects);
+            else inferClosureStmtEffects(c.blockBody, inferredEffects);
+            std::set<std::string> declared(c.effects.begin(), c.effects.end());
+            if (!declared.empty()) for (const auto& effect : inferredEffects)
+                if (!declared.contains(effect)) result_->diagnostics.push_back({ c.location,"E0360 closure effect '" + effect + "' exceeds declared effect set" });
             result_->skm.closures.push_back({ c.closureId,sig.parameters,sig.returnType,inferredEffects,c.moveCapture,c.location });
-            std::unordered_set<std::string>locals; for (const auto& p : c.parameters)locals.insert(p.name); std::unordered_map<std::string, CaptureUse>captures;
-            auto note = [&](const std::string& name, BorrowKind kind, SourceLocation loc) {if (locals.contains(name))return; if (auto* ls = lookup(name)) { auto& sf = result_->skm.symbols[ls->factIndex]; auto& cu = captures[name]; cu.kind = cu.symbolId ? stronger(cu.kind, kind) : kind; cu.symbolId = sf.id; cu.typeName = ls->typeName; cu.location = loc; touch(name, point_); }};
-            std::function<void(const ExprPtr&)> scanExpr; std::function<void(const std::vector<StmtPtr>&)> scanStmts;
-            scanExpr = [&](const ExprPtr& e) {
-                if (!e) return;
-                std::visit([&](const auto& n) {
-                    using T = std::decay_t<decltype(n)>;
-                    if constexpr (std::is_same_v<T, VariableExpr>) note(n.name, c.moveCapture ? BorrowKind::Owned : BorrowKind::Shared, n.location);
-                    else if constexpr (std::is_same_v<T, UnaryExpr>) scanExpr(n.operand);
-                    else if constexpr (std::is_same_v<T, BinaryExpr>) { scanExpr(n.left); scanExpr(n.right); }
+
+            pushScope();
+            std::set<std::string> locals;
+            for (std::size_t i = 0; i < c.parameters.size(); ++i) {
+                const auto& parameter = c.parameters[i];
+                const auto type = i < sig.parameters.size() ? sig.parameters[i] : parameter.typeName;
+                declare(parameter.name, type, parameter.mode == "var", true, parameter.mode, parameter.location, point_);
+                locals.insert(parameter.name);
+            }
+            std::map<std::string, CaptureUse> captures;
+            auto note = [&](const std::string& name, BorrowKind kind, SourceLocation loc) {
+                if (locals.contains(name)) return;
+                if (auto* symbol = lookup(name)) {
+                    const auto& fact = result_->skm.symbols[symbol->factIndex];
+                    auto& use = captures[name];
+                    use.kind = use.symbolId ? stronger(use.kind, kind) : kind;
+                    use.symbolId = fact.id;
+                    use.typeName = symbol->typeName;
+                    use.location = loc;
+                    touch(name, point_);
+                }
+            };
+            std::function<void(const ExprPtr&)> scanExpr;
+            std::function<void(const std::vector<StmtPtr>&)> scanStmts;
+            scanExpr = [&](const ExprPtr& expression) {
+                if (!expression) return;
+                std::visit([&](const auto& node) {
+                    using T = std::decay_t<decltype(node)>;
+                    if constexpr (std::is_same_v<T, VariableExpr>) note(node.name, c.moveCapture ? BorrowKind::Owned : BorrowKind::Shared, node.location);
+                    else if constexpr (std::is_same_v<T, UnaryExpr>) scanExpr(node.operand);
+                    else if constexpr (std::is_same_v<T, BinaryExpr>) { scanExpr(node.left); scanExpr(node.right); }
                     else if constexpr (std::is_same_v<T, CallExpr>) {
-                        scanExpr(n.callee);
-                        if (const auto* member = n.callee ? std::get_if<MemberExpr>(&n.callee->node) : nullptr) {
-                            if (member->member == "append" || member->member == "clear" || member->member == "dispose")
+                        scanExpr(node.callee);
+                        if (const auto* member = node.callee ? std::get_if<MemberExpr>(&node.callee->node) : nullptr) {
+                            if ((member->member == "append" || member->member == "clear" || member->member == "dispose") && member->object)
                                 if (const auto* root = std::get_if<VariableExpr>(&member->object->node))
                                     note(root->name, c.moveCapture ? BorrowKind::Owned : BorrowKind::Exclusive, root->location);
                         }
-                        const auto* routine = resolveCall(n);
-                        for (std::size_t i = 0; i < n.arguments.size(); ++i) {
-                            if (const auto* variable = std::get_if<VariableExpr>(&n.arguments[i]->node)) {
+                        const auto* routine = resolveCall(node);
+                        for (std::size_t i = 0; i < node.arguments.size(); ++i) {
+                            if (const auto* variable = std::get_if<VariableExpr>(&node.arguments[i]->node)) {
                                 BorrowKind kind = c.moveCapture ? BorrowKind::Owned : BorrowKind::Shared;
                                 if (!c.moveCapture && routine && i < routine->parameters.size()) {
                                     const auto& mode = routine->parameters[i].mode;
@@ -6936,34 +6967,193 @@ namespace pcn {
                                 }
                                 note(variable->name, kind, variable->location);
                             }
-                            scanExpr(n.arguments[i]);
+                            scanExpr(node.arguments[i]);
                         }
                     }
-                    else if constexpr (std::is_same_v<T, GroupExpr>) scanExpr(n.expression);
-                    else if constexpr (std::is_same_v<T, TryExpr>) scanExpr(n.operand);
-                    else if constexpr (std::is_same_v<T, MemberExpr>) scanExpr(n.object);
-                    else if constexpr (std::is_same_v<T, ConstructExpr>) for (const auto& field : n.fields) scanExpr(field.value);
-                    else if constexpr (std::is_same_v<T, ArrayExpr>) for (const auto& element : n.elements) scanExpr(element);
-                    else if constexpr (std::is_same_v<T, IndexExpr>) { scanExpr(n.object); scanExpr(n.index); }
-                    else if constexpr (std::is_same_v<T, PipelineExpr>) { scanExpr(n.input); for (const auto& stage : n.stages) scanExpr(stage); }
-                    else if constexpr (std::is_same_v<T, RangeExpr>) { scanExpr(n.start); scanExpr(n.end); scanExpr(n.step); }
-                    else if constexpr (std::is_same_v<T, ChooseExpr>) { scanExpr(n.subject); for (const auto& branch : n.cases) { scanExpr(branch.condition); scanExpr(branch.value); } if (n.hasOtherwise) scanExpr(n.otherwiseValue); }
-                }, e->node);
+                    else if constexpr (std::is_same_v<T, GroupExpr>) scanExpr(node.expression);
+                    else if constexpr (std::is_same_v<T, TryExpr>) scanExpr(node.operand);
+                    else if constexpr (std::is_same_v<T, MemberExpr>) scanExpr(node.object);
+                    else if constexpr (std::is_same_v<T, ConstructExpr>) for (const auto& field : node.fields) scanExpr(field.value);
+                    else if constexpr (std::is_same_v<T, ArrayExpr>) for (const auto& element : node.elements) scanExpr(element);
+                    else if constexpr (std::is_same_v<T, IndexExpr>) { scanExpr(node.object); scanExpr(node.index); }
+                    else if constexpr (std::is_same_v<T, PipelineExpr>) { scanExpr(node.input); for (const auto& stage : node.stages) scanExpr(stage); }
+                    else if constexpr (std::is_same_v<T, RangeExpr>) { scanExpr(node.start); scanExpr(node.end); scanExpr(node.step); }
+                    else if constexpr (std::is_same_v<T, ChooseExpr>) {
+                        scanExpr(node.subject);
+                        for (const auto& branch : node.cases) { scanExpr(branch.condition); scanExpr(branch.value); }
+                        if (node.hasOtherwise) scanExpr(node.otherwiseValue);
+                    }
+                    else if constexpr (std::is_same_v<T, ClosureExpr>) {
+                        const auto savedLocals = locals;
+                        analyzeClosure(node);
+                        for (const auto& parameter : node.parameters) locals.insert(parameter.name);
+                        if (node.hasExpressionBody) scanExpr(node.expressionBody);
+                        else scanStmts(node.blockBody);
+                        locals = savedLocals;
+                    }
+                }, expression->node);
             };
-            scanStmts = [&](const std::vector<StmtPtr>& ss) {for (auto& s : ss)std::visit([&](const auto& n) {using T = std::decay_t<decltype(n)>; if constexpr (std::is_same_v<T, LetStmt> || std::is_same_v<T, VarStmt>) { scanExpr(n.initializer); locals.insert(n.name); }
-            else if constexpr (std::is_same_v<T, AssignStmt>) { if (!locals.contains(n.name))note(n.name, c.moveCapture ? BorrowKind::Owned : BorrowKind::Exclusive, n.location); scanExpr(n.value); }
-            else if constexpr (std::is_same_v<T, ArraySetStmt>) { if (!locals.contains(n.name))note(n.name, BorrowKind::Exclusive, n.location); scanExpr(n.index); scanExpr(n.value); }
-            else if constexpr (std::is_same_v<T, RecordSetStmt>) { if (!locals.contains(n.name))note(n.name, BorrowKind::Exclusive, n.location); scanExpr(n.value); }
-            else if constexpr (std::is_same_v<T, ExprStmt>)scanExpr(n.expression); else if constexpr (std::is_same_v<T, ReturnStmt>) { if (n.hasValue)scanExpr(n.value); }
-            else if constexpr (std::is_same_v<T, GiveStmt>)scanExpr(n.value); else if constexpr (std::is_same_v<T, FailStmt>)scanExpr(n.expression); else if constexpr (std::is_same_v<T, IfStmt>) { scanExpr(n.condition); scanStmts(n.thenBranch); scanStmts(n.elseBranch); }
-            else if constexpr (std::is_same_v<T, WhileStmt>) { scanExpr(n.condition); scanStmts(n.body); }
-            else if constexpr (std::is_same_v<T, EachStmt>) { scanExpr(n.range); for (auto& x : n.bindings)locals.insert(x); scanExpr(n.guard); scanStmts(n.body); }
-            else if constexpr (std::is_same_v<T, FromStmt>) { scanExpr(n.first); scanExpr(n.last); locals.insert(n.binding); scanStmts(n.body); }
-            else if constexpr (std::is_same_v<T, ContinueUntilStmt>) { scanExpr(n.condition); scanStmts(n.body); }
-            else if constexpr (std::is_same_v<T, UnsafeStmt>)scanStmts(n.body); else if constexpr (std::is_same_v<T, DeferStmt>)scanExpr(n.expression); else if constexpr (std::is_same_v<T, BlockStmt>)scanStmts(n.statements); }, s->node); };
-            if (c.hasExpressionBody)scanExpr(c.expressionBody); else scanStmts(c.blockBody);
-            for (const auto& [name, cu] : captures) { result_->skm.closureCaptures.push_back({ c.closureId,cu.symbolId,name,cu.typeName,cu.kind,false,cu.location }); if (auto* ls = lookup(name))addBorrow(*ls, name, cu.kind, point_, point_, c.closureId, false, cu.location); }
+            scanStmts = [&](const std::vector<StmtPtr>& statements) {
+                for (const auto& statement : statements) {
+                    if (!statement) continue;
+                    std::visit([&](const auto& node) {
+                        using T = std::decay_t<decltype(node)>;
+                        if constexpr (std::is_same_v<T, LetStmt> || std::is_same_v<T, VarStmt>) {
+                            scanExpr(node.initializer);
+                            const auto type = node.typeName.empty() ? inferExprType(node.initializer) : node.typeName;
+                            const auto symbol = declare(node.name, type, std::is_same_v<T, VarStmt>, false, "shared", node.location, point_);
+                            locals.insert(node.name);
+                            bindClosureValues(symbol, node.initializer);
+                        }
+                        else if constexpr (std::is_same_v<T, AssignStmt>) {
+                            if (!locals.contains(node.name)) note(node.name, c.moveCapture ? BorrowKind::Owned : BorrowKind::Exclusive, node.location);
+                            scanExpr(node.value);
+                            if (auto* symbol = lookup(node.name)) extendClosureValues(*symbol, node.value);
+                        }
+                        else if constexpr (std::is_same_v<T, ArraySetStmt>) {
+                            if (!locals.contains(node.name)) note(node.name, BorrowKind::Exclusive, node.location);
+                            scanExpr(node.index); scanExpr(node.value);
+                        }
+                        else if constexpr (std::is_same_v<T, RecordSetStmt>) {
+                            if (!locals.contains(node.name)) note(node.name, BorrowKind::Exclusive, node.location);
+                            scanExpr(node.value);
+                        }
+                        else if constexpr (std::is_same_v<T, ExprStmt>) scanExpr(node.expression);
+                        else if constexpr (std::is_same_v<T, ReturnStmt>) {
+                            if (node.hasValue) { scanExpr(node.value); markEscapingClosures(node.value); }
+                        }
+                        else if constexpr (std::is_same_v<T, GiveStmt>) { scanExpr(node.value); markEscapingClosures(node.value); }
+                        else if constexpr (std::is_same_v<T, FailStmt>) scanExpr(node.expression);
+                        else if constexpr (std::is_same_v<T, IfStmt>) {
+                            scanExpr(node.condition);
+                            const auto savedLocals = locals;
+                            pushScope(); scanStmts(node.thenBranch); popScope(); locals = savedLocals;
+                            pushScope(); scanStmts(node.elseBranch); popScope(); locals = savedLocals;
+                        }
+                        else if constexpr (std::is_same_v<T, WhileStmt>) {
+                            scanExpr(node.condition); const auto savedLocals = locals;
+                            pushScope(); scanStmts(node.body); popScope(); locals = savedLocals;
+                        }
+                        else if constexpr (std::is_same_v<T, EachStmt>) {
+                            scanExpr(node.range); const auto savedLocals = locals; pushScope();
+                            for (const auto& binding : node.bindings) { declare(binding, "int", node.bindingsMutable, false, "shared", node.location, point_); locals.insert(binding); }
+                            scanExpr(node.guard); scanStmts(node.body); popScope(); locals = savedLocals;
+                        }
+                        else if constexpr (std::is_same_v<T, FromStmt>) {
+                            scanExpr(node.first); scanExpr(node.last); const auto savedLocals = locals; pushScope();
+                            declare(node.binding, node.typeName.empty() ? "int" : node.typeName, false, false, "shared", node.location, point_);
+                            locals.insert(node.binding); scanStmts(node.body); popScope(); locals = savedLocals;
+                        }
+                        else if constexpr (std::is_same_v<T, ContinueUntilStmt>) {
+                            scanExpr(node.condition); const auto savedLocals = locals;
+                            pushScope(); scanStmts(node.body); popScope(); locals = savedLocals;
+                        }
+                        else if constexpr (std::is_same_v<T, UnsafeStmt>) {
+                            const auto savedLocals = locals; pushScope(); scanStmts(node.body); popScope(); locals = savedLocals;
+                        }
+                        else if constexpr (std::is_same_v<T, DeferStmt>) scanExpr(node.expression);
+                        else if constexpr (std::is_same_v<T, BlockStmt>) {
+                            const auto savedLocals = locals; pushScope(); scanStmts(node.statements); popScope(); locals = savedLocals;
+                        }
+                    }, statement->node);
+                }
+            };
+            if (c.hasExpressionBody) {
+                scanExpr(c.expressionBody);
+                markEscapingClosures(c.expressionBody);
+            }
+            else scanStmts(c.blockBody);
+            for (const auto& [name, use] : captures) {
+                result_->skm.closureCaptures.push_back({ c.closureId,use.symbolId,name,use.typeName,use.kind,false,use.location });
+                if (auto* symbol = lookup(name)) addBorrow(*symbol, name, use.kind, point_, point_, c.closureId, false, use.location);
+            }
+            popScope();
             result_->skm.structuralFacts.push_back(currentRoutine_ + ": closure$" + std::to_string(c.closureId) + " captures=" + std::to_string(captures.size()));
+        }
+
+        bool isEscapableScalarCapture(const std::string& typeName) const {
+            return isNumericTypeName(typeName) || typeName == "bool" || typeName == "char";
+        }
+
+        static std::size_t closureIdFromTypeName(const std::string& typeName) {
+            if (!typeName.starts_with("closure$")) return 0;
+            const auto digits = std::string_view(typeName).substr(8);
+            std::size_t id = 0;
+            const auto parsed = std::from_chars(digits.data(), digits.data() + digits.size(), id);
+            return digits.empty() || parsed.ec != std::errc{} || parsed.ptr != digits.data() + digits.size() ? 0 : id;
+        }
+
+        bool captureContainsOwnedResource(const std::string& typeName, std::set<std::string>& active) const {
+            if (typeName == "string") return true;
+            if (typeName.empty() || typeName == "text") return false;
+            if (!active.insert(typeName).second) return true;
+            std::string element;
+            std::string okType, errorType, optionType;
+            bool owns = false;
+            if (typeIsArray(typeName, &element)) owns = captureContainsOwnedResource(element, active);
+            else if (typeIsResult(typeName, &okType, &errorType))
+                owns = captureContainsOwnedResource(okType, active) || captureContainsOwnedResource(errorType, active);
+            else if (typeIsOption(typeName, &optionType)) owns = captureContainsOwnedResource(optionType, active);
+            else if (typeName.front() == '(') {
+                try {
+                    const auto tuple = CanonicalTypeParser(typeName).parse();
+                    if (tuple.tuple) for (const auto& field : tuple.args)
+                        if (captureContainsOwnedResource(canonicalTypeText(field), active)) { owns = true; break; }
+                }
+                catch (const std::runtime_error&) { owns = true; }
+            }
+            else if (const auto nominal = result_->nominalTypes.find(typeName); nominal != result_->nominalTypes.end())
+                for (const auto& field : nominal->second.fields)
+                    if (captureContainsOwnedResource(field.second, active)) { owns = true; break; }
+            active.erase(typeName);
+            return owns;
+        }
+
+        bool captureContainsOwnedResource(const std::string& typeName) const {
+            std::set<std::string> active;
+            return captureContainsOwnedResource(typeName, active);
+        }
+
+        bool captureContainsBorrowedReference(const std::string& typeName, std::set<std::string>& active) const {
+            if (typeName == "text" || typeName.starts_with("view<") || typeName.starts_with("span<")) return true;
+            if (typeName.starts_with("closure$")) {
+                const auto closureId = closureIdFromTypeName(typeName);
+                if (!closureId || !active.insert(typeName).second) return true;
+                for (const auto& capture : result_->skm.closureCaptures)
+                    if (capture.closureId == closureId &&
+                        (capture.kind != BorrowKind::Owned || captureContainsBorrowedReference(capture.typeName, active))) {
+                        active.erase(typeName);
+                        return true;
+                    }
+                active.erase(typeName);
+                return false;
+            }
+            if (typeName.empty() || !active.insert(typeName).second) return false;
+            std::string element;
+            std::string okType, errorType, optionType;
+            bool borrowed = false;
+            if (typeIsArray(typeName, &element)) borrowed = captureContainsBorrowedReference(element, active);
+            else if (typeIsResult(typeName, &okType, &errorType))
+                borrowed = captureContainsBorrowedReference(okType, active) || captureContainsBorrowedReference(errorType, active);
+            else if (typeIsOption(typeName, &optionType)) borrowed = captureContainsBorrowedReference(optionType, active);
+            else if (typeName.front() == '(') {
+                try {
+                    const auto tuple = CanonicalTypeParser(typeName).parse();
+                    if (tuple.tuple) for (const auto& field : tuple.args)
+                        if (captureContainsBorrowedReference(canonicalTypeText(field), active)) { borrowed = true; break; }
+                }
+                catch (const std::runtime_error&) { borrowed = true; }
+            }
+            else if (const auto nominal = result_->nominalTypes.find(typeName); nominal != result_->nominalTypes.end())
+                for (const auto& field : nominal->second.fields)
+                    if (captureContainsBorrowedReference(field.second, active)) { borrowed = true; break; }
+            active.erase(typeName);
+            return borrowed;
+        }
+
+        bool captureContainsBorrowedReference(const std::string& typeName) const {
+            std::set<std::string> active;
+            return captureContainsBorrowedReference(typeName, active);
         }
 
         void markEscapingClosure(std::size_t closureId) {
@@ -6971,11 +7161,43 @@ namespace pcn {
             for (auto& capture : result_->skm.closureCaptures) {
                 if (capture.closureId != closureId || capture.escaping) continue;
                 capture.escaping = true;
+                if (capture.typeName.starts_with("closure$")) {
+                    const auto nestedId = closureIdFromTypeName(capture.typeName);
+                    if (!nestedId) {
+                        result_->diagnostics.push_back({ capture.location,"E0432 closure$" + std::to_string(closureId) + " escapes with an unresolved closure-valued capture '" + capture.name + "'" });
+                        continue;
+                    }
+                    markEscapingClosure(nestedId);
+                    capture.kind = BorrowKind::Owned;
+                    for (const auto index : closureBorrowIndexes_[closureId]) {
+                        auto& region = result_->skm.borrowRegions[index];
+                        if (region.sourceSymbol == capture.sourceSymbol) region.kind = BorrowKind::Owned;
+                    }
+                    continue;
+                }
+                if (captureContainsBorrowedReference(capture.typeName)) {
+                    result_->diagnostics.push_back({ capture.location,"E0432 closure$" + std::to_string(closureId) + " escapes with reference-backed capture '" + capture.name + "'" });
+                    continue;
+                }
+                if (capture.kind == BorrowKind::Shared) {
+                    const auto source = std::find_if(result_->skm.symbols.begin(), result_->skm.symbols.end(),
+                        [&](const SKMSymbolFact& symbol) { return symbol.id == capture.sourceSymbol; });
+                    if (source != result_->skm.symbols.end() && !source->isMutable && isEscapableScalarCapture(capture.typeName)) {
+                        capture.kind = BorrowKind::Owned;
+                        for (const auto index : closureBorrowIndexes_[closureId]) {
+                            auto& region = result_->skm.borrowRegions[index];
+                            if (region.sourceSymbol == capture.sourceSymbol) region.kind = BorrowKind::Owned;
+                        }
+                        result_->skm.structuralFacts.push_back(currentRoutine_ + ": closure$" + std::to_string(closureId) + " promotes immutable scalar capture " + capture.name);
+                        continue;
+                    }
+                }
                 if (capture.kind != BorrowKind::Owned)
-                    result_->diagnostics.push_back({ capture.location,"E0432 closure$" + std::to_string(closureId) + " escapes while borrowing '" + capture.name + "'; use move capture or keep the closure within the borrow region" });
+                    result_->diagnostics.push_back({ capture.location,"E0432 closure$" + std::to_string(closureId) + " escapes while borrowing '" + capture.name + "'; only immutable scalar captures can be promoted automatically" });
             }
             for (const auto index : closureBorrowIndexes_[closureId])
-                result_->skm.borrowRegions[index].escaping = true;
+                if (result_->skm.borrowRegions[index].kind != BorrowKind::Owned)
+                    result_->skm.borrowRegions[index].escaping = true;
         }
 
         void collectClosureValues(const ExprPtr& expr, std::vector<std::size_t>& closureIds) {
@@ -7132,6 +7354,7 @@ namespace pcn {
         const Routine* currentRoutineDeclaration_ = nullptr;
         std::vector<Scope> scopes_; std::string currentRoutine_; std::size_t point_ = 0; std::uint64_t nextSymbolId_ = 1, nextBorrowId_ = 1;
         std::unordered_map<std::uint64_t, std::vector<std::size_t>> closureValueBindings_; std::unordered_map<std::size_t, std::size_t> closureLastUse_; std::unordered_map<std::size_t, std::vector<std::size_t>> closureBorrowIndexes_;
+        std::unordered_set<std::size_t> analyzedClosureIds_;
         std::unordered_map<std::uint64_t, std::vector<std::size_t>> textViewBorrowBySymbol_;
         std::unordered_map<const CallExpr*, std::size_t> textViewBorrowByExpression_;
         std::unordered_map<std::size_t, ClosureSignatureFact> closureSignatures_;
@@ -7156,7 +7379,14 @@ namespace pcn {
             bool isMutable = false;
             bool isParameter = false;
             std::string mode = "shared";
-            OwnershipState ownership = OwnershipState::Available;
+            std::set<std::vector<std::string>> movedPaths;
+        };
+
+        struct BorrowPlace {
+            std::string rootName;
+            std::string typeName;
+            std::vector<std::string> projections;
+            std::vector<ExprPtr> indices;
         };
 
         struct BorrowState {
@@ -7395,7 +7625,7 @@ namespace pcn {
                 BorrowState state;
                 state.scopes.emplace_back();
                 for (const auto& p : routine.parameters) {
-                    state.scopes.back()[p.name] = BorrowSymbol{ p.typeName, p.mode == "var" || p.mode == "own", true, p.mode, OwnershipState::Available };
+                    state.scopes.back()[p.name] = BorrowSymbol{ p.typeName, p.mode == "var" || p.mode == "own", true, p.mode, {} };
                 }
                 analyzeBorrowStatements(routine.body, state, false);
             }
@@ -7408,6 +7638,14 @@ namespace pcn {
             return nullptr;
         }
 
+        static std::size_t closureIdFromTypeName(const std::string& typeName) {
+            if (!typeName.starts_with("closure$")) return 0;
+            const auto digits = std::string_view(typeName).substr(8);
+            std::size_t id = 0;
+            const auto parsed = std::from_chars(digits.data(), digits.data() + digits.size(), id);
+            return digits.empty() || parsed.ec != std::errc{} || parsed.ptr != digits.data() + digits.size() ? 0 : id;
+        }
+
         static bool isCopyType(const std::string& t) {
             static const std::unordered_set<std::string> copy = {
                 "byte","ubyte","short","ushort","int","uint","long","ulong","size","ssize",
@@ -7418,6 +7656,23 @@ namespace pcn {
 
         static bool isMoveTrackedType(const std::string& typeName) {
             return !typeName.empty() && !isCopyType(typeName);
+        }
+
+        bool isMoveTrackedValueType(const std::string& typeName, std::set<std::string>& active) const {
+            const auto closureId = closureIdFromTypeName(typeName);
+            if (!closureId) return isMoveTrackedType(typeName);
+            if (!active.insert(typeName).second) return true;
+            bool moveTracked = false;
+            for (const auto& capture : result_->skm.closureCaptures)
+                if (capture.closureId == closureId && capture.kind == BorrowKind::Owned &&
+                    isMoveTrackedValueType(capture.typeName, active)) { moveTracked = true; break; }
+            active.erase(typeName);
+            return moveTracked;
+        }
+
+        bool isMoveTrackedValueType(const std::string& typeName) const {
+            std::set<std::string> active;
+            return isMoveTrackedValueType(typeName, active);
         }
 
         static bool isSharedBorrowMode(const std::string& mode) {
@@ -7439,11 +7694,99 @@ namespace pcn {
             return nullptr;
         }
 
-        void markMovedPlace(const ExprPtr& expr, BorrowState& state) {
-            if (const auto* root = placeRoot(expr)) {
-                if (auto* symbol = lookup(state, root->name); symbol && isMoveTrackedType(inferBorrowType(expr, state)))
-                    symbol->ownership = OwnershipState::Moved;
+        static std::string indexProjection(const ExprPtr& index) {
+            const auto* number = index ? std::get_if<NumberExpr>(&index->node) : nullptr;
+            if (!number || number->value.empty()) return "i:*";
+            try {
+                const auto value = parseParacineInteger(number->value);
+                if (value < 0) return "i:*";
+                return "i:" + std::to_string(value);
             }
+            catch (const std::runtime_error&) {
+                return "i:*";
+            }
+        }
+
+        static bool pathCovers(const std::vector<std::string>& prefix, const std::vector<std::string>& path) {
+            if (prefix.size() > path.size()) return false;
+            for (std::size_t i = 0; i < prefix.size(); ++i) {
+                if (prefix[i] == path[i]) continue;
+                if (prefix[i] == "i:*" && path[i].starts_with("i:")) continue;
+                return false;
+            }
+            return true;
+        }
+
+        static bool pathsOverlap(const std::vector<std::string>& left, const std::vector<std::string>& right) {
+            return pathCovers(left, right) || pathCovers(right, left);
+        }
+
+        static void addMovedPath(BorrowSymbol& symbol, const std::vector<std::string>& path) {
+            for (const auto& moved : symbol.movedPaths) if (pathCovers(moved, path)) return;
+            for (auto it = symbol.movedPaths.begin(); it != symbol.movedPaths.end();) {
+                if (pathCovers(path, *it)) it = symbol.movedPaths.erase(it);
+                else ++it;
+            }
+            symbol.movedPaths.insert(path);
+        }
+
+        static void clearMovedPath(BorrowSymbol& symbol, const std::vector<std::string>& path) {
+            for (auto it = symbol.movedPaths.begin(); it != symbol.movedPaths.end();) {
+                if (pathCovers(path, *it)) it = symbol.movedPaths.erase(it);
+                else ++it;
+            }
+        }
+
+        std::optional<BorrowPlace> getBorrowPlace(const ExprPtr& expr, BorrowState& state) {
+            if (!expr) return std::nullopt;
+            if (const auto* group = std::get_if<GroupExpr>(&expr->node)) return getBorrowPlace(group->expression, state);
+            if (const auto* variable = std::get_if<VariableExpr>(&expr->node)) {
+                auto* symbol = lookup(state, variable->name);
+                if (!symbol) return std::nullopt;
+                return BorrowPlace{ variable->name, symbol->typeName, {}, {} };
+            }
+            if (const auto* member = std::get_if<MemberExpr>(&expr->node)) {
+                auto place = getBorrowPlace(member->object, state);
+                if (!place) return std::nullopt;
+                place->projections.push_back("f:" + member->member);
+                place->typeName = inferBorrowType(expr, state);
+                return place;
+            }
+            if (const auto* index = std::get_if<IndexExpr>(&expr->node)) {
+                auto place = getBorrowPlace(index->object, state);
+                if (!place) return std::nullopt;
+                place->projections.push_back(indexProjection(index->index));
+                place->indices.push_back(index->index);
+                place->typeName = inferBorrowType(expr, state);
+                return place;
+            }
+            return std::nullopt;
+        }
+
+        bool isReadablePlace(const BorrowSymbol& symbol, const std::vector<std::string>& path) const {
+            return std::none_of(symbol.movedPaths.begin(), symbol.movedPaths.end(), [&](const auto& moved) {
+                return pathsOverlap(moved, path);
+            });
+        }
+
+        bool isWritablePlace(const BorrowSymbol& symbol, const std::vector<std::string>& path) const {
+            return std::none_of(symbol.movedPaths.begin(), symbol.movedPaths.end(), [&](const auto& moved) {
+                return moved.size() < path.size() && pathCovers(moved, path);
+            });
+        }
+
+        void analyzeBorrowPlaceRead(const ExprPtr& expr, BorrowState& state) {
+            auto place = getBorrowPlace(expr, state);
+            if (!place) return;
+            for (const auto& index : place->indices) analyzeBorrowExpr(index, state);
+            if (auto* symbol = lookup(state, place->rootName); symbol && !isReadablePlace(*symbol, place->projections))
+                report(expr->location, "E0412 use after move: '" + place->rootName + "'");
+        }
+
+        void markMovedPlace(const ExprPtr& expr, BorrowState& state) {
+            auto place = getBorrowPlace(expr, state);
+            if (!place || !isMoveTrackedValueType(place->typeName)) return;
+            if (auto* symbol = lookup(state, place->rootName)) addMovedPath(*symbol, place->projections);
         }
 
         std::string inferBorrowType(const ExprPtr& e, BorrowState& state) {
@@ -7472,7 +7815,16 @@ namespace pcn {
             if (std::holds_alternative<NumberExpr>(e->node)) return "int";
             if (std::holds_alternative<BoolExpr>(e->node)) return "bool";
             if (std::holds_alternative<StringExpr>(e->node)) return "text";
+            if (const auto* closure = std::get_if<ClosureExpr>(&e->node)) return "closure$" + std::to_string(closure->closureId);
             if (const auto* call = std::get_if<CallExpr>(&e->node)) {
+                if (const auto* callee = call->callee ? std::get_if<VariableExpr>(&call->callee->node) : nullptr) {
+                    if (auto* symbol = lookup(state, callee->name)) {
+                        const auto closureId = closureIdFromTypeName(symbol->typeName);
+                        const auto signature = std::find_if(result_->skm.closures.begin(), result_->skm.closures.end(),
+                            [&](const SKMClosureFact& closure) { return closure.closureId == closureId; });
+                        if (signature != result_->skm.closures.end()) return signature->returnType;
+                    }
+                }
                 if (const auto* member = call->callee ? std::get_if<MemberExpr>(&call->callee->node) : nullptr) {
                     const auto sourceType = inferBorrowType(member->object, state);
                     if (sourceType == "text" && member->member == "to_string")return "string";
@@ -7483,9 +7835,8 @@ namespace pcn {
         }
 
         void readVariable(const VariableExpr& v, BorrowState& state) {
-            if (auto* s = lookup(state, v.name)) {
-                if (s->ownership == OwnershipState::Moved) report(v.location, "E0412 use after move: '" + v.name + "'");
-            }
+            if (auto* symbol = lookup(state, v.name); symbol && !isReadablePlace(*symbol, {}))
+                report(v.location, "E0412 use after move: '" + v.name + "'");
         }
 
         const Routine* resolveRoutine(const std::string& name, std::size_t arity) const {
@@ -7505,10 +7856,10 @@ namespace pcn {
                         if (capture.closureId != node.closureId) continue;
                         auto* symbol = lookup(state, capture.name);
                         if (!symbol) continue;
-                        if (symbol->ownership == OwnershipState::Moved)
+                        if (!isReadablePlace(*symbol, {}))
                             report(capture.location, "E0412 use after move: '" + capture.name + "'");
-                        else if (capture.kind == BorrowKind::Owned && isMoveTrackedType(symbol->typeName))
-                            symbol->ownership = OwnershipState::Moved;
+                        else if (capture.kind == BorrowKind::Owned && isMoveTrackedValueType(symbol->typeName))
+                            addMovedPath(*symbol, {});
                     }
                 }
                 else if constexpr (std::is_same_v<T, UnaryExpr>) {
@@ -7523,14 +7874,14 @@ namespace pcn {
                         const std::string objectType = inferBorrowType(member->object, state);
                         static const std::unordered_set<std::string> mutators = { "clear", "dispose", "append" };
                         if (objectType == "string" && mutators.contains(member->member)) {
-                            const auto* variable = member->object ? std::get_if<VariableExpr>(&member->object->node) : nullptr;
-                            auto* sym = variable ? lookup(state, variable->name) : nullptr;
+                            auto place = getBorrowPlace(member->object, state);
+                            auto* sym = place ? lookup(state, place->rootName) : nullptr;
                             if (member->member == "dispose") {
                                 // Destruction consumes ownership. A `var` parameter is
                                 // only an exclusive borrow, never an ownership transfer.
                                 if (!sym || (sym->isParameter && sym->mode != "own"))
                                     report(node.location, "E0422 string disposal requires an owned local or own parameter");
-                                else sym->ownership = OwnershipState::Moved;
+                                else addMovedPath(*sym, place->projections);
                             }
                             else if (!sym || !(sym->isMutable || sym->mode == "var" || sym->mode == "own")) {
                                 report(node.location, "E0417 cannot mutate string through a shared or immutable place; use var or own authority");
@@ -7576,7 +7927,7 @@ namespace pcn {
                         auto* sym = lookup(state, root->name);
                         if (sym && mode == "var" && !sym->isMutable)
                             report(arg->location, "E0415 exclusive borrow requires a mutable place: '" + root->name + "'");
-                        if (sym && mode == "own" && isMoveTrackedType(inferBorrowType(arg, state))) markMovedPlace(arg, state);
+                        if (sym && mode == "own" && isMoveTrackedValueType(inferBorrowType(arg, state))) markMovedPlace(arg, state);
                         if (sym && mode == "raw" && !isRawAuthorityTypeName(inferBorrowType(arg, state)))
                             report(root->location, "E0408 raw parameter requires raw authority");
                     }
@@ -7600,7 +7951,8 @@ namespace pcn {
                     analyzeBorrowExpr(node.expression, state);
                 }
                 else if constexpr (std::is_same_v<T, MemberExpr>) {
-                    analyzeBorrowExpr(node.object, state);
+                    if (getBorrowPlace(expr, state)) analyzeBorrowPlaceRead(expr, state);
+                    else analyzeBorrowExpr(node.object, state);
                 }
                 else if constexpr (std::is_same_v<T, ConstructExpr>) {
                     for (const auto& f : node.fields) analyzeBorrowExpr(f.value, state);
@@ -7609,8 +7961,11 @@ namespace pcn {
                     for (const auto& item : node.elements)analyzeBorrowExpr(item, state);
                 }
                 else if constexpr (std::is_same_v<T, IndexExpr>) {
-                    analyzeBorrowExpr(node.object, state);
-                    analyzeBorrowExpr(node.index, state);
+                    if (getBorrowPlace(expr, state)) analyzeBorrowPlaceRead(expr, state);
+                    else {
+                        analyzeBorrowExpr(node.object, state);
+                        analyzeBorrowExpr(node.index, state);
+                    }
                 }
                 }, expr->node);
         }
@@ -7633,8 +7988,8 @@ namespace pcn {
             for (std::size_t i = 0; i < n; ++i) {
                 for (auto& [name, symbol] : out.scopes[i]) {
                     auto it = b.scopes[i].find(name);
-                    if (it != b.scopes[i].end() && (symbol.ownership == OwnershipState::Moved || it->second.ownership == OwnershipState::Moved)) {
-                        symbol.ownership = OwnershipState::Moved;
+                    if (it != b.scopes[i].end()) {
+                        for (const auto& moved : it->second.movedPaths) addMovedPath(symbol, moved);
                     }
                 }
             }
@@ -7646,9 +8001,13 @@ namespace pcn {
             for (std::size_t i = 0; i < std::min(before.scopes.size(), after.scopes.size()); ++i) {
                 for (const auto& [name, prior] : before.scopes[i]) {
                     const auto current = after.scopes[i].find(name);
-                    if (current != after.scopes[i].end() && prior.ownership == OwnershipState::Available &&
-                        current->second.ownership == OwnershipState::Moved)
-                        report(location, "E0421 value '" + name + "' is moved inside a potentially repeating loop");
+                    if (current == after.scopes[i].end()) continue;
+                    const bool newlyMoved = std::any_of(current->second.movedPaths.begin(), current->second.movedPaths.end(), [&](const auto& moved) {
+                        return std::none_of(prior.movedPaths.begin(), prior.movedPaths.end(), [&](const auto& priorMoved) {
+                            return pathCovers(priorMoved, moved);
+                        });
+                    });
+                    if (newlyMoved) report(location, "E0421 value '" + name + "' is moved inside a potentially repeating loop");
                 }
             }
         }
@@ -7662,35 +8021,46 @@ namespace pcn {
                     using T = std::decay_t<decltype(node)>;
                     if constexpr (std::is_same_v<T, LetStmt>) {
                         analyzeBorrowExpr(node.initializer, state);
-                        if (node.initializer) markMovedPlace(node.initializer, state);
-                        state.scopes.back()[node.name] = BorrowSymbol{ node.typeName.empty() ? inferBorrowType(node.initializer, state) : node.typeName, false, false, "shared", OwnershipState::Available };
+                        const auto initializerType = inferBorrowType(node.initializer, state);
+                        if (node.initializer && !initializerType.starts_with("closure$")) markMovedPlace(node.initializer, state);
+                        state.scopes.back()[node.name] = BorrowSymbol{ node.typeName.empty() ? initializerType : node.typeName, false, false, "shared", {} };
                     }
                     else if constexpr (std::is_same_v<T, VarStmt>) {
                         analyzeBorrowExpr(node.initializer, state);
-                        if (node.initializer) markMovedPlace(node.initializer, state);
-                        state.scopes.back()[node.name] = BorrowSymbol{ node.typeName.empty() ? inferBorrowType(node.initializer, state) : node.typeName, true, false, "shared", OwnershipState::Available };
+                        const auto initializerType = inferBorrowType(node.initializer, state);
+                        if (node.initializer && !initializerType.starts_with("closure$")) markMovedPlace(node.initializer, state);
+                        state.scopes.back()[node.name] = BorrowSymbol{ node.typeName.empty() ? initializerType : node.typeName, true, false, "shared", {} };
                     }
                     else if constexpr (std::is_same_v<T, AssignStmt>) {
                         analyzeBorrowExpr(node.value, state);
                         const auto* source = placeRoot(node.value);
-                        if (!source || source->name != node.name) {
+                        const auto sourcePlace = getBorrowPlace(node.value, state);
+                        const bool selfCopy = source && source->name == node.name && sourcePlace && sourcePlace->projections.empty();
+                        if (!selfCopy) {
                             if (node.value) markMovedPlace(node.value, state);
-                            if (auto* dst = lookup(state, node.name)) dst->ownership = OwnershipState::Available;
+                            if (auto* dst = lookup(state, node.name)) clearMovedPath(*dst, {});
                         }
                     }
                     else if constexpr (std::is_same_v<T, RecordSetStmt>) {
                         if (auto* dst = lookup(state, node.name)) {
-                            if (dst->ownership == OwnershipState::Moved)report(node.location, "E0412 field write after move: " + node.name);
+                            const std::vector<std::string> path{ "f:" + node.field };
+                            if (!isWritablePlace(*dst, path)) report(node.location, "E0412 field write after move: " + node.name);
                             if (dst->isParameter && dst->mode == "shared")report(node.location, "E0415 record field write requires var/own authority: " + node.name);
                         }
                         analyzeBorrowExpr(node.value, state);
+                        if (node.value) markMovedPlace(node.value, state);
+                        if (auto* dst = lookup(state, node.name)) clearMovedPath(*dst, { "f:" + node.field });
                     }
                     else if constexpr (std::is_same_v<T, ArraySetStmt>) {
                         if (auto* dst = lookup(state, node.name)) {
-                            if (dst->ownership == OwnershipState::Moved)report(node.location, "E0412 indexed write after move: " + node.name);
+                            const std::vector<std::string> path{ indexProjection(node.index) };
+                            if (!isWritablePlace(*dst, path)) report(node.location, "E0412 indexed write after move: " + node.name);
                             if (dst->isParameter && dst->mode == "shared")report(node.location, "E0415 indexed write requires var/own authority: " + node.name);
                         }
                         analyzeBorrowExpr(node.index, state); analyzeBorrowExpr(node.value, state);
+                        if (node.value) markMovedPlace(node.value, state);
+                        if (auto* dst = lookup(state, node.name); dst && indexProjection(node.index) != "i:*")
+                            clearMovedPath(*dst, { indexProjection(node.index) });
                     }
                     else if constexpr (std::is_same_v<T, ExprStmt>) analyzeBorrowExpr(node.expression, state);
                     else if constexpr (std::is_same_v<T, ReturnStmt>) {
@@ -7730,7 +8100,7 @@ namespace pcn {
                         analyzeBorrowExpr(node.range, state);
                         const BorrowState before = state;
                         BorrowState body = state; body.scopes.emplace_back();
-                        for (const auto& name : node.bindings) body.scopes.back()[name] = BorrowSymbol{ "int", node.bindingsMutable, false, "shared", OwnershipState::Available };
+                        for (const auto& name : node.bindings) body.scopes.back()[name] = BorrowSymbol{ "int", node.bindingsMutable, false, "shared", {} };
                         analyzeBorrowExpr(node.guard, body);
                         analyzeBorrowStatements(node.body, body, true); body.scopes.pop_back();
                         reportLoopBackEdgeMoves(before, body, node.location);
@@ -7741,7 +8111,7 @@ namespace pcn {
                         analyzeBorrowExpr(node.last, state);
                         const BorrowState before = state;
                         BorrowState body = state; body.scopes.emplace_back();
-                        body.scopes.back()[node.binding] = BorrowSymbol{ node.typeName.empty() ? "int" : node.typeName, false, false, "shared", OwnershipState::Available };
+                        body.scopes.back()[node.binding] = BorrowSymbol{ node.typeName.empty() ? "int" : node.typeName, false, false, "shared", {} };
                         analyzeBorrowStatements(node.body, body, true); body.scopes.pop_back();
                         reportLoopBackEdgeMoves(before, body, node.location);
                         state = mergeStates(before, body);
@@ -8484,8 +8854,9 @@ namespace pcn {
     // --- IR lowerer -------------------------------------------------------------
     class IRLowerer {
     public:
-        IRProgram lower(const Program& program) {
+        IRProgram lower(const Program& program, const SemanticAnalysisResult* analysis = nullptr) {
             IRProgram lowered;
+            skm_ = analysis ? analysis->skm : SemanticKnowledgeModel{};
             routineReturnTypes_.clear();
             routineParameters_.clear();
             nominalTypeNames_.clear();
@@ -8653,8 +9024,8 @@ namespace pcn {
             blocks_.clear();
             locals_.clear();
             localValueTypes_.clear();
-            ownedClosureStrings_.clear();
             ownedValueTypes_.clear();
+            nonOwningClosureCaptureParams_.clear();
             lastValue_ = VReg::None;
             lastValueType_ = makeIRUnknownType();
             nextVreg_ = 1;
@@ -8680,6 +9051,8 @@ namespace pcn {
             ownedScopes_.clear();
             rootOwnedParams_.clear();
             for (std::size_t i = 0; i < routine.parameters.size(); ++i) {
+                if (i < routine.closureCaptureCount && isOwnedStorageType(routine.parameters[i].typeName))
+                    nonOwningClosureCaptureParams_.insert(static_cast<std::uint32_t>(function.parameterVregs[i]));
                 if (i >= routine.closureCaptureCount && routine.parameters[i].mode == "own" &&
                     isOwnedStorageType(routine.parameters[i].typeName)) {
                     rootOwnedParams_.push_back(function.parameterVregs[i]);
@@ -8789,6 +9162,13 @@ namespace pcn {
 
         std::vector<std::pair<std::string, std::string>> ownedAggregateFields(const std::string& type) const {
             std::vector<std::pair<std::string, std::string>> fields;
+            if (type.starts_with("closure$")) {
+                const auto closureId = closureIdFromTypeName(type);
+                for (const auto& capture : skm_.closureCaptures)
+                    if (capture.closureId == closureId && capture.kind == BorrowKind::Owned)
+                        fields.emplace_back(capture.name, capture.typeName);
+                return fields;
+            }
             std::string element;
             std::size_t count = 0;
             if (typeIsArray(type, &element, &count)) {
@@ -8852,12 +9232,26 @@ namespace pcn {
             return isOwnedStorageType(type, active);
         }
 
+        static std::size_t closureIdFromTypeName(const std::string& typeName) {
+            if (!typeName.starts_with("closure$")) return 0;
+            const auto digits = std::string_view(typeName).substr(8);
+            std::size_t id = 0;
+            const auto parsed = std::from_chars(digits.data(), digits.data() + digits.size(), id);
+            return digits.empty() || parsed.ec != std::errc{} || parsed.ptr != digits.data() + digits.size() ? 0 : id;
+        }
+
         bool isOwnedStorageType(const std::string& type, std::set<std::string>& active) const {
             if (type == "string") return true;
             if (type.empty() || !active.insert(type).second) return false;
             std::string element;
             bool owns = false;
-            if (typeIsArray(type, &element)) owns = isOwnedStorageType(element, active);
+            if (type.starts_with("closure$")) {
+                const auto closureId = closureIdFromTypeName(type);
+                for (const auto& capture : skm_.closureCaptures)
+                    if (capture.closureId == closureId && capture.kind == BorrowKind::Owned &&
+                        isOwnedStorageType(capture.typeName, active)) { owns = true; break; }
+            }
+            else if (typeIsArray(type, &element)) owns = isOwnedStorageType(element, active);
             else if (type.front() == '(') {
                 try {
                     const auto tuple = CanonicalTypeParser(type).parse();
@@ -8878,7 +9272,10 @@ namespace pcn {
 
         void trackOwnedValue(VReg value, const std::string& type) {
             if (value == VReg::None) return;
-            ownedValueTypes_[static_cast<std::uint32_t>(value)] = type;
+            const auto id = static_cast<std::uint32_t>(value);
+            if (nonOwningClosureCaptureParams_.contains(id) || ownedValueTypes_.contains(id)) return;
+            for (const auto& scope : ownedScopes_) if (std::find(scope.begin(), scope.end(), value) != scope.end()) return;
+            ownedValueTypes_[id] = type;
             if (!ownedScopes_.empty()) ownedScopes_.back().push_back(value);
         }
 
@@ -8902,6 +9299,12 @@ namespace pcn {
                 emitOwnedMove(source, destination);
                 return destination;
             }
+            if (type.starts_with("closure$")) {
+                if (!isOwnedStorageType(type)) return source;
+                IRInstruction move; move.op = IROpcode::ClosureMove; move.dest = allocateVReg();
+                move.args = { source }; move.typeName = type; move.valueType = irValueTypeFromName(type);
+                const auto destination = move.dest; emit(std::move(move)); return destination;
+            }
             if (!isOwnedStorageType(type)) return source;
             validateOwnedExpansion(type);
             const auto fields = ownedAggregateFields(type);
@@ -8922,14 +9325,6 @@ namespace pcn {
             if (type == "string") {
                 IRInstruction drop; drop.op = IROpcode::StringDispose; drop.args = { source };
                 drop.typeName = "string"; drop.valueType = makeIRVoidType(); emit(std::move(drop));
-                return;
-            }
-            const auto closure = ownedClosureStrings_.find(static_cast<std::uint32_t>(source));
-            if (closure != ownedClosureStrings_.end()) {
-                for (auto field = closure->second.second.rbegin(); field != closure->second.second.rend(); ++field) {
-                    const auto captured = emitOwnedFieldExtract(source, closure->second.first, *field, "string");
-                    emitOwnedDropValue(captured, "string");
-                }
                 return;
             }
             if (!isOwnedStorageType(type)) return;
@@ -9147,7 +9542,9 @@ namespace pcn {
         void lowerLet(const LetStmt& node) {
             const std::string initializerType = node.typeName.empty() && node.initializer
                 ? lowerExprType(node.initializer).name : node.typeName;
-            auto value = node.initializer && isOwnedStorageType(initializerType)
+            const bool closureAlias = node.initializer && initializerType.starts_with("closure$") &&
+                std::holds_alternative<VariableExpr>(node.initializer->node);
+            auto value = node.initializer && isOwnedStorageType(initializerType) && !closureAlias
                 ? lowerOwnedExpr(node.initializer, irValueTypeFromName(node.typeName))
                 : node.initializer ? lowerExprWithExpected(node.initializer, irValueTypeFromName(node.typeName)) : makeNullValue();
             if (isOwnedStorageType(lastValueType_.name)) trackOwnedValue(value, lastValueType_.name);
@@ -9174,7 +9571,9 @@ namespace pcn {
         void lowerVar(const VarStmt& node) {
             const std::string initializerType = node.typeName.empty() && node.initializer
                 ? lowerExprType(node.initializer).name : node.typeName;
-            auto value = node.initializer && isOwnedStorageType(initializerType)
+            const bool closureAlias = node.initializer && initializerType.starts_with("closure$") &&
+                std::holds_alternative<VariableExpr>(node.initializer->node);
+            auto value = node.initializer && isOwnedStorageType(initializerType) && !closureAlias
                 ? lowerOwnedExpr(node.initializer, irValueTypeFromName(node.typeName))
                 : node.initializer ? lowerExprWithExpected(node.initializer, irValueTypeFromName(node.typeName)) : makeNullValue();
             if (isOwnedStorageType(lastValueType_.name)) trackOwnedValue(value, lastValueType_.name);
@@ -10032,21 +10431,19 @@ namespace pcn {
                     const auto pit = routineParameters_.find(inst.callee);
                     if (pit == routineParameters_.end() || pit->second.size() < node.parameters.size()) throw std::runtime_error("PCIR closure conversion: missing synthesized routine '" + inst.callee + "'");
                     const std::size_t captureCount = pit->second.size() - node.parameters.size();
-                    std::vector<std::string> ownedStrings;
+                    bool ownsCaptures = false;
                     for (std::size_t i = 0; i < captureCount; ++i) {
                         const auto& p = pit->second[i]; auto it = locals_.find(p.name);
                         if (it == locals_.end() || it->second == VReg::None) throw std::runtime_error("PCIR closure conversion: missing capture '" + p.name + "'");
                         auto value = it->second;
-                        if (p.mode == "own" && p.typeName == "string") {
-                            value = allocateVReg(); emitOwnedMove(it->second, value); ownedStrings.push_back(p.name);
+                        if (p.mode == "own" && isOwnedStorageType(p.typeName)) {
+                            value = emitOwnedMoveValue(it->second, p.typeName);
+                            ownsCaptures = true;
                         }
-                        inst.args.push_back(value); inst.argumentTypes.push_back(p.typeName); inst.argumentValueTypes.push_back(localValueTypes_.at(p.name));
+                        inst.args.push_back(value); inst.argumentTypes.push_back(p.typeName); inst.argumentValueTypes.push_back(irValueTypeFromName(p.typeName));
                     }
                     emit(inst);
-                    if (!ownedStrings.empty()) {
-                        ownedClosureStrings_[static_cast<std::uint32_t>(inst.dest)] = { inst.typeName,std::move(ownedStrings) };
-                        trackOwnedValue(inst.dest, inst.typeName);
-                    }
+                    if (ownsCaptures) trackOwnedValue(inst.dest, inst.typeName);
                     lastValueType_ = inst.valueType; return inst.dest;
                 }
                 else if constexpr (std::is_same_v<T, GroupExpr>) {
@@ -10857,7 +11254,7 @@ namespace pcn {
         std::unordered_map<std::string, std::vector<Parameter>> routineParameters_;
         std::unordered_map<std::string, std::size_t> routineVariadicFixedArgs_;
         std::unordered_map<std::string, std::pair<std::string, ExprPtr>> globalConstants_;
-        std::unordered_map<std::uint32_t, std::pair<std::string, std::vector<std::string>>> ownedClosureStrings_;
+        SemanticKnowledgeModel skm_;
         std::unordered_map<std::uint32_t, std::string> ownedValueTypes_;
         std::unordered_set<std::string> nominalTypeNames_;
         std::unordered_map<std::string, std::unordered_map<std::string, std::string>> nominalFieldTypes_;
@@ -10884,12 +11281,13 @@ namespace pcn {
         std::vector<std::vector<ExprPtr>> deferScopes_;
         std::vector<std::vector<VReg>> ownedScopes_;
         std::vector<VReg> rootOwnedParams_;
+        std::unordered_set<std::uint32_t> nonOwningClosureCaptureParams_;
         std::unordered_map<std::uint32_t, VReg> textViewOwners_;
     };
 
     IRProgram lowerProgramToIR(const Program& program, const SemanticAnalysisResult* analysis = nullptr) {
         IRLowerer lowerer;
-        auto ir = lowerer.lower(program);
+        auto ir = lowerer.lower(program, analysis);
         if (analysis) { ir.skm = analysis->skm; ir.nominalTypes = analysis->nominalTypes; }
         return ir;
     }
@@ -11073,6 +11471,10 @@ namespace pcn {
                         (inst.args.size() != 1 || inst.dest == VReg::None || inst.valueType.kind != IRValueKind::String ||
                             inst.args.front() == inst.dest))
                         errors.push_back(fn.name + ": consuming string move has invalid source/destination");
+                    if (inst.op == IROpcode::ClosureMove &&
+                        (inst.args.size() != 1 || inst.dest == VReg::None || inst.valueType.kind != IRValueKind::Closure ||
+                            inst.typeName != inst.valueType.name || inst.args.front() == inst.dest))
+                        errors.push_back(fn.name + ": consuming closure move has invalid source/destination");
                     if (inst.op == IROpcode::StoreField && (inst.args.size() != 2 || inst.dest != VReg::None))
                         errors.push_back(fn.name + ": malformed record field write");
                     if (inst.op == IROpcode::ArrayStore && (inst.args.size() != 3 || inst.dest != VReg::None))
@@ -11298,7 +11700,7 @@ namespace pcn {
             case IROpcode::StoreField: case IROpcode::ArrayStore:
             case IROpcode::ResultOk: case IROpcode::ResultErr:
             case IROpcode::OptionSome: case IROpcode::OptionNone:
-            case IROpcode::MakeClosure:
+            case IROpcode::MakeClosure: case IROpcode::ClosureMove:
                 return EffectClass::Observable;
             case IROpcode::Phi: case IROpcode::Branch:
             case IROpcode::BranchIf: case IROpcode::Return:
@@ -12135,7 +12537,8 @@ namespace pcn {
                 if (inst.op == IROpcode::Call || inst.op == IROpcode::CallClosure ||
                     inst.op == IROpcode::StoreField || inst.op == IROpcode::ArrayStore ||
                     inst.op == IROpcode::StringAppend || inst.op == IROpcode::StringClear ||
-                    inst.op == IROpcode::StringDispose || inst.op == IROpcode::StringMove) {
+                    inst.op == IROpcode::StringDispose || inst.op == IROpcode::StringMove ||
+                    inst.op == IROpcode::ClosureMove) {
                     known.clear();
                     literalText.clear();
                     expressions.clear();
@@ -12568,6 +12971,39 @@ namespace pcn {
             for (auto& field : dst.object->fields)field = copyAggregateValue(field);
             return dst;
         }
+        bool runtimeTypeHasOwner(const std::string& type, std::set<std::string>& active) const {
+            if (type == "string") return true;
+            if (type.empty() || !active.insert(type).second) return false;
+            const auto layout = RichABIResolver(program_).layout(type);
+            bool owns = false;
+            if (layout.kind == ABIRepresentationKind::Closure || layout.kind == ABIRepresentationKind::Aggregate)
+                for (const auto& field : layout.fields)
+                    if (!field.byReference && runtimeTypeHasOwner(field.typeName, active)) { owns = true; break; }
+            active.erase(type);
+            return owns;
+        }
+        bool runtimeTypeHasOwner(const std::string& type) const {
+            std::set<std::string> active;
+            return runtimeTypeHasOwner(type, active);
+        }
+        Value moveOwnedRuntime(Value source, const std::string& type) {
+            if (type == "string") {
+                if (!source.object || source.object->typeName != "string") throw std::runtime_error("PCIR closure.move encountered a non-string owner");
+                auto moved = object("string"); moved.object->text = std::move(source.object->text); return moved;
+            }
+            if (!runtimeTypeHasOwner(type)) return copyAggregateValue(source);
+            if (!source.object) throw std::runtime_error("PCIR closure.move encountered a missing owned aggregate");
+            auto moved = object(type); *moved.object = *source.object;
+            const auto layout = RichABIResolver(program_).layout(type);
+            for (const auto& field : layout.fields) {
+                if (field.byReference || !runtimeTypeHasOwner(field.typeName)) continue;
+                const auto found = std::find(source.object->names.begin(), source.object->names.end(), field.name);
+                if (found == source.object->names.end()) throw std::runtime_error("PCIR closure.move encountered an incomplete owned environment");
+                const auto index = static_cast<std::size_t>(found - source.object->names.begin());
+                moved.object->fields[index] = moveOwnedRuntime(source.object->fields[index], field.typeName);
+            }
+            return moved;
+        }
         static std::int64_t asInt(const Value& v) { if (v.object)throw std::runtime_error("PCIR oracle expected scalar value"); return v.scalar; }
 
         const IRFunction* selectEntry(const std::string& requested) const {
@@ -12909,6 +13345,12 @@ namespace pcn {
                         for (std::size_t i = 0; i < inst.args.size(); ++i) { v.object->names.push_back(layout.fields[i].name); v.object->fields.push_back(get(i)); }
                         set(v); break;
                     }
+                    case IROpcode::ClosureMove: {
+                        auto source = get(0);
+                        const auto type = inst.typeName.empty() ? inst.valueType.name : inst.typeName;
+                        if (!source.object || source.object->typeName != type) throw std::runtime_error("PCIR closure.move requires the matching closure value");
+                        set(moveOwnedRuntime(source, type)); break;
+                    }
                     case IROpcode::CallClosure: { auto c = get(0); if (!c.object || c.object->closureCallee.empty())throw std::runtime_error("PCIR oracle call on non-closure"); auto it = functions_.find(c.object->closureCallee); if (it == functions_.end())throw std::runtime_error("PCIR oracle unresolved closure target"); std::vector<Value>ca = c.object->fields; for (std::size_t i = 1; i < inst.args.size(); ++i)ca.push_back(get(i)); set(execute(*it->second, ca)); break; }
                     case IROpcode::Return:return inst.args.empty() ? scalar(0) : get(0); case IROpcode::Phi:case IROpcode::Nop:break;
                     }
@@ -12924,7 +13366,7 @@ namespace pcn {
     enum class PMIROpcode {
         ConstInt, ConstFloat, ConstBool, ConstNull, ConstText, Copy, Add, Sub, Mul, Div, Mod, BitAnd, BitOr, BitXor,
         Shl, Shr, Neg, BitNot, Not, Eq, Ne, Lt, Le, Gt, Ge, And, Or, Fibonacci, Branch, BranchIf, Call, CallClosure,
-        TextToString, StringToText, StringClear, StringDispose, StringMove, StringAppend, ByteCount, TextEquals, TextByteAt, TextFindByte, TextStartsWith, TextEndsWith, TextSlice, TextHash64, TextCodepointAt, TextCodepointCount, TextIsAscii, TextFindText, TextCompare, TextRFindText, TextStreamWrite, TextStreamRead, FsReadText, FsExists, FsWriteText, ProcessRun, NumericCheckedCast, MakeAggregate, ExtractField, StoreField, ArrayIndex, ArrayStore, ResultOk, ResultErr, ResultIsErr, ResultTry, OptionSome, OptionNone, MakeClosure, Return, Nop,
+        TextToString, StringToText, StringClear, StringDispose, StringMove, StringAppend, ByteCount, TextEquals, TextByteAt, TextFindByte, TextStartsWith, TextEndsWith, TextSlice, TextHash64, TextCodepointAt, TextCodepointCount, TextIsAscii, TextFindText, TextCompare, TextRFindText, TextStreamWrite, TextStreamRead, FsReadText, FsExists, FsWriteText, ProcessRun, NumericCheckedCast, MakeAggregate, ExtractField, StoreField, ArrayIndex, ArrayStore, ResultOk, ResultErr, ResultIsErr, ResultTry, OptionSome, OptionNone, MakeClosure, ClosureMove, Return, Nop,
         // Target-specific 64-bit immediate operations. These are introduced
         // after semantic verification, never in source PCIR.
         AddImm, SubImm, MulImm, BitAndImm, BitOrImm, BitXorImm,
@@ -13070,7 +13512,7 @@ namespace pcn {
             case IROpcode::Call:return PMIROpcode::Call; case IROpcode::CallClosure:return PMIROpcode::CallClosure; case IROpcode::TextToString:return PMIROpcode::TextToString; case IROpcode::StringToText:return PMIROpcode::StringToText; case IROpcode::StringClear:return PMIROpcode::StringClear; case IROpcode::StringDispose:return PMIROpcode::StringDispose; case IROpcode::StringMove:return PMIROpcode::StringMove; case IROpcode::StringAppend:return PMIROpcode::StringAppend; case IROpcode::ByteCount:return PMIROpcode::ByteCount; case IROpcode::TextEquals:return PMIROpcode::TextEquals; case IROpcode::TextByteAt:return PMIROpcode::TextByteAt; case IROpcode::TextFindByte:return PMIROpcode::TextFindByte; case IROpcode::TextStartsWith:return PMIROpcode::TextStartsWith; case IROpcode::TextEndsWith:return PMIROpcode::TextEndsWith; case IROpcode::TextSlice:return PMIROpcode::TextSlice; case IROpcode::TextHash64:return PMIROpcode::TextHash64; case IROpcode::TextCodepointAt:return PMIROpcode::TextCodepointAt; case IROpcode::TextCodepointCount:return PMIROpcode::TextCodepointCount; case IROpcode::TextIsAscii:return PMIROpcode::TextIsAscii; case IROpcode::TextFindText:return PMIROpcode::TextFindText; case IROpcode::TextCompare:return PMIROpcode::TextCompare; case IROpcode::TextRFindText:return PMIROpcode::TextRFindText; case IROpcode::TextStreamWrite:return PMIROpcode::TextStreamWrite; case IROpcode::TextStreamRead:return PMIROpcode::TextStreamRead; case IROpcode::FsReadText:return PMIROpcode::FsReadText; case IROpcode::FsExists:return PMIROpcode::FsExists; case IROpcode::FsWriteText:return PMIROpcode::FsWriteText; case IROpcode::ProcessRun:return PMIROpcode::ProcessRun; case IROpcode::NumericCheckedCast:return PMIROpcode::NumericCheckedCast; case IROpcode::MakeAggregate:return PMIROpcode::MakeAggregate;
             case IROpcode::ExtractField:return PMIROpcode::ExtractField; case IROpcode::StoreField:return PMIROpcode::StoreField; case IROpcode::ArrayIndex:return PMIROpcode::ArrayIndex; case IROpcode::ArrayStore:return PMIROpcode::ArrayStore; case IROpcode::ResultOk:return PMIROpcode::ResultOk; case IROpcode::ResultErr:return PMIROpcode::ResultErr;
             case IROpcode::ResultIsErr:return PMIROpcode::ResultIsErr; case IROpcode::ResultTry:return PMIROpcode::ResultTry; case IROpcode::OptionSome:return PMIROpcode::OptionSome; case IROpcode::OptionNone:return PMIROpcode::OptionNone;
-            case IROpcode::MakeClosure:return PMIROpcode::MakeClosure; case IROpcode::Return:return PMIROpcode::Return;
+            case IROpcode::MakeClosure:return PMIROpcode::MakeClosure; case IROpcode::ClosureMove:return PMIROpcode::ClosureMove; case IROpcode::Return:return PMIROpcode::Return;
             case IROpcode::Nop:return PMIROpcode::Nop;
             default:throw std::runtime_error("PMIR cannot legalize PCIR opcode " + std::to_string(static_cast<int>(op)));
             }
@@ -13123,7 +13565,7 @@ namespace pcn {
                     }
                     catch (const std::runtime_error&) { supported = false; }
                 }
-                else if (abi.isRecord(type)) {
+                else if (abi.isRecord(type) || abi.layout(type).kind == ABIRepresentationKind::Closure) {
                     supported = true;
                     for (const auto& field : abi.layout(type).fields)
                         if (!field.byReference && !supportsRecursiveOwner(field.typeName, active)) { supported = false; break; }
@@ -13136,16 +13578,9 @@ namespace pcn {
                     ty.kind != IRValueKind::Option && ty.kind != IRValueKind::Closure)continue;
                 std::set<std::string> visited;
                 if (!containsOwner(ty.name, visited)) continue;
-                if (ty.kind == IRValueKind::Closure) {
-                    const auto layout = abi.layout(ty);
-                    const bool directStrings = std::all_of(layout.fields.begin(), layout.fields.end(), [&](const ABIFieldLayout& field) {
-                        std::set<std::string> nested;
-                        return field.byReference || field.typeName == "string" || !containsOwner(field.typeName, nested);
-                    });
-                    if (directStrings) continue;
-                }
                 std::set<std::string> active;
-                if (ty.kind == IRValueKind::Aggregate && supportsRecursiveOwner(ty.name, active)) continue;
+                if ((ty.kind == IRValueKind::Aggregate || ty.kind == IRValueKind::Closure) &&
+                    supportsRecursiveOwner(ty.name, active)) continue;
                 throw std::runtime_error("E0426 owned values in '" + ty.name + "' require unsupported tagged/union or closure ownership legalization");
             }
             std::size_t maxAbiArgs = 0;
@@ -13439,7 +13874,7 @@ namespace pcn {
     static std::string pmirOpcodeName(PMIROpcode op) {
         switch (op) {
         case PMIROpcode::ConstInt:return"mov.imm"; case PMIROpcode::ConstFloat:return"mov.fp.bits"; case PMIROpcode::ConstBool:return"mov.bool"; case PMIROpcode::ConstNull:return"mov.null"; case PMIROpcode::ConstText:return"text.literal"; case PMIROpcode::Copy:return"copy";
-        case PMIROpcode::Add:return"add"; case PMIROpcode::Sub:return"sub"; case PMIROpcode::Mul:return"imul"; case PMIROpcode::Div:return"idiv.defined"; case PMIROpcode::Mod:return"imod.defined"; case PMIROpcode::BitAnd:return"and"; case PMIROpcode::BitOr:return"or"; case PMIROpcode::BitXor:return"xor"; case PMIROpcode::Shl:return"shl"; case PMIROpcode::Shr:return"sar"; case PMIROpcode::Neg:return"neg"; case PMIROpcode::BitNot:return"not"; case PMIROpcode::Not:return"logical.not"; case PMIROpcode::Eq:return"cmp.eq"; case PMIROpcode::Ne:return"cmp.ne"; case PMIROpcode::Lt:return"cmp.lt"; case PMIROpcode::Le:return"cmp.le"; case PMIROpcode::Gt:return"cmp.gt"; case PMIROpcode::Ge:return"cmp.ge"; case PMIROpcode::And:return"logical.and"; case PMIROpcode::Or:return"logical.or"; case PMIROpcode::Branch:return"jmp"; case PMIROpcode::BranchIf:return"br.if"; case PMIROpcode::Call:return"call"; case PMIROpcode::CallClosure:return"call.closure"; case PMIROpcode::TextToString:return"text.to_string"; case PMIROpcode::StringToText:return"string.to_text"; case PMIROpcode::StringClear:return"string.clear"; case PMIROpcode::StringDispose:return"string.dispose"; case PMIROpcode::StringMove:return"string.move"; case PMIROpcode::StringAppend:return"string.append"; case PMIROpcode::ByteCount:return"text.count"; case PMIROpcode::TextEquals:return"text.equals"; case PMIROpcode::TextByteAt:return"text.byte_at.checked"; case PMIROpcode::TextFindByte:return"text.find_byte"; case PMIROpcode::TextStartsWith:return"text.starts_with"; case PMIROpcode::TextEndsWith:return"text.ends_with"; case PMIROpcode::TextSlice:return"text.slice.utf8_checked"; case PMIROpcode::TextHash64:return"text.hash64.fnv1a"; case PMIROpcode::TextCodepointAt:return"text.codepoint_at.utf8_checked"; case PMIROpcode::TextCodepointCount:return"text.codepoint_count"; case PMIROpcode::TextIsAscii:return"text.is_ascii"; case PMIROpcode::TextFindText:return"text.find.bytewise"; case PMIROpcode::TextCompare:return"text.compare.unsigned_lexicographic"; case PMIROpcode::TextRFindText:return"text.rfind.bytewise"; case PMIROpcode::TextStreamWrite:return"text.stream_write"; case PMIROpcode::TextStreamRead:return"text.stream_read_all"; case PMIROpcode::FsReadText:return"fs.read_text"; case PMIROpcode::FsExists:return"fs.exists"; case PMIROpcode::FsWriteText:return"fs.write_text"; case PMIROpcode::ProcessRun:return"process.run"; case PMIROpcode::NumericCheckedCast:return"numeric.checked_cast"; case PMIROpcode::MakeAggregate:return"aggregate.make"; case PMIROpcode::ExtractField:return"aggregate.field"; case PMIROpcode::StoreField:return"aggregate.store.field"; case PMIROpcode::ArrayIndex:return"array.index.checked"; case PMIROpcode::ArrayStore:return"array.store.checked"; case PMIROpcode::ResultOk:return"result.ok"; case PMIROpcode::ResultErr:return"result.err"; case PMIROpcode::ResultIsErr:return"result.is_err"; case PMIROpcode::ResultTry:return"result.try"; case PMIROpcode::OptionSome:return"option.some"; case PMIROpcode::OptionNone:return"option.none"; case PMIROpcode::MakeClosure:return"closure.make"; case PMIROpcode::Return:return"ret"; case PMIROpcode::Nop:return"nop";
+        case PMIROpcode::Add:return"add"; case PMIROpcode::Sub:return"sub"; case PMIROpcode::Mul:return"imul"; case PMIROpcode::Div:return"idiv.defined"; case PMIROpcode::Mod:return"imod.defined"; case PMIROpcode::BitAnd:return"and"; case PMIROpcode::BitOr:return"or"; case PMIROpcode::BitXor:return"xor"; case PMIROpcode::Shl:return"shl"; case PMIROpcode::Shr:return"sar"; case PMIROpcode::Neg:return"neg"; case PMIROpcode::BitNot:return"not"; case PMIROpcode::Not:return"logical.not"; case PMIROpcode::Eq:return"cmp.eq"; case PMIROpcode::Ne:return"cmp.ne"; case PMIROpcode::Lt:return"cmp.lt"; case PMIROpcode::Le:return"cmp.le"; case PMIROpcode::Gt:return"cmp.gt"; case PMIROpcode::Ge:return"cmp.ge"; case PMIROpcode::And:return"logical.and"; case PMIROpcode::Or:return"logical.or"; case PMIROpcode::Branch:return"jmp"; case PMIROpcode::BranchIf:return"br.if"; case PMIROpcode::Call:return"call"; case PMIROpcode::CallClosure:return"call.closure"; case PMIROpcode::TextToString:return"text.to_string"; case PMIROpcode::StringToText:return"string.to_text"; case PMIROpcode::StringClear:return"string.clear"; case PMIROpcode::StringDispose:return"string.dispose"; case PMIROpcode::StringMove:return"string.move"; case PMIROpcode::StringAppend:return"string.append"; case PMIROpcode::ByteCount:return"text.count"; case PMIROpcode::TextEquals:return"text.equals"; case PMIROpcode::TextByteAt:return"text.byte_at.checked"; case PMIROpcode::TextFindByte:return"text.find_byte"; case PMIROpcode::TextStartsWith:return"text.starts_with"; case PMIROpcode::TextEndsWith:return"text.ends_with"; case PMIROpcode::TextSlice:return"text.slice.utf8_checked"; case PMIROpcode::TextHash64:return"text.hash64.fnv1a"; case PMIROpcode::TextCodepointAt:return"text.codepoint_at.utf8_checked"; case PMIROpcode::TextCodepointCount:return"text.codepoint_count"; case PMIROpcode::TextIsAscii:return"text.is_ascii"; case PMIROpcode::TextFindText:return"text.find.bytewise"; case PMIROpcode::TextCompare:return"text.compare.unsigned_lexicographic"; case PMIROpcode::TextRFindText:return"text.rfind.bytewise"; case PMIROpcode::TextStreamWrite:return"text.stream_write"; case PMIROpcode::TextStreamRead:return"text.stream_read_all"; case PMIROpcode::FsReadText:return"fs.read_text"; case PMIROpcode::FsExists:return"fs.exists"; case PMIROpcode::FsWriteText:return"fs.write_text"; case PMIROpcode::ProcessRun:return"process.run"; case PMIROpcode::NumericCheckedCast:return"numeric.checked_cast"; case PMIROpcode::MakeAggregate:return"aggregate.make"; case PMIROpcode::ExtractField:return"aggregate.field"; case PMIROpcode::StoreField:return"aggregate.store.field"; case PMIROpcode::ArrayIndex:return"array.index.checked"; case PMIROpcode::ArrayStore:return"array.store.checked"; case PMIROpcode::ResultOk:return"result.ok"; case PMIROpcode::ResultErr:return"result.err"; case PMIROpcode::ResultIsErr:return"result.is_err"; case PMIROpcode::ResultTry:return"result.try"; case PMIROpcode::OptionSome:return"option.some"; case PMIROpcode::OptionNone:return"option.none"; case PMIROpcode::MakeClosure:return"closure.make"; case PMIROpcode::ClosureMove:return"closure.move"; case PMIROpcode::Return:return"ret"; case PMIROpcode::Nop:return"nop";
         case PMIROpcode::Fibonacci:return"fib.checked.i64";
         case PMIROpcode::ArraySumSIMD:return"array.sum.simd.unrolled";
         case PMIROpcode::AddImm:return"add.imm"; case PMIROpcode::SubImm:return"sub.imm";
@@ -15112,7 +15547,8 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                                           case PMIROpcode::StoreField: {
                                                               if (i.srcSlots.size() != 2)throw std::runtime_error("PMIR record field store requires owner and value");
                                                               auto owner = abi.layout(i.typeName);
-                                                              if (owner.kind != ABIRepresentationKind::Aggregate)throw std::runtime_error("PMIR record field store requires aggregate type");
+                                                              if (owner.kind != ABIRepresentationKind::Aggregate && owner.kind != ABIRepresentationKind::Closure)
+                                                                  throw std::runtime_error("PMIR field store requires an aggregate or closure environment");
                                                               const auto field = findField(owner, i.literalText); const auto fld = abi.layout(field.typeName);
                                                               loadSlot(b, 10, fn, i.srcSlots[0]); storeValueInto(b, fn, i.srcSlots[1], 10, field.offset, fld);
                                                               break;
@@ -15139,6 +15575,33 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                                           case PMIROpcode::ResultIsErr: { if (i.srcSlots.empty())throw std::runtime_error("result.is_err missing source"); auto lay = abi.layout(i.typeName.empty() ? fn.slots.at(i.srcSlots[0]).type.name : i.typeName); loadSlot(b, 10, fn, i.srcSlots[0]); loadMem(b, 0, 10, static_cast<std::int32_t>(lay.tagOffset), 1, false); storeSlot(b, 0, fn, i.destSlot); break; }
                                                           case PMIROpcode::ResultTry: { if (i.srcSlots.empty())throw std::runtime_error("result.try missing source"); auto srcLay = abi.layout(i.typeName.empty() ? fn.slots.at(i.srcSlots[0]).type.name : i.typeName); loadSlot(b, 10, fn, i.srcSlots[0]); loadMem(b, 0, 10, static_cast<std::int32_t>(srcLay.tagOffset), 1, false); b.insert(b.end(), { 0x48,0x85,0xC0 }); auto ok = emitLocalJcc(b, 0x84); if (!fn.richReturn)throw std::runtime_error("result.try error propagation requires rich result return ABI"); auto dstLay = abi.layout(fn.returnValueType); loadRbp(b, 11, negDisp(fn.sretCellOffset)); movImm(b, 0, 1); storeMem(b, 11, static_cast<std::int32_t>(dstLay.tagOffset), 0, 1); auto errLay = abi.layout(srcLay.errType); movReg(b, 0, 10); if (srcLay.payloadOffset) { movImm(b, 9, srcLay.payloadOffset); b.insert(b.end(), { 0x4C,0x01,0xC8 }); }movReg(b, 10, 0); movReg(b, 0, 11); if (dstLay.payloadOffset) { movImm(b, 9, dstLay.payloadOffset); b.insert(b.end(), { 0x4C,0x01,0xC8 }); }movReg(b, 11, 0); copyFixed(b, 10, 11, errLay.size); loadRbp(b, 0, negDisp(fn.sretCellOffset)); epilogue(b, fn.frameSize); auto okAt = b.size(); patchLocal(b, ok, okAt); loadSlot(b, 10, fn, i.srcSlots[0]); auto okLay = abi.layout(srcLay.okType); loadValueFrom(b, fn, i.destSlot, 10, srcLay.payloadOffset, okLay); break; }
                                                           case PMIROpcode::OptionSome:case PMIROpcode::OptionNone: { auto lay = abi.layout(i.valueType); if (lay.kind == ABIRepresentationKind::OptionBoolNiche) { movImm(b, 0, i.op == PMIROpcode::OptionNone ? 2 : 0); if (i.op == PMIROpcode::OptionSome && !i.srcSlots.empty())loadSlot(b, 0, fn, i.srcSlots[0]); storeSlot(b, 0, fn, i.destSlot); break; }if (lay.kind == ABIRepresentationKind::OptionCharNiche) { if (i.op == PMIROpcode::OptionNone)movImm(b, 0, 0x00110000u); else loadSlot(b, 0, fn, i.srcSlots.at(0)); storeSlot(b, 0, fn, i.destSlot); break; }initRichDest(b, fn, i.destSlot); loadSlot(b, 11, fn, i.destSlot); if (lay.kind == ABIRepresentationKind::OptionPointerNiche) { if (i.op == PMIROpcode::OptionNone)zeroFixed(b, 11, lay.size); else { auto vl = abi.layout(lay.valueType); storeValueInto(b, fn, i.srcSlots.at(0), 11, 0, vl); }break; }movImm(b, 0, i.op == PMIROpcode::OptionSome ? 1 : 0); storeMem(b, 11, 0, 0, 1); if (i.op == PMIROpcode::OptionSome) { auto vl = abi.layout(lay.valueType); storeValueInto(b, fn, i.srcSlots.at(0), 11, lay.payloadOffset, vl); }break; }
+                                                          case PMIROpcode::ClosureMove: {
+                                                              if (i.srcSlots.size() != 1) throw std::runtime_error("closure.move requires one source");
+                                                              const auto closureLayout = abi.layout(i.typeName.empty() ? fn.slots.at(i.srcSlots[0]).type.name : i.typeName);
+                                                              if (closureLayout.kind != ABIRepresentationKind::Closure) throw std::runtime_error("closure.move requires a concrete closure environment");
+                                                              initRichDest(b, fn, i.destSlot); loadSlot(b, 10, fn, i.srcSlots[0]); loadSlot(b, 11, fn, i.destSlot);
+                                                              copyFixed(b, 10, 11, closureLayout.size);
+                                                              std::vector<std::size_t> ownerOffsets;
+                                                              std::function<void(const std::string&, std::size_t, std::set<std::string>&)> collectOwnerOffsets =
+                                                                  [&](const std::string& type, std::size_t base, std::set<std::string>& active) {
+                                                                  if (type == "string") { ownerOffsets.push_back(base); return; }
+                                                                  if (type.empty() || !active.insert(type).second) return;
+                                                                  const auto nestedLayout = abi.layout(type);
+                                                                  if (nestedLayout.kind == ABIRepresentationKind::Closure || nestedLayout.kind == ABIRepresentationKind::Aggregate)
+                                                                      for (const auto& field : nestedLayout.fields)
+                                                                          if (!field.byReference) collectOwnerOffsets(field.typeName, base + field.offset, active);
+                                                                  active.erase(type);
+                                                              };
+                                                              for (const auto& field : closureLayout.fields) if (!field.byReference) {
+                                                                  std::set<std::string> active; collectOwnerOffsets(field.typeName, field.offset, active);
+                                                              }
+                                                              for (const auto offset : ownerOffsets) {
+                                                                  loadSlot(b, 10, fn, i.srcSlots[0]);
+                                                                  if (offset) { movImm(b, 0, offset); b.insert(b.end(), { 0x49,0x01,0xC2 }); }
+                                                                  zeroFixed(b, 10, abi.layout("string").size);
+                                                              }
+                                                              break;
+                                                          }
                                                           case PMIROpcode::MakeClosure: {
                                                               auto lay = abi.layout(i.valueType);
                                                               if (i.srcSlots.size() != lay.fields.size()) throw std::runtime_error("closure environment capture count disagrees with checked ABI");
@@ -16210,7 +16673,7 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                   case IROpcode::TextToString: return "text.to_string"; case IROpcode::StringToText: return "string.to_text"; case IROpcode::StringClear: return "string.clear"; case IROpcode::StringDispose: return "string.dispose"; case IROpcode::StringMove:return "string.move"; case IROpcode::ByteCount: return "text.count"; case IROpcode::TextEquals: return "text.equals"; case IROpcode::TextByteAt:return "text.byte_at"; case IROpcode::TextFindByte:return "text.find_byte"; case IROpcode::TextStartsWith:return "text.starts_with"; case IROpcode::TextEndsWith:return "text.ends_with"; case IROpcode::TextSlice:return "text.slice"; case IROpcode::TextHash64:return "text.hash64"; case IROpcode::TextCodepointAt:return "text.codepoint_at"; case IROpcode::TextCodepointCount:return "text.codepoint_count"; case IROpcode::TextIsAscii:return "text.is_ascii"; case IROpcode::TextFindText:return "text.find"; case IROpcode::TextCompare:return "text.compare"; case IROpcode::TextRFindText:return "text.rfind"; case IROpcode::TextStreamWrite:return "text.stream_write"; case IROpcode::TextStreamRead:return "text.stream_read_all"; case IROpcode::FsReadText:return "fs.read_text"; case IROpcode::FsExists:return "fs.exists"; case IROpcode::FsWriteText:return "fs.write_text"; case IROpcode::ProcessRun:return "process.run"; case IROpcode::StringAppend:return "string.append"; case IROpcode::NumericCheckedCast:return "numeric.checked_cast";
                                   case IROpcode::MakeAggregate: return "aggregate.make"; case IROpcode::ExtractField: return "aggregate.field"; case IROpcode::ArrayIndex:return "array.index"; case IROpcode::StoreField:return "aggregate.store.field"; case IROpcode::ArrayStore:return "array.store";
                                   case IROpcode::ResultOk: return "result.ok"; case IROpcode::ResultErr: return "result.err"; case IROpcode::ResultIsErr: return "result.is_err"; case IROpcode::ResultTry: return "result.try";
-                                  case IROpcode::OptionSome: return "option.some"; case IROpcode::OptionNone: return "option.none"; case IROpcode::MakeClosure: return "closure.make";
+                                  case IROpcode::OptionSome: return "option.some"; case IROpcode::OptionNone: return "option.none"; case IROpcode::MakeClosure: return "closure.make"; case IROpcode::ClosureMove: return "closure.move";
                                   case IROpcode::Return: return "ret"; case IROpcode::Nop: return "nop";
                                   }
                                   return "?";
@@ -20237,7 +20700,7 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                       if (!hasDiagnostic(artifacts.analysis, "E0434 conflicting borrows in call"))
                                           throw std::runtime_error("field projections of one root were not treated as potentially aliasing");
                                       });
-                                  test("moving a projected aggregate place invalidates its root", [&] {
+                                  test("moving a non-copy projection invalidates that place and its aggregate", [&] {
                                       const auto artifacts = compileAll(
                                           "record Token\n"
                                           "    id: int\n"
@@ -20265,7 +20728,7 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                       if (!artifacts.analysis.succeeded())
                                           throw std::runtime_error("copying a primitive field incorrectly moved its aggregate");
                                   });
-                                  test("binding a projected non-copy field moves its aggregate root", [&] {
+                                  test("binding a projected non-copy field invalidates that field", [&] {
                                       const auto artifacts = compileAll("record Token\n"
                                                                         "    id: int\n"
                                                                         "record Wrapper\n"
@@ -20276,7 +20739,167 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                                                         "    give wrapper.token.id\n",
                                                                         CompilerOptions{}, false);
                                       if (!hasDiagnostic(artifacts.analysis, "E0412 use after move: 'wrapper'"))
-                                          throw std::runtime_error("binding a projected non-copy value did not move its root");
+                                          throw std::runtime_error("binding a projected non-copy value did not move its field");
+                                  });
+                                  test("partial record moves preserve independent fields", [&] {
+                                      const auto artifacts = compileAll(
+                                          "record Token\n"
+                                          "    id: int\n"
+                                          "record Pair\n"
+                                          "    left: Token\n"
+                                          "    right: Token\n"
+                                          "routine main() gives int\n"
+                                          "    var pair: Pair = Pair{left: Token{id: 1}, right: Token{id: 2}}\n"
+                                          "    let moved: Token = pair.left\n"
+                                          "    give pair.right.id\n",
+                                          CompilerOptions{}, false);
+                                      if (!artifacts.analysis.succeeded())
+                                          throw std::runtime_error("moving one field incorrectly invalidated its sibling");
+                                  });
+                                  test("moved record fields reject reads and allow field reinitialization", [&] {
+                                      const auto rejected = compileAll(
+                                          "record Token\n"
+                                          "    id: int\n"
+                                          "record Pair\n"
+                                          "    left: Token\n"
+                                          "    right: Token\n"
+                                          "routine main() gives int\n"
+                                          "    var pair: Pair = Pair{left: Token{id: 1}, right: Token{id: 2}}\n"
+                                          "    let moved: Token = pair.left\n"
+                                          "    give pair.left.id\n",
+                                          CompilerOptions{}, false);
+                                      const auto restored = compileAll(
+                                          "record Token\n"
+                                          "    id: int\n"
+                                          "record Pair\n"
+                                          "    left: Token\n"
+                                          "    right: Token\n"
+                                          "routine main() gives int\n"
+                                          "    var pair: Pair = Pair{left: Token{id: 1}, right: Token{id: 2}}\n"
+                                          "    let moved: Token = pair.left\n"
+                                          "    pair.left = Token{id: 3}\n"
+                                          "    give pair.left.id + pair.right.id\n",
+                                          CompilerOptions{}, false);
+                                      const auto siblingStillMoved = compileAll(
+                                          "record Token\n"
+                                          "    id: int\n"
+                                          "record Pair\n"
+                                          "    left: Token\n"
+                                          "    right: Token\n"
+                                          "routine main() gives int\n"
+                                          "    var pair: Pair = Pair{left: Token{id: 1}, right: Token{id: 2}}\n"
+                                          "    let movedLeft: Token = pair.left\n"
+                                          "    let movedRight: Token = pair.right\n"
+                                          "    pair.left = Token{id: 3}\n"
+                                          "    give pair.right.id\n",
+                                          CompilerOptions{}, false);
+                                      if (!hasDiagnostic(rejected.analysis, "E0412 use after move: 'pair'"))
+                                          throw std::runtime_error("reading a moved field was accepted");
+                                      if (!restored.analysis.succeeded())
+                                          throw std::runtime_error("field reinitialization did not restore just that field");
+                                      if (!hasDiagnostic(siblingStillMoved.analysis, "E0412 use after move: 'pair'"))
+                                          throw std::runtime_error("field reinitialization revived a different moved field");
+                                  });
+                                                                     test("constant array-element moves are field-sensitive", [&] {
+                                                                         const auto artifacts = compileAll(
+                                                                             "record Token\n"
+                                                                             "    id: int\n"
+                                                                             "routine main() gives int\n"
+                                                                             "    var values: array<Token,2> = [Token{id: 1}, Token{id: 2}]\n"
+                                                                             "    let moved: Token = values[0]\n"
+                                                                             "    values[0] = Token{id: 3}\n"
+                                                                             "    give values[0].id + values[1].id\n",
+                                                                             CompilerOptions{}, false);
+                                                                         if (!artifacts.analysis.succeeded())
+                                                                             throw std::runtime_error("constant element replacement did not restore just that element");
+                                                                     });
+                                                                     test("dynamic array-element moves conservatively overlap known indices", [&] {
+                                                                         const auto artifacts = compileAll(
+                                                                             "record Token\n"
+                                                                             "    id: int\n"
+                                                                             "routine main() gives int\n"
+                                                                             "    var values: array<Token,2> = [Token{id: 1}, Token{id: 2}]\n"
+                                                                             "    let index: int = 0\n"
+                                                                             "    let moved: Token = values[index]\n"
+                                                                             "    values[index] = Token{id: 3}\n"
+                                                                             "    give values[1].id\n",
+                                                                             CompilerOptions{}, false);
+                                                                         if (!hasDiagnostic(artifacts.analysis, "E0412 use after move: 'values'"))
+                                                                             throw std::runtime_error("dynamic index move was treated as a disjoint constant element");
+                                                                     });
+                                                                     test("nested partial moves preserve unrelated nested fields", [&] {
+                                                                         const auto artifacts = compileAll(
+                                                                             "record Token\n"
+                                                                             "    id: int\n"
+                                                                             "record Inner\n"
+                                                                             "    left: Token\n"
+                                                                             "    right: Token\n"
+                                                                             "record Outer\n"
+                                                                             "    inner: Inner\n"
+                                                                             "    other: Token\n"
+                                                                             "routine main() gives int\n"
+                                                                             "    var outer: Outer = Outer{inner: Inner{left: Token{id: 1}, right: Token{id: 2}}, other: Token{id: 3}}\n"
+                                                                             "    let moved: Token = outer.inner.left\n"
+                                                                             "    give outer.inner.right.id + outer.other.id\n",
+                                                                             CompilerOptions{}, false);
+                                                                         if (!artifacts.analysis.succeeded())
+                                                                             throw std::runtime_error("nested projected move invalidated a disjoint field");
+                                                                     });
+                                                                     test("partial owner-field replacement executes with recursive cleanup", [&] {
+                                                                         const std::string source =
+                                                                             "record Pair\n"
+                                                                             "    left: string\n"
+                                                                             "    right: string\n"
+                                                                             "routine main() gives size\n"
+                                                                             "    var pair: Pair = Pair{left: \"a\".to_string(), right: \"bb\".to_string()}\n"
+                                                                             "    let moved: string = pair.left\n"
+                                                                             "    pair.left = \"ccc\".to_string()\n"
+                                                                             "    give pair.left.count() + pair.right.count()\n";
+                                                                         for (int level : { 0,3 }) {
+                                                                             CompilerOptions options; options.optimizationLevel = level;
+                                                                             const auto artifacts = compileAll(source, options);
+                                                                             if (!artifacts.analysis.succeeded() || PCIRInterpreter(artifacts.pcir).run("") != 5)
+                                                                                 throw std::runtime_error("partial owned-field replacement differs in PCIR");
+                                  #if defined(_WIN32)
+                                                                             const auto file = std::filesystem::temp_directory_path() / ("paracine-partial-move-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".exe");
+                                                                             struct Cleanup { std::filesystem::path path; ~Cleanup() { std::error_code ec; std::filesystem::remove(path, ec); } } cleanup{ file };
+                                                                             writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(artifacts.pcir, artifacts.pmir, artifacts.machine));
+                                                                             if (runNativeExecutable(file) != 5) throw std::runtime_error("partial owned-field replacement differs in native execution");
+                                  #endif
+                                                                         }
+                                                                     });
+                                  test("branch joins retain only the projected move set", [&] {
+                                      const auto artifacts = compileAll(
+                                          "record Token\n"
+                                          "    id: int\n"
+                                          "record Trio\n"
+                                          "    left: Token\n"
+                                          "    middle: Token\n"
+                                          "    right: Token\n"
+                                          "routine main(flag: bool) gives int\n"
+                                          "    var trio: Trio = Trio{left: Token{id: 1}, middle: Token{id: 2}, right: Token{id: 3}}\n"
+                                          "    if flag\n"
+                                          "        let moved: Token = trio.left\n"
+                                          "    else\n"
+                                          "        let moved: Token = trio.middle\n"
+                                          "    give trio.right.id\n",
+                                          CompilerOptions{}, false);
+                                      const auto unavailable = compileAll(
+                                          "record Token\n"
+                                          "    id: int\n"
+                                          "record Pair\n"
+                                          "    left: Token\n"
+                                          "    right: Token\n"
+                                          "routine main(flag: bool) gives int\n"
+                                          "    var pair: Pair = Pair{left: Token{id: 1}, right: Token{id: 2}}\n"
+                                          "    if flag\n"
+                                          "        let moved: Token = pair.left\n"
+                                          "    give pair.left.id\n",
+                                          CompilerOptions{}, false);
+                                      if (!artifacts.analysis.succeeded())
+                                          throw std::runtime_error("branch join contaminated an independent field");
+                                      if (!hasDiagnostic(unavailable.analysis, "E0412 use after move: 'pair'"))
+                                          throw std::runtime_error("branch join forgot a field moved on one reachable path");
                                   });
                                   test("recursive owner moves preserve records and fixed-array elements", [&] {
                                       const std::string source = "record Leaf\n"
@@ -20457,6 +21080,38 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                           CompilerOptions{}, false);
                                       if (hasDiagnostic(artifacts.analysis, "E0412 use after move: 'value'"))
                                           throw std::runtime_error("unreachable code changed the ownership state");
+                                  });
+                                  test("partial field move is rejected on a possible loop back-edge", [&] {
+                                      const auto artifacts = compileAll(
+                                          "record Token\n"
+                                          "    id: int\n"
+                                          "record Pair\n"
+                                          "    left: Token\n"
+                                          "    right: Token\n"
+                                          "routine main(value: Pair) gives int\n"
+                                          "    each i in 0..2\n"
+                                          "        let moved: Token = value.left\n"
+                                          "    give 0\n",
+                                          CompilerOptions{}, false);
+                                      if (!hasDiagnostic(artifacts.analysis, "E0421 value 'value' is moved inside a potentially repeating loop"))
+                                          throw std::runtime_error("partial move was omitted from loop back-edge validation");
+                                  });
+                                  test("defer validates the moved projection", [&] {
+                                      const auto artifacts = compileAll(
+                                          "record Token\n"
+                                          "    id: int\n"
+                                          "record Pair\n"
+                                          "    left: Token\n"
+                                          "    right: Token\n"
+                                          "routine inspect(value: Token) gives int\n"
+                                          "    give value.id\n"
+                                          "routine main(value: Pair) gives int\n"
+                                          "    defer inspect(value.left)\n"
+                                          "    let moved: Token = value.left\n"
+                                          "    give 0\n",
+                                          CompilerOptions{}, false);
+                                      if (!hasDiagnostic(artifacts.analysis, "E0412 use after move: 'value'"))
+                                          throw std::runtime_error("defer did not detect a moved projection at scope exit");
                                   });
                                   test("for-loop move is rejected on a possible back-edge", [&] {
                                       const auto artifacts = compileAll(
@@ -20639,16 +21294,101 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                       if (!hasDiagnostic(artifacts.analysis, "E0436 borrowed value passed to foreign routine 'retain'"))
                                           throw std::runtime_error("foreign call was allowed to retain a local-backed view");
                                   });
-                                  test("escaping closure capture is checked after capture discovery", [&] {
-                                      const auto artifacts = compileAll(
+                                  test("escaping closure promotes immutable scalar captures", [&] {
+                                      const std::string source =
                                           "routine main() gives int\n"
-                                          "    let captured: int = 7\n"
-                                          "    give routine() => captured\n",
-                                          CompilerOptions{}, false);
-                                      if (!hasDiagnostic(artifacts.analysis, "E0432 closure$"))
-                                          throw std::runtime_error("directly returned closure escaped with an untracked borrow");
-                                  });
-                                  test("move closure consumes captured non-copy binding", [&] {
+                                          "    let captured: int = 40\n"
+                                          "    let maker = routine() => routine() gives int => captured + 2\n"
+                                          "    let action = maker()\n"
+                                          "    give action()\n";
+                                      for (int level : { 0,3 }) {
+                                          CompilerOptions options; options.optimizationLevel = level;
+                                          const auto artifacts = compileAll(source, options);
+                                          if (!artifacts.analysis.succeeded() || PCIRInterpreter(artifacts.pcir).run("") != 42)
+                                              throw std::runtime_error("returned nested closure lost its promoted scalar capture");
+                                                                                     const bool promoted = std::any_of(artifacts.pcir.skm.closureCaptures.begin(), artifacts.pcir.skm.closureCaptures.end(),
+                                                                                         [](const SKMClosureCaptureFact& capture) { return capture.escaping && capture.kind == BorrowKind::Owned && capture.typeName == "int"; });
+                                                                                     if (!promoted) throw std::runtime_error("escaping scalar capture was not stored by value");
+                                          #if defined(_WIN32)
+                                                                                     const auto file = std::filesystem::temp_directory_path() / ("paracine-nested-closure-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".exe");
+                                                                                     struct Cleanup { std::filesystem::path path; ~Cleanup() { std::error_code ec; std::filesystem::remove(path, ec); } } cleanup{ file };
+                                                                                     writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(artifacts.pcir, artifacts.pmir, artifacts.machine));
+                                                                                     if (runNativeExecutable(file) != 42) throw std::runtime_error("native returned nested closure differed from PCIR");
+                                          #endif
+                                                                                 }
+                                                                             });
+                                                                             test("nested closure captures lexical parent parameters", [&] {
+                                                                                 const auto artifacts = compileAll(
+                                                                                     "routine main() gives int\n"
+                                                                                     "    let maker = routine(value: int) gives int => (routine() gives int => value + 22)()\n"
+                                                                                     "    give maker(20)\n",
+                                                                                     CompilerOptions{});
+                                                                                 if (!artifacts.analysis.succeeded() || PCIRInterpreter(artifacts.pcir).run("") != 42)
+                                                                                     throw std::runtime_error("nested closure did not capture its lexical parent parameter");
+                                                                                                                                                           });
+                                                                                                               test("escaping closure transfers an owned string environment", [&] {
+                                                                                                                   const std::string source =
+                                                                                                                       "routine main() gives int\n"
+                                                                                                                       "    let owner: string = \"x\".to_string()\n"
+                                                                                                                       "    let maker = move routine() => move routine() gives size => owner.to_text().count()\n"
+                                                                                                                       "    let action = maker()\n"
+                                                                                                                       "    if action() == 1\n"
+                                                                                                                       "        give 42\n"
+                                                                                                                       "    give 0\n";
+                                                                                                                   for (int level : { 0,3 }) {
+                                                                                                                       CompilerOptions options; options.optimizationLevel = level;
+                                                                                                                       const auto artifacts = compileAll(source, options);
+                                                                                                                       if (!artifacts.analysis.succeeded() || PCIRInterpreter(artifacts.pcir).run("") != 42)
+                                                                                                                           throw std::runtime_error("returned closure did not retain its moved string capture");
+                                                                                                                       if (CppIREmitter{}.emit(artifacts.pcir).empty()) throw std::runtime_error("rich export rejected an owned closure move");
+                                                                             #if defined(_WIN32)
+                                                                                                                       const auto file = std::filesystem::temp_directory_path() / ("paracine-owned-closure-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".exe");
+                                                                                                                       struct Cleanup { std::filesystem::path path; ~Cleanup() { std::error_code ec; std::filesystem::remove(path, ec); } } cleanup{ file };
+                                                                                                                       writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(artifacts.pcir, artifacts.pmir, artifacts.machine));
+                                                                                                                       if (runNativeExecutable(file) != 42) throw std::runtime_error("native returned closure differed from PCIR");
+                                                                             #endif
+                                                                                                                   }
+                                                                                                               });
+                                                                                                               test("escaping closure transfers record and closure-valued captures", [&] {
+                                                                                                                   const std::string source =
+                                                                                                                       "record Box\n"
+                                                                                                                       "    value: string\n"
+                                                                                                                       "routine main() gives int\n"
+                                                                                                                       "    let owner: Box = Box{value: \"answer\".to_string()}\n"
+                                                                                                                       "    let inner = move routine() gives size => owner.value.to_text().count()\n"
+                                                                                                                       "    let maker = move routine() => move routine() gives size => inner()\n"
+                                                                                                                       "    let action = maker()\n"
+                                                                                                                       "    let saved = action\n"
+                                                                                                                       "    if action() == 6 and saved() == 6\n"
+                                                                                                                       "        give 42\n"
+                                                                                                                       "    give 0\n";
+                                                                                                                   for (int level : { 0,3 }) {
+                                                                                                                       CompilerOptions options; options.optimizationLevel = level;
+                                                                                                                       const auto artifacts = compileAll(source, options);
+                                                                                                                       if (!artifacts.analysis.succeeded() || PCIRInterpreter(artifacts.pcir).run("") != 42)
+                                                                                                                           throw std::runtime_error("nested closure failed to retain recursively owned captures");
+                                                                                                                       if (CppIREmitter{}.emit(artifacts.pcir).empty()) throw std::runtime_error("rich export rejected a closure-valued capture");
+                                                                             #if defined(_WIN32)
+                                                                                                                       const auto file = std::filesystem::temp_directory_path() / ("paracine-nested-owned-closure-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".exe");
+                                                                                                                       struct Cleanup { std::filesystem::path path; ~Cleanup() { std::error_code ec; std::filesystem::remove(path, ec); } } cleanup{ file };
+                                                                                                                       writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(artifacts.pcir, artifacts.pmir, artifacts.machine));
+                                                                                                                       if (runNativeExecutable(file) != 42) throw std::runtime_error("native nested closure differed from PCIR");
+                                                                             #endif
+                                                                                                                   }
+                                                                                                               });
+                                                                                                               test("escaping closure rejects moved borrowed text", [&] {
+                                                                                 const auto artifacts = compileAll(
+                                                                                     "routine main() gives int\n"
+                                                                                     "    let owner: string = \"x\".to_string()\n"
+                                                                                     "    let view: text = owner.to_text()\n"
+                                                                                     "    let maker = move routine() => move routine() gives size => view.count()\n"
+                                                                                     "    let action = maker()\n"
+                                                                                     "    give 0\n",
+                                                                                     CompilerOptions{}, false);
+                                                                                 if (!hasDiagnostic(artifacts.analysis, "escapes with reference-backed capture 'view'"))
+                                                                                     throw std::runtime_error("move capture allowed a borrowed text view to escape");
+                                                                             });
+                                                                             test("move closure consumes captured non-copy binding", [&] {
                                       const auto artifacts = compileAll(
                                           "record Token\n"
                                           "    id: int\n"
@@ -20659,29 +21399,29 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                       if (!hasDiagnostic(artifacts.analysis, "E0412 use after move: 'value'"))
                                           throw std::runtime_error("move closure did not consume its captured owner");
                                   });
-                                  test("escaping closure nested in aggregate is rejected", [&] {
+                                  test("escaping closure nested in aggregate rejects mutable captures", [&] {
                                       const auto artifacts = compileAll(
                                           "routine main() gives int\n"
-                                          "    let captured: int = 7\n"
+                                          "    var captured: int = 7\n"
                                           "    give [routine() => captured]\n",
                                           CompilerOptions{}, false);
                                       if (!hasDiagnostic(artifacts.analysis, "E0432 closure$"))
                                           throw std::runtime_error("closure nested in returned aggregate escaped borrow validation");
                                   });
-                                  test("stored closure in returned aggregate is rejected", [&] {
+                                  test("stored closure in returned aggregate rejects mutable captures", [&] {
                                       const auto artifacts = compileAll(
                                           "routine main() gives int\n"
-                                          "    let captured: int = 7\n"
+                                          "    var captured: int = 7\n"
                                           "    let bundle = [routine() => captured]\n"
                                           "    give bundle\n",
                                           CompilerOptions{}, false);
                                       if (!hasDiagnostic(artifacts.analysis, "E0432 closure$"))
                                           throw std::runtime_error("closure stored in a local aggregate escaped borrow validation");
                                   });
-                                  test("closure alias in returned aggregate is rejected", [&] {
+                                  test("closure alias in returned aggregate rejects mutable captures", [&] {
                                       const auto artifacts = compileAll(
                                           "routine main() gives int\n"
-                                          "    let captured: int = 7\n"
+                                          "    var captured: int = 7\n"
                                           "    let bundle = [routine() => captured]\n"
                                           "    let saved = bundle\n"
                                           "    give saved\n",
@@ -20694,7 +21434,7 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                           "routine accept(value: int) gives int\n"
                                           "    give 0\n"
                                           "routine main() gives int\n"
-                                          "    let captured: int = 7\n"
+                                          "    var captured: int = 7\n"
                                           "    give accept(routine() => captured)\n",
                                           CompilerOptions{}, false);
                                       if (!hasDiagnostic(artifacts.analysis, "E0432 closure$"))

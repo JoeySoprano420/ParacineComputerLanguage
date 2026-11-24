@@ -79,11 +79,44 @@ routine main() gives int
         give 42
     give 0
 """),
+    ("mixed-owned-and-borrowed-string-captures", 42, """routine main() gives int
+    var borrowed: string = "a".to_string()
+    let observer = routine() gives size with alloc, trap
+        borrowed.append("b")
+        give borrowed.to_text().count()
+    let owner: string = "answer".to_string()
+    let action = move routine() gives size with alloc, trap => owner.to_text().count() + observer()
+    let first: size = action()
+    let second: size = action()
+    if first == 8 and second == 9 and observer() == 4
+        give 42
+    give 0
+"""),
     ("move-string-capture-return", 42, """routine main() gives int
     let owner: string = "answer".to_string()
     let action = move routine() gives string => owner
     let result: string = action()
     if result.to_text().count() == 6
+        give 42
+    give 0
+"""),
+    ("escaping-owned-string-environment", 42, """routine main() gives int
+    let owner: string = "x".to_string()
+    let maker = move routine() => move routine() gives size => owner.to_text().count()
+    let action = maker()
+    if action() == 1
+        give 42
+    give 0
+"""),
+    ("escaping-closure-valued-owner", 42, """record Box
+    value: string
+routine main() gives int
+    let owner: Box = Box{value: "answer".to_string()}
+    let inner = move routine() gives size => owner.value.to_text().count()
+    let maker = move routine() => move routine() gives size => inner()
+    let action = maker()
+    let saved = action
+    if action() == 6 and saved() == 6
         give 42
     give 0
 """),
