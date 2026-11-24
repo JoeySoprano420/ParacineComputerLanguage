@@ -1882,6 +1882,357 @@ Candidate C:
     Redesign the interface using a validated handle.
 ```
 
+```
+
+Every blueprint component maintains traceability to its originating program facts.
+
+## 7. Multi-Level Navigation
+
+SAGE supports navigation at multiple levels of abstraction.
+
+**Program level:** Identifies subsystems, major dependencies, target requirements, architectural constraints, and integration boundaries.
+
+**Module level:** Identifies declarations, imports, exports, types, responsibilities, and affected dependencies.
+
+**Type level:** Identifies members, generics, contracts, ownership, layouts, inheritance, and authority.
+
+**Routine level:** Identifies inputs, outputs, effects, control flow, borrowing, failure and data dependencies.
+
+**Instruction level:** Connects semantic operations to PCIR, PMIR and native realization.
+
+**Verification level:** Connects accepted facts to proofs, diagnostics, contracts and tests.
+
+A developer can navigate from a high-level application requirement to the exact source declarations and semantic relationships responsible for implementing it.
+
+Likewise, SAGE can trace a low-level operation upward through its routine, module, subsystem and overall program purpose.
+
+## 8. Blueprint Questions
+
+The Whole-Program Blueprint supports questions such as:
+
+- Which components implement a specified behavior?
+- Which declarations depend on a particular type?
+- Which operations modify a given state?
+- What ownership relationships prevent a proposed transformation?
+- Which Capsule boundaries must be crossed?
+- What is the shortest verified dependency path between two operations?
+- Which modules are affected by a changed contract?
+- Which routines introduce allocation or I/O effects?
+- What prevents two computations from executing concurrently?
+- Which changes would invalidate existing proofs?
+- What is the least disruptive way to extend a program?
+- What tests and contracts must be revalidated?
+- Which operations dominate the computational critical path?
+- Which portions of the program can be reused without modification?
+
+Answers retain their supporting semantic facts and provenance.
+
+A question whose answer depends on unavailable measurements or external assumptions is identified accordingly.
+
+---
+
+# V. PATH OF LEAST RESISTANCE (POLR)
+
+## 9. Official Definition
+
+**POLR — Path of Least Resistance** is SAGE's verified, constraint-aware architectural navigation and solution-selection framework.
+
+POLR determines the most appropriate feasible path from an existing program state to a declared programming objective.
+
+It evaluates possible solutions against correctness, ownership, security, dependencies, implementation complexity, resource requirements, maintainability, performance, and verification obligations.
+
+Its purpose is to reduce unnecessary engineering work while preserving all mandatory program semantics.
+
+POLR does not mean choosing the shortest source code, the fewest machine instructions, or the easiest-looking algorithm regardless of consequences.
+
+It means choosing the best valid route according to the applicable hard constraints and declared engineering priorities.
+
+**POLR law: The least resistant path is the least costly valid path under the complete set of governing obligations.**
+
+## 10. POLR Operating Principles
+
+POLR obeys seven permanent principles.
+
+**1. Correctness before convenience.** An invalid solution is never preferred because it is easier.
+
+**2. Safety before optimization.** A path violating memory, authority, or isolation requirements is eliminated.
+
+**3. Reuse before unnecessary reconstruction.** Existing valid program capabilities are preferred where they satisfy the objective.
+
+**4. Minimal justified change.** Avoid modifications unrelated to the requested outcome unless they are required for correctness, compatibility, or explicit constraints.
+
+**5. Evidence before certainty.** Estimated benefits remain estimates until verified or measured.
+
+**6. Explicit trade-offs.** Competing valid paths are compared through declared criteria rather than arbitrary rankings.
+
+**7. Deterministic selection.** Identical inputs, objectives, cost profiles, and verified knowledge produce the same selected route.
+
+## 11. POLR Navigation Process
+
+```text
+PROGRAMMING OBJECTIVE
+        |
+        v
+Understand Intended Outcome
+        |
+        v
+Locate Relevant Blueprint Regions
+        |
+        v
+Collect Existing Verified Knowledge
+        |
+        v
+Identify Constraints and Dependencies
+        |
+        v
+Generate Feasible Candidate Routes
+        |
+        v
+Eliminate Invalid Routes
+        |
+        v
+Estimate Engineering and Runtime Costs
+        |
+        v
+Rank Feasible Alternatives
+        |
+        v
+Discharge Mandatory Proof Obligations
+        |
+        v
+SELECT VERIFIED PATH
+        |
+        v
+Produce Implementation Guidance
+        |
+        v
+Apply Authorized Transformations
+        |
+        v
+Validate Result and Update Knowledge
+```
+
+PITEL accelerates graph traversal, dependency discovery, candidate evaluation, and reusable proof processing throughout this sequence.
+
+---
+
+# VI. POLR COST AND DECISION MODEL
+
+## 12. Multi-Dimensional Cost Evaluation
+
+POLR evaluates candidate paths against the following dimensions.
+
+| Dimension | Evaluation |
+|---|---|
+| Semantic correctness | Whether the path preserves required behavior |
+| Ownership legality | Borrowing, moves, aliasing, provenance and disposal |
+| Security compliance | Authority, isolation and trust constraints |
+| Implementation complexity | Necessary changes and conceptual burden |
+| Dependency impact | Affected modules, types, calls, contracts and artifacts |
+| Runtime performance | Estimated or measured time and computational work |
+| Memory efficiency | Allocation, storage, lifetime and traffic |
+| Resource consumption | CPU, stack, memory and declared budgets |
+| Maintainability | Future modification complexity and architectural clarity |
+| Verification effort | Required proofs, tests and audits |
+| Reusability | Existing components and knowledge that remain valid |
+| Compatibility | Edition, ABI and interface preservation |
+| Reliability | Failure exposure and ability to maintain invariants |
+| Change risk | Uncertainty and scope of potential unintended consequences |
+
+Safety and semantic correctness are mandatory constraints, not costs that can be traded away for greater speed.
+
+## 13. Formal POLR Selection
+
+Let \(P\) represent the set of possible candidate paths.
+
+Let \(F\subseteq P\) represent the paths satisfying all mandatory constraints.
+
+For each feasible path \(p\), POLR evaluates a normalized cost vector:
+
+\[
+C(p) =
+\left(
+C_{\mathrm{complexity}},
+C_{\mathrm{change}},
+C_{\mathrm{runtime}},
+C_{\mathrm{memory}},
+C_{\mathrm{verification}},
+C_{\mathrm{maintenance}},
+C_{\mathrm{risk}}
+\right)
+\]
+
+The objective profile determines applicable priorities and weights.
+
+A deterministic scalar ranking may use:
+
+\[
+C_{\mathrm{POLR}}(p)=
+\sum_{i=1}^{n} w_i\widehat{C_i(p)}
+\]
+
+where:
+
+- \(w_i\) is an explicit nonnegative priority weight.
+- \(\widehat{C_i(p)}\) is the normalized estimate or measurement of a cost dimension.
+- Each cost retains its measurement unit, provenance, confidence, and estimation method.
+- Mandatory correctness and security constraints are already satisfied before ranking.
+
+The selected path is:
+
+\[
+p^* =
+\operatorname*{arg\,min}_{p\in F}
+C_{\mathrm{POLR}}(p)
+\]
+
+If multiple paths have equivalent costs, POLR uses a stable, documented tie-breaking policy.
+
+When no single scalar cost adequately represents competing engineering objectives, POLR retains a Pareto frontier of nondominated feasible alternatives and applies the declared policy priorities.
+
+A mathematically minimum score is claimed only for the candidate space actually explored and evaluated. Bounded search does not establish a global optimum across all possible programs.
+
+## 14. POLR Operating Profiles
+
+The system defines configurable decision profiles.
+
+| Profile | Primary optimization objective |
+|---|---|
+| `balanced` | Minimize overall engineering and runtime cost |
+| `performance` | Prioritize runtime efficiency while preserving obligations |
+| `memory` | Minimize memory footprint and allocation pressure |
+| `security` | Prefer stronger enforceable boundaries and smaller authority exposure |
+| `minimal-change` | Minimize affected code and dependencies |
+| `maintainability` | Prioritize clear structure and manageable dependencies |
+| `compile-throughput` | Minimize compilation and semantic recomputation work |
+| `resource-constrained` | Operate within strict declared resource budgets |
+| `verification` | Prefer paths with straightforward, checkable correctness obligations |
+
+All profiles obey identical language semantics and mandatory safety rules.
+
+A `performance` profile cannot justify removing security mediation.
+
+A `minimal-change` profile cannot preserve an invalid implementation merely to avoid edits.
+
+A `security` profile does not silently assign authorities or change the program's threat model.
+
+---
+
+# VII. ADVANCED POLR APPLICATIONS
+
+## 15. Implementation Planning
+
+When a developer requests a new capability, POLR identifies the relevant architecture and determines an appropriate implementation route.
+
+For example:
+
+**Objective:** Introduce a new gameplay state to a complex simulation.
+
+POLR determines:
+
+1. Which state types define the existing simulation.
+2. Which routines consume or modify those states.
+3. Which transitions and variants require extension.
+4. Which ownership relationships are affected.
+5. Which dependent Chains and contracts require revision.
+6. Which conformance tests must be updated.
+7. Which modules can remain unchanged.
+8. Which implementation route minimizes unnecessary architectural changes.
+
+The resulting guidance references actual declarations and their dependency relationships.
+
+## 16. Performance Optimization
+
+**Objective:** Reduce computation time in a frequently executed routine.
+
+POLR evaluates:
+
+- Existing loop structures.
+- Alias and borrow constraints.
+- Vectorization opportunities.
+- Redundant closure environments.
+- Allocation frequency.
+- Stage fusion.
+- Data representation.
+- Memory traffic.
+- Effects and trap ordering.
+
+It may compare several solutions:
+
+**Route A:** Preserve the source architecture and apply verified scalar optimization.
+
+**Route B:** Fuse compatible Chain stages.
+
+**Route C:** Replace intermediate storage with a direct traversal.
+
+**Route D:** Change a collection representation under an explicitly authorized interface migration.
+
+POLR selects or recommends the best valid route according to the declared cost profile and available evidence.
+
+Source-level refactoring and native optimizer transformations remain separate operations with distinct authorization requirements.
+
+## 17. Security Architecture
+
+**Objective:** Allow a component to process untrusted input without gaining unauthorized access to application state.
+
+POLR determines:
+
+- The component's required capabilities.
+- Its data dependencies.
+- Existing trusted interfaces.
+- Appropriate isolation profile.
+- Serialization requirements.
+- Lifetime restrictions.
+- Failure behavior.
+- Resource limits.
+- Threat-model constraints.
+
+It evaluates whether existing valid mechanisms can satisfy the objective.
+
+If deep isolation is mandatory, a logical capsule is not considered an acceptable substitute.
+
+## 18. Compiler and Native Optimization
+
+POLR integrates with ACO to compare verified native realization paths.
+
+The system evaluates:
+
+- Direct versus indirect calls.
+- Concrete versus dynamically represented closures.
+- Scalar versus vectorized execution.
+- Specialized versus generic routines.
+- Inlined versus uninlined calls.
+- Alternative valid register and instruction selections.
+- Fused versus separate traversals.
+- Stack versus heap representation where observability permits.
+
+These decisions preserve the source program's semantic contract.
+
+Optimization candidates lacking a sufficient proof are rejected or left unselected.
+
+## 19. Error Diagnosis and Resolution
+
+POLR assists in identifying appropriate repair routes.
+
+For example:
+
+```text
+Problem:
+    Borrowed value escapes its lifetime.
+
+Root Cause:
+    Returned reference originates from local storage.
+
+Candidate A:
+    Return an owned value.
+
+Candidate B:
+    Borrow from a valid caller-owned input.
+
+Candidate C:
+    Redesign the interface using a validated handle.
+```
+
 POLR compares the valid alternatives according to interface contracts, lifetime requirements, ownership costs and architectural impact.
 
 It never silently changes a function's ownership semantics merely to make compilation succeed.
@@ -2427,6 +2778,8 @@ The governing principle is:
 **Understand completely. Navigate intelligently. Optimize decisively. Verify conclusively.**
 
 **Clear to people. Obvious to machines.**
+
+**Official Addendum — Fully Expanded SAGE Knowledge Model, Whole-Program Blueprint Navigation & POLR.**
 
 **Official Addendum — Fully Expanded SAGE Knowledge Model, Whole-Program Blueprint Navigation & POLR.**
 
