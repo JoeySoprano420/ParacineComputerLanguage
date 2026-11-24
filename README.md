@@ -2785,4 +2785,2396 @@ The governing principle is:
 
 
 
+### PARACINE 2027 — COMPLETE MASTER COMPONENT INVENTORY
+
+Paracine: Write with intent. Compile with certainty.
+
+This is the consolidated inventory of Paracine 2027: its programming language, syntax, type system, memory model, security architecture, advanced features, SAGE intelligence, Whole-Program Blueprint Navigation and POLR, native compiler, optimization systems, runtime, and engineering infrastructure.
+
+I'm incorporating the November 23 unified master specification, the later unified production-standard rewrite, and your newest SAGE/POLR addendum.
+
+One distinction matters: this is an inventory of the specified Paracine 2027 architecture, not proof that every component is operational in a compiler binary. The original master source labels the 2027 additions as proposed and implementation-unqualified.
+
+### 1\. The complete architectural structure
+
+### PARACINE 2027
+
+Unified Native Programming Language & Semantic Intelligence Architecture
+
+Conceptual architecture. The parser, verifier, optimizer, runtime, target support and developer-facing facilities are detailed below.
+
+### 2\. The official 30-section master specification
+
+These are the 30 core sections of the unified master, grouped into six major parts.
+
+| Part                            | Sections | Contents                                                                                                 |
+| ------------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
+| I — Language Foundation         | 1–10     | Identity, 68 resolutions, grammar, loops, types, SAGE foundation, PCIR, PMIR, linker, runtime, safety    |
+| II — Extended Language          | 11–18    | Constitutional laws, Capsules, Families, Chains, feature register, numerics, smart data, extended syntax |
+| III — Optimization and Closures | 19–21    | Algebraic Conjecture Optimization, dynamic closures, semantic equivalence and cost models                |
+| IV — SAGE Intelligence          | 22–25    | Complete semantic analyzer, language knowledge, inference, verification and diagnostics                  |
+| V — PITEL                       | 26–27    | Progressive knowledge processing, incremental analysis and throughput acceleration                       |
+| VI — Native Engineering         | 28–30    | Compiler integration, conformance, production gates, release governance and licensing                    |
+
+The original specification also contains Appendices A–C, with the later Fully Expanded SAGE Knowledge Model and POLR addendum extending its intelligence and navigation capabilities.
+
+### PART I — THE PARACINE LANGUAGE FOUNDATION
+
+### 3\. Language identity and fundamental principles
+
+| Component                        | Definition                                      |
+| -------------------------------- | ----------------------------------------------- |
+| Language                         | Paracine                                        |
+| Edition                          | 2027                                            |
+| Source extension                 | .pcn                                            |
+| Language category                | General-purpose, systems and native programming |
+| Primary typing model             | Statically typed                                |
+| Compilation                      | Ahead-of-time, direct-native                    |
+| Compiler implementation language | C++23                                           |
+| Canonical target                 | Windows x86-64                                  |
+| Canonical ABI                    | Microsoft x64 ABI                               |
+| Semantic IR                      | PCIR                                            |
+| Machine IR                       | PMIR                                            |
+| Semantic intelligence            | SAGE                                            |
+| Progressive reasoning            | PITEL                                           |
+| Architecture navigation          | Whole-Program Blueprint                         |
+| Solution navigation              | POLR                                            |
+| Memory philosophy                | Ownership and borrowing                         |
+| Failure philosophy               | Explicit recovery and terminal traps            |
+| Security philosophy              | Explicit authority and fail-closed isolation    |
+
+Its principal language laws cover deterministic semantics, explicit ownership, controlled mutation, safe memory access, reproducibility, explicit effects, source-level authority and proof-preserving optimization.
+
+### 4\. Source text, lexical rules and syntax
+
+* Strict UTF-8 source decoding.
+
+* Unicode normalization to NFC.
+
+* Unicode identifier classification using XID rules.
+
+* UTF-8 BOM handling.
+
+* CRLF, CR and LF normalization.
+
+* Four-ASCII-space structural indentation.
+
+* Lexical `INDENT`, `DEDENT` and `NEWLINE` tokens.
+
+* No tabs for structural indentation.
+
+* Lexically determined block boundaries.
+
+* Source spans, token coordinates and byte offsets.
+
+* Identifiers, keywords, operators and literals.
+
+* Line and block comments.
+
+* String, character, numeric and byte-oriented literals.
+
+* Grouping expressions and continuation rules.
+
+* Qualified identifiers and paths.
+
+* Statement and declaration grammar.
+
+* Explicit operator precedence.
+
+* Edition-sensitive grammar compatibility.
+
+* Source-preserving formatting.
+
+* Lossless syntax-tree representation.
+
+* Recoverable parser diagnostics.
+
+### Core vocabulary
+
+```text
+module       import       export
+alias        record       variant
+routine      gives        give
+let          var          const
+static       thread       own
+if           else         choose
+when         where        then
+for          while        from
+to           continue     until
+loop         break        defer
+try          fail         trap
+pure         unsafe       raw
+capability   foreign      abi
+alloc        io           test
+and          or           not
+move         as           is
+with         in           nothing
+true         false
+```
+
+The source model additionally reserves selected future or contextual terms and recognizes special syntax for annotations and attributes.
+
+### 5\. Program organization
+
+* Modules and module paths.
+
+* Exactly one matching module identity per source file.
+
+* Module imports.
+
+* Acyclic import graph.
+
+* Module exports.
+
+* Private, public and exported declarations.
+
+* Qualified symbol lookup.
+
+* Symbol visibility.
+
+* Aliases.
+
+* Namespaces through module qualification.
+
+* Global constants.
+
+* Static variables.
+
+* Thread-local static variables.
+
+* Initialization rules.
+
+* Constant initializers.
+
+* Module dependency ordering.
+
+* Source-to-module identity.
+
+* Edition-qualified interpretation.
+
+### 6\. Variables, values and expressions
+
+* Immutable `let` bindings.
+
+* Mutable `var` bindings.
+
+* Explicit type annotations.
+
+* Local type inference.
+
+* Contextual numeric literal fitting.
+
+* No implicit numeric conversions.
+
+* Assignment.
+
+* Compound assignment.
+
+* Arithmetic expressions.
+
+* Boolean expressions.
+
+* Comparisons.
+
+* Bitwise expressions.
+
+* Shift expressions.
+
+* Grouped expressions.
+
+* Member access.
+
+* Qualified access.
+
+* Indexing.
+
+* Slicing.
+
+* Explicit conversions.
+
+* Constant expressions.
+
+* Function and method calls.
+
+* Pattern expressions.
+
+* Conditional expressions.
+
+* Range expressions.
+
+* Pipeline expressions.
+
+### 7\. Control flow
+
+Paracine contains both conventional and specialized structured control.
+
+| Construct          | Purpose                                       |
+| ------------------ | --------------------------------------------- |
+| if / else          | Conditional branching                         |
+| choose / when      | Pattern and alternative selection             |
+| while              | Pre-test repetition                           |
+| loop               | General repetition                            |
+| for ... in         | Iterator traversal                            |
+| for ... while ...  | Stop traversal at first failing guard         |
+| from ... to ...    | Inclusive directed integer iteration          |
+| continue until ... | Post-test repetition                          |
+| break              | Exit a loop                                   |
+| continue           | Advance according to the loop's semantics     |
+| @label             | Identify supported control targets            |
+| defer              | Cleanup on ordinary scope exit                |
+| give               | Return a successful value                     |
+| fail               | Return a recoverable error                    |
+| try                | Propagate recoverable failure                 |
+| trap               | Terminate under the terminal-failure contract |
+| unsafe             | Enter an explicitly authorized unsafe region  |
+
+### 8\. Fundamental and composite types
+
+Primitive and scalar types
+
+`byte`, `short`, `int`, `long`, `ubyte`, `ushort`, `uint`, `ulong`, `float`, `double`, `bool`, `char`, `size`, `ssize`, `void`, `never`.
+
+Text and storage types
+
+`text`, `string`, `view<T>`, `span<T>`, `buffer<T>`, `ref`, `mut`, `raw`.
+
+Compositional types
+
+`array`, `option<T>`, `result<T,E>`, records, variants, generic types, closures, routine pointers, capabilities and atomic types.
+
+Extended 2027 types
+
+`bitint<N>`, `ubitint<N>`, `decimal32`, `decimal64`, `decimal128`, `complex<T>`, `posit<N,ES>`, `matrix<T,R,C>`, smart arrays, typed lists, temporal spans, reflected types and dynamic closures.
+
+### 9\. Ownership, borrowing and memory safety
+
+The complete ownership system encompasses:
+
+* Owned values.
+
+* Moves and ownership transfer.
+
+* Shared immutable borrows.
+
+* Exclusive mutable borrows.
+
+* `own` parameters.
+
+* `var` parameters.
+
+* Default shared-borrow parameters.
+
+* Nonlexical borrow regions.
+
+* Borrow-origin inference.
+
+* Explicit `@from(...)` disambiguation.
+
+* Initialization checking.
+
+* Partial aggregate moves.
+
+* Use-after-move prevention.
+
+* Lifetime escape checking.
+
+* Alias analysis.
+
+* Provenance tracking.
+
+* Bounds-safe indexing.
+
+* Safe slice construction.
+
+* Disjointness proofs.
+
+* `split_at`-style disjoint borrowing.
+
+* Closure capture ownership.
+
+* Deferred cleanup.
+
+* Deterministic disposal.
+
+* Safe interior mutability rules.
+
+* Approved synchronization mechanisms.
+
+* Unsafe/raw boundaries.
+
+* FFI lifetime obligations.
+
+### 10\. Effects, failures and resource rules
+
+Five principal baseline effects
+
+| Effect | Meaning                              |
+| ------ | ------------------------------------ |
+| alloc  | Allocation capability or behavior    |
+| io     | Input/output operations              |
+| thread | Threading and concurrency operations |
+| trap   | Potential terminal-trap behavior     |
+| unsafe | Unsafe authority or operations       |
+
+The associated facilities include `pure`, effect inference, declared effect bounds, transitive effect propagation, authority checking, effect polymorphism where defined, and effect-aware optimization.
+
+Failure mechanisms include `option<T>`, `result<T,E>`, success/error construction, `try`, `fail`, ordinary cleanup, and noncatchable, non-unwinding terminal traps.
+
+Resource policies include fallible allocation, `try_` allocation variants, explicit out-of-memory behavior, stack and heap resource accounting, cleanup at normal exits, and separate behavior for terminal failure.
+
+### PART II — ADVANCED PARACINE 2027 LANGUAGE FEATURES
+
+### 11\. Capsules — advanced classes and security compartments
+
+Capsules are a major Edition-2027 feature.
+
+### Capsule capabilities
+
+* Nominal enhanced-class declarations.
+
+* Encapsulated state and methods.
+
+* Private and public members.
+
+* Constructors and validated creation.
+
+* Destruction and controlled dissolution.
+
+* Lifecycle management.
+
+* Instance identity.
+
+* Generic Capsule specialization.
+
+* Controlled inheritance.
+
+* Method overriding.
+
+* Dynamic and static dispatch.
+
+* State invariants.
+
+* Resource budgets.
+
+* Capability-based authority.
+
+* Visibility masking.
+
+* Explicit access policies.
+
+* Authorized cross-Capsule communication.
+
+* Typed requests and responses.
+
+* Capsule-aware optimization.
+
+* Secure reference and ownership transfers.
+
+* Failure handling across boundaries.
+
+### Three isolation profiles
+
+| Profile         | Meaning                                                            |
+| --------------- | ------------------------------------------------------------------ |
+| isolate logical | Language-enforced access, visibility and ownership constraints     |
+| isolate memory  | Enforced separation of protected memory domains                    |
+| isolate deep    | Strong compartment isolation using the required target protections |
+
+Deep isolation additionally includes fail-closed behavior, mediated calls, checked messages, restricted pointer transfers, authorization validation, controlled resource limits, and isolation-aware native lowering.
+
+### 12\. Families — relationships and controlled inheritance
+
+* Nominal family declarations.
+
+* Family membership.
+
+* Related type classification.
+
+* Shared behavioral contracts.
+
+* Family invariants.
+
+* Single-state inheritance.
+
+* Multiple behavioral inheritance.
+
+* Capability composition.
+
+* Sealed family membership.
+
+* Type substitution rules.
+
+* Parent and child relationships.
+
+* Override validation.
+
+* Method conflict resolution.
+
+* Generic specialization.
+
+* Controlled extensibility.
+
+* Construction and destruction ordering.
+
+* Parent invariant preservation.
+
+* Private state protection.
+
+* Authority-preserving inheritance.
+
+* Cross-isolation restrictions.
+
+* Family-aware optimization.
+
+### 13\. Chains — computational composition
+
+Chains represent typed computational dependencies.
+
+* Linear Chains.
+
+* Nonlinear Chains.
+
+* Directed acyclic computation graphs.
+
+* Named stages.
+
+* Typed stage inputs and outputs.
+
+* Stage dependency declarations.
+
+* Conditional stages.
+
+* Branching computation.
+
+* Dependency convergence.
+
+* Effect propagation.
+
+* Ownership transfer between stages.
+
+* Stage-specific recoverable failures.
+
+* Ordering constraints.
+
+* Bounded cyclic/feedback behavior where explicitly supported.
+
+* Cross-Capsule Chains.
+
+* Typed `ask` and `respond` operations.
+
+* Chain specialization.
+
+* Chain fusion.
+
+* Elimination of redundant stages where provably valid.
+
+* Parallel stage scheduling when safe.
+
+* Deterministic execution contracts.
+
+* Native lowering without mandatory heap scheduling.
+
+### 14\. Complete named Edition-2027 feature register
+
+The following four groups collect the individually named additions from the master feature register.
+
+### A. Types, identity, composition and classification
+
+| Feature        | Function                                                    |
+| -------------- | ----------------------------------------------------------- |
+| Capsules       | Advanced object and security compartment                    |
+| Families       | Related types and controlled inheritance                    |
+| Chains         | Typed computational composition                             |
+| Extensions     | Add type-associated functionality                           |
+| Inheritance    | Reuse state or behavior under defined rules                 |
+| Resolvers      | Resolve names, types, conflicts, overloads and capabilities |
+| Resolutions    | Record verified resolution outcomes                         |
+| Mismatch       | Identify and handle incompatible types or relationships     |
+| Deduce         | Derive valid type, effect, shape and constraint knowledge   |
+| Instances      | Manage constructed object identity and lifetime             |
+| Smart layering | Ordered composition of behaviors and policies               |
+| Smart nests    | Verified nested structures and containment                  |
+| Reframes       | Checked transformations of representation or view           |
+| Unused         | Explicitly acknowledge intentional unused values            |
+| Reuse          | Recycle eligible resources after safety obligations         |
+| Designate      | Assign declared semantic roles                              |
+| Identify       | Inspect permitted identity and type information             |
+| Qualifiers     | Describe access, representation, mutability and effects     |
+| Wrap           | Create controlled wrapper representations                   |
+| Create         | Validated construction and acquisition                      |
+| Dissolve       | Controlled extraction, decomposition or disposal            |
+
+### B. Security, access, resources and scopes
+
+| Feature        | Function                                                  |
+| -------------- | --------------------------------------------------------- |
+| Masking        | Bitwise masking and access/visibility masking             |
+| Limits         | Memory, time, size and operation restrictions             |
+| Avoid          | Prohibit declared effects or behaviors                    |
+| Embed          | Bounded compile-time embedded constants or resources      |
+| Deep isolation | Enforce protected execution boundaries                    |
+| Zones          | Establish declared memory, execution or authority domains |
+| Smart scopes   | Coordinate permissions, borrowing and cleanup             |
+| Store          | Checked placement into authorized storage                 |
+| Tamper         | Declare integrity and tamper-validation obligations       |
+| Allow          | Permit authorized operations                              |
+| Deny           | Prohibit declared operations                              |
+| Contracts      | Preconditions, postconditions and invariants              |
+| Availability   | Check typed resource readiness or validity                |
+| Smart aliasing | Provenance-aware alias and disjointness handling          |
+
+### C. Collections, traversal and transformations
+
+| Feature             | Function                                        |
+| ------------------- | ----------------------------------------------- |
+| Lists               | Typed ordered collections                       |
+| Smart arrays        | Shape-aware arrays and storage policies         |
+| Matrix              | Typed multidimensional mathematical values      |
+| Linear traversal    | Sequential traversal                            |
+| Nonlinear traversal | Graph, tree and branched traversal              |
+| Gap                 | Explicit missing position or interval           |
+| Sequence            | Defined value or computation progression        |
+| Fill                | Populate checked regions                        |
+| Rearrange           | Permute or reorder values safely                |
+| Scaling             | Scale numbers, vectors and structures           |
+| Taper               | Gradual progression or reduction                |
+| Trim                | Bounded removal or selection                    |
+| Cut                 | Split or extract regions with checked ownership |
+
+### D. Control, time, recovery and interaction
+
+| Feature             | Function                                                    |
+| ------------------- | ----------------------------------------------------------- |
+| Checkpoints         | Establish reversible-state regions                          |
+| Expanded Continue   | Edition-specific continuation behavior                      |
+| Revert              | Restore a previous named/versioned value                    |
+| Rollback            | Reverse eligible transactional modifications                |
+| Conditions          | Typed predicates and constraints                            |
+| Smart rendering     | Typed rendering computations and resources                  |
+| Postpone            | Defer an operation to a defined later point                 |
+| Recover             | Handle recoverable failures                                 |
+| Toggle              | Checked finite-state transitions                            |
+| Ask                 | Typed requests                                              |
+| Respond / Responses | Typed success, failure and refusal responses                |
+| Smart ping          | Bounded readiness or liveness observation                   |
+| Durations           | Typed time intervals                                        |
+| Temporal spans      | Typed execution or time windows                             |
+| Train               | Typed training computations and controlled heuristic tuning |
+| Posit               | Specialized numerical format                                |
+
+All these names belong to the feature inventory; not every name necessarily denotes an independent reserved keyword. Several are typed operations, contextual constructs or semantic facilities.
+
+### PART III — NUMERICAL, DATA AND COMPUTATIONAL SYSTEMS
+
+### 15\. Complete numerical type system
+
+| Category                | Components                           |
+| ----------------------- | ------------------------------------ |
+| Signed integers         | byte, short, int, long               |
+| Unsigned integers       | ubyte, ushort, uint, ulong           |
+| Platform-width integers | size, ssize                          |
+| Binary floating point   | float, double                        |
+| Bit-precise integers    | bitint<N>, ubitint<N>                |
+| Decimal floating point  | decimal32, decimal64, decimal128     |
+| Complex numbers         | complex<T>                           |
+| Posit numbers           | posit<N,ES>                          |
+| Vectors                 | Compiler-defined vec<T,N>            |
+| Matrices                | matrix<T,R,C>                        |
+| Shape-aware arrays      | Static and dynamic smart-array forms |
+| Boolean                 | bool                                 |
+| Character               | Unicode scalar char                  |
+
+Numerical rules also encompass integer wrapping, signed minimum edge cases, modulo-width shifts, exact conversions, compile-time arithmetic, floating-point contraction, rounding, signed zero, NaNs and explicit `@fastmath` relaxation.
+
+The master includes bounded bit-precise integer widths, with widths up to 4096 bits in its proposed design.
+
+### 16\. Smart collections and traversal
+
+* Fixed arrays.
+
+* Dynamic arrays.
+
+* Lists.
+
+* Buffers.
+
+* Views.
+
+* Spans.
+
+* Matrix storage.
+
+* Shape-aware collections.
+
+* Slicing.
+
+* Reshaping.
+
+* Bounds checking.
+
+* Region disjointness.
+
+* Collection ownership.
+
+* Iterator invalidation rules.
+
+* Linear traversal.
+
+* Graph traversal.
+
+* Tree traversal.
+
+* Cycle detection.
+
+* Visited-state tracking.
+
+* Traversal budgets.
+
+* Fill operations.
+
+* Rearrangement.
+
+* Cutting and trimming.
+
+* Scaling and tapering.
+
+* Collection reduction.
+
+* Search and filtering.
+
+* Allocation-aware growth.
+
+### 17\. Temporal and state systems
+
+* Typed durations.
+
+* Temporal windows.
+
+* Temporal spans.
+
+* Delayed execution points.
+
+* Availability observations.
+
+* Validity windows.
+
+* Conditional state transitions.
+
+* Toggle operations.
+
+* Bounded time constraints.
+
+* Temporal resource effects.
+
+* State-version identities.
+
+* State restoration.
+
+### 18\. Checkpoints and reversible computation
+
+Four important constructs are distinguished.
+
+| Construct  | Responsibility                                        |
+| ---------- | ----------------------------------------------------- |
+| checkpoint | Establish tracked reversible state                    |
+| revert     | Restore a named/versioned state or configuration      |
+| rollback   | Undo eligible transactional modifications             |
+| recover    | Continue from a recoverable failure under valid rules |
+
+Associated requirements include state logs, snapshots, nested transactions, ownership restoration, disposal obligations, failure propagation, and restrictions on nonreversible external effects.
+
+### 19\. Typed protocol and communication system
+
+* Typed requests.
+
+* Typed responses.
+
+* Request authorization.
+
+* Protocol schemas.
+
+* Input validation.
+
+* Success and refusal outcomes.
+
+* Recoverable communication failure.
+
+* Cross-Capsule messaging.
+
+* Serialization contracts.
+
+* Message ownership.
+
+* Resource limits.
+
+* Readiness probes.
+
+* Response correlation.
+
+* Identity and authority validation.
+
+* External-operation boundaries.
+
+### 20\. Smart rendering and training computation
+
+Smart rendering covers typed rendering graphs, data-flow dependencies, allocation and device effects, output obligations, resource validity and legal processing transformations.
+
+Training computation covers typed training operations, matrix/tensor-style numerical relationships, deterministic and stochastic behavior, resource accounting, bounded iterations and numerical correctness.
+
+SAGE-guided heuristic training is separately constrained. Adaptive tuning may change candidate priorities, but not semantic truth, safety rules or unpinned reproducible outputs.
+
+### PART IV — ADVANCED CALLABLES, REFLECTION AND OPTIMIZATION
+
+### 21\. Closures and callable system
+
+* Named routines.
+
+* Routine pointers.
+
+* Noncapturing closures.
+
+* Capturing closures.
+
+* Shared captured references.
+
+* Exclusive mutable captures.
+
+* Owned captures.
+
+* `move routine`.
+
+* Concrete closure environment types.
+
+* Monomorphized calls.
+
+* Static callable specialization.
+
+* Closure lifetime checks.
+
+* Closure effect tracking.
+
+* Capturing-closure escape analysis.
+
+* Dynamic closures.
+
+* `dyn_closure<Args,R>`.
+
+* `box_closure`.
+
+* Dynamic dispatch.
+
+* Dynamic closure allocation.
+
+* Explicit closure disposal.
+
+* Callback lifetimes.
+
+* Foreign callback adaptation.
+
+* DLL boundary restrictions.
+
+* Closure scalarization and defunctionalization.
+
+### 22\. Reflection, compile-time computation and generation
+
+* Constant evaluation.
+
+* Compile-time type information.
+
+* `reflect<T>`.
+
+* Typed metadata.
+
+* Reflection visibility rules.
+
+* Private information protection.
+
+* Type identity.
+
+* Member inspection.
+
+* Family relationships.
+
+* Layout inspection.
+
+* Bounded declaration generation.
+
+* Built-in `@derive`.
+
+* Compile-time validation.
+
+* Verified generated declarations.
+
+* Resource-bounded reflection.
+
+* Checked specialization.
+
+General unrestricted textual preprocessing and user procedural macros remain excluded from the canonical language model.
+
+### 23\. Algebraic Conjecture Optimization — ACO
+
+ACO integrates mathematical and semantic optimization with SAGE.
+
+Its major mechanisms include:
+
+* Algebraic conjecture generation.
+
+* Typed E-graphs.
+
+* Equality saturation.
+
+* Semantic rewrite verification.
+
+* Rewrite cost evaluation.
+
+* Proof-obligation generation.
+
+* Conjecture rejection.
+
+* Bounded exploration.
+
+* Stable candidate selection.
+
+* Closure defunctionalization.
+
+* Closure-environment scalarization.
+
+* Map/filter/fold fusion.
+
+* Chain fusion.
+
+* Partial evaluation.
+
+* Currying collapse.
+
+* Constant specialization.
+
+* Liveness optimization.
+
+* Reference-count elimination where applicable.
+
+* Drop/disposal elimination when unobservable.
+
+* Allocation elimination.
+
+* Redundant computation elimination.
+
+* Preserved trap and effect ordering.
+
+* Numerical-equivalence verification.
+
+* Optimization explanation records.
+
+### 24\. Zero-cost abstraction engineering
+
+* Concrete generic specialization.
+
+* Static dispatch.
+
+* Inline expansion.
+
+* Closure environment elimination.
+
+* Direct-call lowering.
+
+* Temporary elimination.
+
+* Data-flow simplification.
+
+* Allocation avoidance.
+
+* Scalar replacement.
+
+* Vectorization.
+
+* Resource-conscious representation.
+
+* Observable-cost preservation.
+
+* Native instruction cost inspection.
+
+* Comparison of optimized and unoptimized execution.
+
+Zero-cost abstraction is an optimization objective, not a promise that every abstraction produces zero instructions or allocations.
+
+### PART V — SAGE: SEMANTIC ANALYSIS & GUIDANCE ENGINE
+
+### 25\. SAGE's three fundamental analysis layers
+
+| Layer                                  | Purpose                                                                                 |
+| -------------------------------------- | --------------------------------------------------------------------------------------- |
+| Authoritative Semantic Analysis        | Establish language correctness and valid program meaning                                |
+| Structural Analysis                    | Understand computation patterns and architecture                                        |
+| Advisory Stylometric/Adaptive Analysis | Suggest patterns and optimization search directions without changing semantic authority |
+
+These layers are supported by the Semantic Knowledge Model, Semantic Conjecture Model, and verified judgments.
+
+### 26\. Complete SAGE semantic analyzer
+
+Its responsibilities include:
+
+* Name resolution.
+
+* Symbol tables.
+
+* Scope and shadowing.
+
+* Imports and exports.
+
+* Type inference.
+
+* Type checking.
+
+* Generic specialization.
+
+* Capability satisfaction.
+
+* Overload resolution.
+
+* Pattern exhaustiveness.
+
+* Constant evaluation.
+
+* Ownership analysis.
+
+* Borrow checking.
+
+* Lifetime inference.
+
+* Alias analysis.
+
+* Escape analysis.
+
+* Closure capture checking.
+
+* Partial-move analysis.
+
+* Initialization checking.
+
+* Effect inference.
+
+* Effect compatibility.
+
+* Concurrency legality.
+
+* Atomic ordering constraints.
+
+* Unsafe boundaries.
+
+* FFI contracts.
+
+* Capsule authorization.
+
+* Family relationships.
+
+* Chain dependency checking.
+
+* Resource constraints.
+
+* Numerical validity.
+
+* Representation and layout verification.
+
+* Contract checking.
+
+* State and rollback validation.
+
+* Typed reflection.
+
+* Source-to-PCIR correctness.
+
+* Optimization legality.
+
+* Native ABI obligations.
+
+### 27\. SKM — Semantic Knowledge Model
+
+SKM is SAGE's authoritative representation of established knowledge.
+
+It holds symbol facts, type relationships, ownership, effects, constraints, dependencies, proven relationships, layout information, verified conclusions and source provenance.
+
+### 28\. SCM — Semantic Conjecture Model
+
+SCM contains unverified or conditional candidate reasoning.
+
+Examples include:
+
+* Potential optimizations.
+
+* Possible refactorings.
+
+* Hypothesized equivalent expressions.
+
+* Candidate data representations.
+
+* Proposed computational simplifications.
+
+* Alternative implementation strategies.
+
+* Predicted performance improvements.
+
+SCM knowledge never becomes binding solely because a conjecture is plausible.
+
+### 29\. VSJ — Verified Semantic Judgments
+
+VSJ represents formal and checkable judgments.
+
+Its functions include:
+
+* Premise tracking.
+
+* Rule application.
+
+* Proof obligations.
+
+* Conditional reasoning.
+
+* Refutation.
+
+* Established conclusions.
+
+* Type judgments.
+
+* Ownership judgments.
+
+* Effect judgments.
+
+* Optimization legality.
+
+* Source and rule provenance.
+
+### 30\. SAGE Thesaurus Logic
+
+* Semantic vocabulary relationships.
+
+* Programming-concept associations.
+
+* Synonym suggestions.
+
+* Related-concept discovery.
+
+* Terminology disambiguation.
+
+* Identifier similarity.
+
+* Conceptual classification.
+
+* Advisory interpretation.
+
+* Project-specific vocabulary relationships.
+
+* Context-sensitive programming guidance.
+
+A synonym suggestion never silently changes binding or type correctness.
+
+### 31\. Etymological Lattices
+
+* Concept lineage.
+
+* Terminology relationships.
+
+* Semantic classifications.
+
+* Hierarchical concept navigation.
+
+* Relationship lattices.
+
+* Valid constraint propagation.
+
+* Distinction between conceptual and formal inference.
+
+* Provenance-aware terminology.
+
+* Language-aware knowledge representation.
+
+### 32\. Inherent Inference and Intrinsic Intuition
+
+* Deductive fact generation.
+
+* Constraint propagation.
+
+* Structural inference.
+
+* Type relationship discovery.
+
+* Dependency inference.
+
+* Abstract interpretation.
+
+* Fixed-point analysis.
+
+* Candidate conjecture generation.
+
+* Reasoning from established premises.
+
+* Confidence and authority classification.
+
+* Conclusion mapping.
+
+* Rejection of unsupported assumptions.
+
+The term intuition does not authorize SAGE to substitute guesses for compiler proofs.
+
+### PART VI — FULLY EXPANDED SAGE KNOWLEDGE INTELLIGENCE
+
+This part includes your newest addendum.
+
+### 33\. Comprehensive SAGE knowledge base
+
+The expanded model introduces interconnected knowledge domains.
+
+| Domain        | Knowledge represented                                |
+| ------------- | ---------------------------------------------------- |
+| Lexical       | Characters, tokens, identifiers and source structure |
+| Syntactic     | Grammar and structural relationships                 |
+| Semantic      | Valid meanings, rules and judgments                  |
+| Computational | Algorithms, operations and execution dependencies    |
+| Structural    | Modules, records, Capsules, Families and Chains      |
+| Ownership     | Moves, borrows, lifetimes and provenance             |
+| Effects       | Permitted and observed operations                    |
+| State         | Mutations, transitions and transactions              |
+| Security      | Authority, isolation and trust boundaries            |
+| Numerical     | Arithmetic domains, shapes and precision             |
+| Concurrency   | Tasks, dependencies and synchronization              |
+| Resources     | Memory, CPU, limits and allocation                   |
+| Architectural | Program-wide design and responsibilities             |
+| Optimization  | Transformations, legality and costs                  |
+| Native        | ABI, IRs and target constraints                      |
+| Verification  | Proofs, contracts, tests and diagnostics             |
+| Evolution     | Revisions, compatibility and change impact           |
+| Conceptual    | Terminology, thesaurus and etymology                 |
+| Guidance      | Candidate solutions and POLR routes                  |
+
+### 34\. Knowledge representation and relationships
+
+The expanded knowledge base contains:
+
+* Stable knowledge entity identities.
+
+* Entity categories.
+
+* Canonical names.
+
+* Semantic types.
+
+* Source locations.
+
+* Module identities.
+
+* Edition identities.
+
+* Target requirements.
+
+* Authoritative status.
+
+* Provenance.
+
+* Related entities.
+
+* Dependency edges.
+
+* Constraints.
+
+* Verification records.
+
+* Revision histories.
+
+* Content hashes.
+
+Its typed relationship vocabulary includes:
+
+`defines`, `declares`, `contains`, `references`, `calls`, `returns`, `owns`, `borrows`, `transfers`, `mutates`, `depends_on`, `implements`, `inherits`, `extends`, `specializes`, `authorizes`, `prohibits`, `isolates`, `synchronizes`, `produces`, `consumes`, `transforms`, `validates`, `invalidates`, `optimizes`, `lowers_to`, `equivalent_to`, and `conflicts_with`.
+
+Knowledge classification separates observed, derived, conditional, conjectured, proven, refuted and unknown information.
+
+### 35\. Whole-Program Blueprint Intelligence
+
+This facility constructs a navigable representation of the entire program.
+
+It includes:
+
+* Application architecture.
+
+* Module graph.
+
+* Type graph.
+
+* Function-call graph.
+
+* Control-flow graphs.
+
+* Data-flow graphs.
+
+* Ownership graph.
+
+* Effect propagation graph.
+
+* Capsule and Family graph.
+
+* Chain dependency graph.
+
+* Security boundary map.
+
+* Resource map.
+
+* State-transition graph.
+
+* Native lowering map.
+
+* Source-to-binary relationships.
+
+* Proof-obligation graph.
+
+* Testing and verification dependencies.
+
+* Version and change history.
+
+### Navigation directions
+
+* Objective to implementation.
+
+* Implementation to source.
+
+* Source to types.
+
+* Types to dependencies.
+
+* Dependencies to security boundaries.
+
+* Source to PCIR.
+
+* PCIR to PMIR.
+
+* PMIR to native realization.
+
+* Native instructions back to source.
+
+* Changed declarations to affected modules.
+
+* Changed contracts to invalidated proofs.
+
+### 36\. POLR — Path of Least Resistance
+
+POLR is SAGE's constraint-aware solution navigation framework.
+
+It determines the least costly valid route for reaching an engineering objective under the declared requirements.
+
+Its fundamental components are:
+
+* Objective interpretation.
+
+* Relevant Blueprint discovery.
+
+* Existing knowledge retrieval.
+
+* Constraint collection.
+
+* Candidate-route generation.
+
+* Invalid-route elimination.
+
+* Cost estimation.
+
+* Feasible-route ranking.
+
+* Proof-obligation discharge.
+
+* Verified route selection.
+
+* Implementation guidance.
+
+* Authorized transformation.
+
+* Result validation.
+
+* Knowledge-base update.
+
+### POLR cost model
+
+POLR evaluates:
+
+* Correctness.
+
+* Ownership legality.
+
+* Security compliance.
+
+* Implementation complexity.
+
+* Change impact.
+
+* Runtime performance.
+
+* Memory use.
+
+* Resource consumption.
+
+* Maintainability.
+
+* Verification effort.
+
+* Reusability.
+
+* Compatibility.
+
+* Reliability.
+
+* Engineering risk.
+
+### POLR operating profiles
+
+`balanced`, `performance`, `memory`, `security`, `minimal-change`, `maintainability`, `compile-throughput`, `resource-constrained`, and `verification`.
+
+### Additional POLR facilities
+
+* Constraint-aware graph search.
+
+* Deterministic candidate ranking.
+
+* Pareto-frontier alternative preservation.
+
+* Cost provenance.
+
+* Estimated versus measured cost separation.
+
+* Minimal justified source changes.
+
+* Root-cause analysis.
+
+* Repair-route comparisons.
+
+* Feasible optimization selection.
+
+* Fail-closed reasoning.
+
+* Incomplete-search disclosure.
+
+* No unauthorized source modification.
+
+* No unproved security downgrade.
+
+* Detailed guidance reports.
+
+* Whole-program change-impact analysis.
+
+### PART VII — PITEL: PROGRESSIVE INNOVATIVE THROUGHPUT-ENHANCED LOGIC
+
+### 37\. PITEL's six-stage architecture
+
+| Stage                                     | Responsibility                                                |
+| ----------------------------------------- | ------------------------------------------------------------- |
+| I — Immediate Recognition                 | Extract simple authoritative facts                            |
+| II — Relational Analysis                  | Resolve interrelated types, ownership, effects and structures |
+| III — Deductive Expansion                 | Derive facts and propagate constraints                        |
+| IV — Speculative Exploration              | Explore candidate solutions and optimizations                 |
+| V — Authoritative Verification            | Check required proofs and legality                            |
+| VI — Consolidation and Native Realization | Reuse verified knowledge and complete native lowering         |
+
+### 38\. PITEL acceleration and intelligence mechanisms
+
+* Incremental semantic analysis.
+
+* Dependency-directed recomputation.
+
+* Parallel independent analysis.
+
+* Stable symbol interning.
+
+* Shared type interning.
+
+* Worklist solvers.
+
+* Strongly connected component analysis.
+
+* Fixed-point convergence.
+
+* Sparse data flow.
+
+* Bitset optimization.
+
+* Constraint propagation.
+
+* Deduction reuse.
+
+* Proof-obligation deduplication.
+
+* Knowledge caching.
+
+* Source dependency hashing.
+
+* Semantic fact invalidation.
+
+* Conjecture caching.
+
+* Resource-bounded inference.
+
+* Adaptive scheduling.
+
+* Priority-aware proof execution.
+
+* Candidate pruning.
+
+* E-graph acceleration.
+
+* Incremental Blueprint navigation.
+
+* Parallel POLR evaluation.
+
+* Deterministic result ordering.
+
+* Stable conclusion identities.
+
+* Throughput measurement.
+
+* Memory-budget accounting.
+
+* Compilation-time instrumentation.
+
+### PART VIII — THE COMPLETE NATIVE COMPILER
+
+### 39\. Frontend
+
+* Source loader.
+
+* UTF-8 validator.
+
+* Unicode normalization.
+
+* Lexer.
+
+* Layout tokenizer.
+
+* Error recovery.
+
+* Concrete syntax tree.
+
+* Abstract syntax tree.
+
+* Source provenance tracking.
+
+* Declaration parser.
+
+* Expression parser.
+
+* Statement parser.
+
+* Type parser.
+
+* Module parser.
+
+* Import resolver.
+
+* Semantic error reporting.
+
+### 40\. Semantic compilation
+
+* SAGE semantic core.
+
+* Symbol and scope analysis.
+
+* Generic and capability resolution.
+
+* Type checking.
+
+* Ownership/borrow checking.
+
+* Effect inference.
+
+* Closure capture validation.
+
+* Contract verification.
+
+* Capsule/Family/Chain validation.
+
+* Typed reflection.
+
+* Constant evaluation.
+
+* State and resource checking.
+
+* Verified semantic judgments.
+
+* Whole-Program Blueprint generation.
+
+* POLR candidate guidance.
+
+### 41\. PCIR — Paracine Compiler Intermediate Representation
+
+PCIR is the typed, target-independent semantic representation.
+
+Its responsibilities include:
+
+* Typed values.
+
+* Constants.
+
+* Arithmetic.
+
+* Comparisons.
+
+* Casts.
+
+* Control-flow blocks.
+
+* Branches.
+
+* Loops.
+
+* Call operations.
+
+* Ownership operations.
+
+* Borrow/provenance metadata.
+
+* Effect information.
+
+* Aggregates.
+
+* Variants.
+
+* Closures.
+
+* Allocation.
+
+* Memory access.
+
+* Trap operations.
+
+* Contract obligations.
+
+* Capsule boundary operations.
+
+* Chain stage dependencies.
+
+* Debug/source provenance.
+
+* Semantic verification.
+
+### 42\. Native optimizer
+
+* Constant folding.
+
+* Constant propagation.
+
+* Dead-code elimination.
+
+* Common-subexpression elimination.
+
+* Inlining.
+
+* Tail-call optimization.
+
+* Escape analysis.
+
+* Scalar replacement.
+
+* Allocation elimination.
+
+* Loop optimization.
+
+* Loop fusion.
+
+* Loop flattening.
+
+* Vectorization.
+
+* Function specialization.
+
+* Closure optimization.
+
+* Chain fusion.
+
+* Devirtualization.
+
+* Pattern recognition.
+
+* Profile-guided optimization.
+
+* Proof-constrained algebraic rewrites.
+
+* Resource-aware optimization.
+
+* Effect-aware scheduling.
+
+* ACO and E-graph search.
+
+* Verified optimization reporting.
+
+### 43\. PMIR — Paracine Machine Intermediate Representation
+
+PMIR represents target-aware machine-level operations.
+
+Its responsibilities include:
+
+* Machine register classes.
+
+* Virtual registers.
+
+* Register allocation.
+
+* Spilling.
+
+* Stack-frame construction.
+
+* Target instructions.
+
+* Calling conventions.
+
+* Instruction scheduling.
+
+* Operand legalization.
+
+* Machine-level control flow.
+
+* Branch lowering.
+
+* Prologue and epilogue generation.
+
+* Calling-sequence lowering.
+
+* Unwind information.
+
+* Relocation handling.
+
+* Debug metadata.
+
+* Native instruction encoding preparation.
+
+### 44\. Native machine-code generation
+
+* x86-64 instruction selection.
+
+* Native instruction encoding.
+
+* Register assignment.
+
+* Scalar operations.
+
+* Vector operations.
+
+* Memory operands.
+
+* Calling-convention realization.
+
+* Function frames.
+
+* Stack alignment.
+
+* Stack probes.
+
+* Exception/unwind-format metadata where required.
+
+* Foreign call boundaries.
+
+* Native relocations.
+
+* Position-independent code where applicable.
+
+* Binary emission.
+
+### 45\. Native object and executable formats
+
+| Format or artifact | Purpose                                  |
+| ------------------ | ---------------------------------------- |
+| COFF .obj          | Canonical native object                  |
+| PE32+ .exe         | Canonical executable                     |
+| .dll               | Windows dynamic library                  |
+| .lib               | Import or static library                 |
+| .pdb               | Windows debug information                |
+| .h                 | Interoperability header where applicable |
+| ELF                | Additional Unix native profile           |
+| Mach-O             | Additional macOS native profile          |
+| Static archive     | Collection of native objects             |
+
+Windows x86-64 remains the canonical Tier-1 target. ELF and Mach-O are additional source-described target profiles rather than automatic evidence of complete platform qualification.
+
+### 46\. Integrated linker
+
+* Native symbol resolution.
+
+* Internal and external symbols.
+
+* Object sections.
+
+* Relocations.
+
+* Data sections.
+
+* Code sections.
+
+* Import libraries.
+
+* Export tables.
+
+* Static archives.
+
+* DLL linking.
+
+* Entry point generation.
+
+* Executable headers.
+
+* Image layout.
+
+* Section alignment.
+
+* TLS integration.
+
+* Exception/unwind tables.
+
+* Debug metadata integration.
+
+* Binary integrity verification.
+
+* Deterministic output generation.
+
+### 47\. Native security
+
+* Address Space Layout Randomization compatibility.
+
+* High-entropy virtual-address layout.
+
+* Non-executable memory compatibility.
+
+* CFG metadata where valid.
+
+* Valid relocations.
+
+* Secure image defaults.
+
+* Resource-bounded compilation.
+
+* Safe section construction.
+
+* Malformed-object rejection.
+
+* Binary verifier.
+
+* Trusted ABI boundaries.
+
+* Fail-closed isolation mechanisms.
+
+* Unsafe/FFI qualification.
+
+### PART IX — RUNTIME, LIBRARY AND PLATFORM CONTRACTS
+
+### 48\. Runtime foundation
+
+* Startup and termination.
+
+* Program entry point.
+
+* Process arguments.
+
+* UTF-8 process argument representation.
+
+* Memory allocation.
+
+* Allocation failure.
+
+* Disposal.
+
+* Strings and text.
+
+* Arrays and buffers.
+
+* Standard streams.
+
+* File and process operations.
+
+* Native synchronization.
+
+* Atomics.
+
+* Thread scopes.
+
+* Thread-local storage.
+
+* Terminal trap reporting.
+
+* Stack protection.
+
+* Dynamic library interfaces.
+
+* Capsule execution boundaries.
+
+* Resource accounting.
+
+### 49\. Native ABI and representation
+
+* Microsoft x64 calling convention.
+
+* Argument classification.
+
+* Return-value passing.
+
+* Aggregate passing.
+
+* Structure size and alignment.
+
+* Field offsets.
+
+* Variant tags and payloads.
+
+* Closure environment layouts.
+
+* Text and string layouts.
+
+* Option/result representation.
+
+* Pointer and reference layouts.
+
+* Stack alignment.
+
+* Callee-saved registers.
+
+* Unwind format.
+
+* Foreign variadic calls.
+
+* ABI compatibility.
+
+* Machine-readable ABI reports.
+
+### 50\. Native text, collection and process facilities
+
+The accompanying source-described library inventory includes:
+
+* `std.io.print` and `println`.
+
+* Stream reading.
+
+* UTF-8 text validation.
+
+* Byte and codepoint access.
+
+* Text slicing.
+
+* Text search and comparison.
+
+* Text hashing.
+
+* Owning string construction.
+
+* String append, clear and disposal.
+
+* Checked array access and reduction.
+
+* File existence checks.
+
+* Text file reading and writing.
+
+* Native process launching.
+
+* Process exit results.
+
+* Command-line argument conversion.
+
+* Native networking interfaces.
+
+* Dynamic library symbol access.
+
+* `fib` and `fib_big` mathematical facilities.
+
+### PART X — BUILD, PACKAGE AND DEVELOPMENT INFRASTRUCTURE
+
+### 51\. Build and configuration files
+
+| File or directory            | Responsibility                         |
+| ---------------------------- | -------------------------------------- |
+| .pcn                         | Language source                        |
+| paracine.toml                | Compiler and build configuration       |
+| paracine.pkg                 | Package identity and dependencies      |
+| paracine.lock                | Locked dependency provenance           |
+| .paracine/registries.conf    | Package source configuration           |
+| .paracine/trust.conf         | Package trust configuration            |
+| .paracine/cache              | Local package cache                    |
+| .paracine/semantic-style.pcs | Optional local style/heuristic profile |
+| Optimization profile         | Pinned optimization guidance           |
+| Source/target manifests      | Compiler inputs and target contracts   |
+
+### 52\. Package and supply-chain system
+
+* Package initialization.
+
+* Dependency addition and removal.
+
+* Dependency listing.
+
+* Version constraints.
+
+* Dependency locking.
+
+* Offline installation.
+
+* Trusted registries.
+
+* Filesystem and HTTPS package sources.
+
+* Package fetching.
+
+* Package publishing.
+
+* Immutable release identities.
+
+* Package deprecation/yanking.
+
+* Namespace trust.
+
+* SHA-256 content verification.
+
+* Optional HMAC-authenticated metadata.
+
+* Atomic installation.
+
+* Cache validation.
+
+* Path traversal defense.
+
+* Symlink containment.
+
+* Resource limits.
+
+* Reproducible package resolution.
+
+* No implicit arbitrary build-script execution.
+
+### 53\. Build cache and reproducibility
+
+* Content-addressed caching.
+
+* Compiler identity hashing.
+
+* Source hashing.
+
+* Transitive import hashing.
+
+* Target/ABI identity.
+
+* Optimization profile identity.
+
+* Build-option identity.
+
+* Cache integrity verification.
+
+* Corruption rejection.
+
+* Atomic cache writes.
+
+* Input mutation detection.
+
+* Write-if-different output.
+
+* Reproducible native artifacts.
+
+* Deterministic archive construction.
+
+* Stable build provenance.
+
+### 54\. Compiler command interfaces
+
+The consolidated command family includes:
+
+| Group                       | Commands                                         |
+| --------------------------- | ------------------------------------------------ |
+| Source inspection           | tokens, ast, ast-diagram, fmt                    |
+| Semantic inspection         | check, sage, explain                             |
+| IR inspection               | ir, mir, asm                                     |
+| Native inspection           | inspect, abi, runtime-contract, targets          |
+| Compilation                 | build, obj, elf, macho, link                     |
+| Validation                  | test, selftest, verify-bin                       |
+| Performance inspection      | profile, size, audit, bench, tune                |
+| Project management          | init, clean, deps, hash                          |
+| Package operations          | package, registry, fetch, publish, trust, status |
+| Environment inspection      | doctor, version, capabilities, bootstrap-status  |
+| Runtime testing             | probe-stdio                                      |
+| Interoperability inspection | emit cpp                                         |
+
+### New SAGE / POLR interfaces
+
+* `sage --blueprint`
+
+* `sage --knowledge`
+
+* `sage --dependencies`
+
+* `sage --ownership-map`
+
+* `sage --effect-map`
+
+* `sage --security-map`
+
+* `sage --change-impact`
+
+* `sage --polr`
+
+* `sage --polr-objective`
+
+* `sage --polr-profile`
+
+These new interface forms are from the addendum and should be treated as specified command contracts, not independently tested commands.
+
+### PART XI — TESTING, VERIFICATION AND RELEASE QUALIFICATION
+
+### 55\. The 20 original acceptance gates
+
+| Gate | Verification target                               |
+| ---- | ------------------------------------------------- |
+| G01  | Edition grammar, Unicode and syntax compatibility |
+| G02  | Core types, ownership, aliasing and lifetimes     |
+| G03  | Effects, recoverable failures and traps           |
+| G04  | Logical Capsule semantics                         |
+| G05  | Memory/deep Capsule isolation                     |
+| G06  | Families and inheritance                          |
+| G07  | Linear and nonlinear Chains                       |
+| G08  | Transactions, checkpoints and rollback            |
+| G09  | Collections, matrices, shapes and traversal       |
+| G10  | Numerical semantics                               |
+| G11  | Reflection, layout and representation             |
+| G12  | Dynamic closures and disposal                     |
+| G13  | Algebraic optimization correctness                |
+| G14  | Complete SAGE analysis                            |
+| G15  | Linguistic and etymological reasoning             |
+| G16  | PITEL correctness and throughput                  |
+| G17  | Rendering, training and temporal constructs       |
+| G18  | Native compiler and IR equivalence                |
+| G19  | Binary/image security and correctness             |
+| G20  | Release provenance and reproducibility            |
+
+### 56\. Extended SAGE / POLR verification
+
+The latest addendum supplements those gates with:
+
+* Knowledge-entity completeness.
+
+* Knowledge provenance.
+
+* Verified relationship accuracy.
+
+* Whole-program dependency coverage.
+
+* Blueprint navigation correctness.
+
+* Forward and reverse navigation.
+
+* Source-to-native traceability.
+
+* Change-impact accuracy.
+
+* POLR hard-constraint compliance.
+
+* Candidate-route validity.
+
+* Cost-model consistency.
+
+* Deterministic ranking.
+
+* Pareto alternative preservation.
+
+* Rejected-path explanations.
+
+* Proof dependency integrity.
+
+* Invalidation correctness.
+
+* Security non-downgrade.
+
+* Resource-bounded exploration.
+
+* Measured-versus-estimated cost separation.
+
+* Unauthorized-change prevention.
+
+### 57\. Testing laboratory
+
+* Positive conformance tests.
+
+* Negative conformance tests.
+
+* Expected diagnostic matching.
+
+* Lexer and parser regression.
+
+* Type checking.
+
+* Ownership and borrowing tests.
+
+* Concurrency and data-race tests.
+
+* FFI tests.
+
+* ABI tests.
+
+* Numerical boundary tests.
+
+* Capsule hostile-input tests.
+
+* Family and Chain tests.
+
+* Rollback correctness tests.
+
+* IR verifier tests.
+
+* Reference versus native differential execution.
+
+* Optimized versus unoptimized equivalence.
+
+* Serial versus parallel determinism.
+
+* Binary format validation.
+
+* Reproducibility tests.
+
+* Performance benchmarks.
+
+* Compiler resource accounting.
+
+* Fault and timeout isolation.
+
+* Security boundary testing.
+
+### 58\. Compiler bootstrap and self-hosting
+
+The engineering architecture also describes:
+
+* C++23 stage-zero compiler.
+
+* Paracine-written scanner and frontend seeds.
+
+* Native IR bootstrap.
+
+* Paracine compiler component reconstruction.
+
+* Native backend bootstrap.
+
+* Linker bootstrap.
+
+* Reproduced compiler builds.
+
+* Cross-stage equivalence checks.
+
+* Self-hosting acceptance criteria.
+
+Self-hosting is a distinct engineering milestone, not a requirement that Paracine source must already compile the canonical C++23 compiler.
+
+### 59\. Licensing and governance
+
+The component-specific licensing summary in the original master identifies:
+
+* Compiler, parser and code generator: GPL-3.0.
+
+* Standard library and runtime: GPL-3.0 with the Paracine Runtime Library Exception.
+
+* Specification and documentation: Apache-2.0.
+
+* Edition governance: Explicit compatibility rules and edition-gated semantic changes.
+
+* Production qualification: Conformance, provenance and native evidence requirements.
+
+The operative license files, not merely this summary, determine the legal terms. The master also requires reconciling any repository-wide license declarations with the component-specific licensing plan.
+
+### PART XII — THE FROZEN FOUNDATION'S 68 RESOLUTIONS
+
+The master incorporates all R1–R68 decisions. Here is their complete index, condensed by rule group.
+
+| Rules   | Covered decisions                                                                                |
+| ------- | ------------------------------------------------------------------------------------------------ |
+| R1–R2   | Exact four-space indentation; lexical layout                                                     |
+| R3–R5   | Borrowed text, owning string, concrete closures and routine-pointer coercion                     |
+| R6–R8   | Numeric conversion policy, structural capabilities and record field order                        |
+| R9–R11  | Modular arithmetic, shift counts and signed division edge cases                                  |
+| R12–R14 | Parameter ownership, inferred borrow regions and @from                                           |
+| R15–R16 | Terminal process traps, including thread traps                                                   |
+| R17–R18 | give success wrapping and fail error construction                                                |
+| R19–R21 | Floating-point rules, randomized hashing and fallible allocation                                 |
+| R22–R25 | Acyclic imports, visibility, vec operator exception and module identity                          |
+| R26–R28 | Macro restrictions, built-in derivation and concurrency without async/await                      |
+| R29–R31 | Native Tier-1 target, disjointness proofs and capability constraints                             |
+| R32–R36 | Cleanup, const evaluation, optional-value representation and raw authority                       |
+| R37–R46 | Unwind representation, native security, reproducibility, integrated linking and binary artifacts |
+| R47–R55 | SAGE authority levels, stylometric restrictions and pinned adaptive optimization                 |
+| R56–R63 | Guarded iterator loops, directed loops, post-test loops, labels, cleanup and lowering            |
+| R64–R65 | Proof-constrained optimizations and adaptive candidate heuristics                                |
+| R66     | Qualified safe-code memory-safety contract                                                       |
+| R67     | fib, fib_big, and boolean negation rules                                                         |
+| R68     | Explicitly permitted variadic and expansion use of ...                                           |
+
+This rule ledger preserves the baseline meaning against which Edition-2027 changes are interpreted.
+
+### PART XIII — THE THREE MASTER APPENDICES
+
+### Appendix A — Source-described compiler and platform inventory
+
+| Entry | Contents                                                  |
+| ----- | --------------------------------------------------------- |
+| A.1   | Unicode-complete lexical infrastructure                   |
+| A.2   | Incremental frontend, lossless syntax and parser recovery |
+| A.3   | Expressions, aggregates and compile-time values           |
+| A.4   | Source modules and symbol graphs                          |
+| A.5   | SKM and ownership reasoning                               |
+| A.6   | Diagnostics                                               |
+| A.7   | PCIR and differential execution                           |
+| A.8   | Native optimization, registers and vectorization          |
+| A.9   | ABI, targets and debug information                        |
+| A.10  | Object verification and linker interoperability           |
+| A.11  | Text, arrays, files, processes and console                |
+| A.12  | Package and supply-chain management                       |
+| A.13  | Native artifact caching                                   |
+| A.14  | Compiler command interfaces                               |
+| A.15  | Deterministic archives                                    |
+| A.16  | Validation and bootstrap                                  |
+| A.17  | Developer command examples                                |
+| A.18  | Compatibility and validation interpretation               |
+
+### Appendix B — Edition-2027 syntax and semantic examples
+
+* New declaration syntax.
+
+* Contextual modifiers.
+
+* Capsule / Family / Chain integration.
+
+* Transactional state.
+
+* Normal versus terminal exits.
+
+* Dynamic closure rules.
+
+* Typed numerical constructs.
+
+* Reflection.
+
+* Algebraic rewrite criteria.
+
+* Inference traces.
+
+* Performance evidence reports.
+
+### Appendix C — Traceability and decision register
+
+* Requirement-to-source mapping.
+
+* Frozen versus new edition rules.
+
+* Semantic compatibility.
+
+* Feature dependency mapping.
+
+* Resolved design conflicts.
+
+* Open grammar decisions.
+
+* Target contracts.
+
+* Verification status.
+
+* Implementation evidence.
+
+* Release-governance records.
+
+### Final consolidated summary
+
+### The complete Paracine 2027 system, at a glance
+
+01
+
+Language grammar
+
+02
+
+Static type system
+
+03
+
+Ownership and safety
+
+04
+
+Effects and failures
+
+05
+
+Capsules
+
+06
+
+Families
+
+07
+
+Chains
+
+08
+
+Advanced numerics
+
+09
+
+Smart data systems
+
+10
+
+Transactions and time
+
+11
+
+Rendering and training
+
+12
+
+Reflection and closures
+
+13
+
+SAGE + SKM/SCM/VSJ
+
+14
+
+Whole-Program Blueprint
+
+15
+
+POLR
+
+16
+
+PITEL
+
+17
+
+ACO optimization
+
+18
+
+PCIR + PMIR
+
+19
+
+Native backend + linker
+
+20
+
+Runtime, build and verification
+
+The central architecture is this:
+
+Paracine is the language. Capsules, Families, Chains, its type system and resource contracts express the program's structure and intended behavior.
+
+SAGE establishes meaning. The expanded Knowledge Model represents the relationships among the complete program's components.
+
+The Whole-Program Blueprint makes those relationships navigable.
+
+POLR evaluates valid engineering routes toward a goal.
+
+PITEL accelerates semantic reasoning and knowledge maintenance.
+
+ACO explores and verifies optimization opportunities.
+
+PCIR preserves the established semantics, PMIR maps them to machine-level operations, and the native backend and linker produce the executable.
+
+That is the complete high-level component map across the master specification, its supporting appendices, and your latest SAGE/POLR expansion.
+
+For maximum technical precision, the next level below this inventory would be a normative component-by-component reference manual, where each feature receives its exact grammar, accepted types, evaluation order, ownership rules, effects, failure conditions, PCIR operations, runtime obligations and conformance tests.
+
+
 
