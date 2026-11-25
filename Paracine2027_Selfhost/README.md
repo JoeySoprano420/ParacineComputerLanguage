@@ -83,3 +83,6 @@ The Edition-2027 specification is a target; `docs/COMPLETION_CONTRACT.md` enumer
 - Licensing in Specification 2.0 identifies GPL-3.0, a runtime exception, and Apache-2.0 documentation. Add the **authoritative corresponding license texts** before distribution; this project does not silently fabricate a runtime exception.
 
 
+## Provenance
+
+Source origin: the user's Library file `ParacineCompiler.pcn`, imported as the foundation of this project. Changes were additive to the compiler except for its metadata strings and Edition-2027 keyword recognition; user-authored input source was not overwritten.
