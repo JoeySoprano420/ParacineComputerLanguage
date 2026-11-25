@@ -1,0 +1,19 @@
+module tests.edition2027_features
+
+family Accounts
+    member SecureAccount
+
+capsule SecureAccount
+    isolate deep
+    private var balance: bitint<17>
+    contract invariant balance >= 0
+
+chain Approval
+    stage identity = verify_identity(request)
+    stage limits = verify_limits(request)
+    stage decision after identity, limits
+        respond approved
+
+routine example() gives void
+    checkpoint @change
+        var total: ubitint<4096>

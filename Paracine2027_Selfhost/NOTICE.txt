@@ -1,0 +1,6 @@
+Paracine 2027 self-hosting bootstrap sources
+
+Source foundation: user-provided ParacineCompiler.pcn in the user's Library.
+Copyright attribution in governing specification: Copyright (c) 2026-2027 Violet Aura Creations / Paracine Project.
+
+Specification 2.0 declares GPL-3.0 for the compiler implementation, GPL-3.0 with a Paracine Runtime Library Exception for the runtime/library, and Apache-2.0 for documentation/examples. This package does not include a runtime-library exception or purport to license components beyond their applicable authoritative terms. Obtain and attach authoritative licenses before public redistribution.

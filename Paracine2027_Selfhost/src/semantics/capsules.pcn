@@ -1,0 +1,29 @@
+module semantics.capsules
+
+# Isolation planning kernel. Real enforcement must occur in the OS boundary.
+# 1 = logical, 2 = memory, 3 = deep.  No automatic downgrade.
+record IsolationPlan
+    approved: bool
+    selected_profile: int
+    requires_process_boundary: bool
+    error_code: int
+
+routine choose_isolation(requested: int, has_memory_protection: bool, has_deep_compartment: bool) gives IsolationPlan
+    if requested == 1
+        give IsolationPlan{approved: true, selected_profile: 1, requires_process_boundary: false, error_code: 0}
+    if requested == 2
+        if has_memory_protection
+            give IsolationPlan{approved: true, selected_profile: 2, requires_process_boundary: false, error_code: 0}
+        give IsolationPlan{approved: false, selected_profile: 0, requires_process_boundary: false, error_code: 401}
+    if requested == 3
+        if has_deep_compartment
+            give IsolationPlan{approved: true, selected_profile: 3, requires_process_boundary: true, error_code: 0}
+        give IsolationPlan{approved: false, selected_profile: 0, requires_process_boundary: true, error_code: 402}
+    give IsolationPlan{approved: false, selected_profile: 0, requires_process_boundary: false, error_code: 403}
+
+routine may_cross_boundary(authority_valid: bool, serializable: bool, contains_raw_pointer: bool, exports_exclusive_borrow: bool) gives bool
+    give authority_valid and serializable and not contains_raw_pointer and not exports_exclusive_borrow
+
+routine derived_authority(parent_has_right: bool, caller_has_right: bool, explicit_grant: bool) gives bool
+    # Inheritance alone must never create a privilege.
+    give parent_has_right and caller_has_right and explicit_grant

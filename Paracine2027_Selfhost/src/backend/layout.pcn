@@ -1,0 +1,35 @@
+module backend.layout
+
+# Checked layout/target planning helpers; no object file writing yet.
+routine alignment_valid(alignment: long) gives bool
+    if alignment <= 0
+        give false
+    give (alignment & (alignment - 1)) == 0
+
+routine align_up(value: long, alignment: long) gives long
+    if value < 0 or not alignment_valid(alignment)
+        give -1
+    if value > 9223372036854775807 - (alignment - 1)
+        give -1
+    give (value + alignment - 1) & (0 - alignment)
+
+routine windows_shadow_space() gives int
+    give 32
+
+routine windows_stack_alignment() gives int
+    give 16
+
+routine windows_default_image_base() gives long
+    give 5368709120
+
+routine coff_amd64_machine() gives int
+    give 34404
+
+routine pe32plus_magic() gives int
+    give 523
+
+routine pe_file_alignment() gives int
+    give 512
+
+routine pe_section_alignment() gives int
+    give 4096

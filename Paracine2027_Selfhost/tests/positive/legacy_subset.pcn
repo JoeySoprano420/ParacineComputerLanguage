@@ -1,0 +1,7 @@
+module tests.legacy_subset
+
+routine main() gives int
+    var total: int = 0
+    from i = 1 to 3
+        total += i
+    give total

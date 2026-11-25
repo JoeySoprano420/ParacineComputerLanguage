@@ -1,0 +1,41 @@
+module semantics.chains
+
+# No-allocation topological feasibility for up to 60 stage IDs.
+# from_stage and to_stage describe edges; edge j runs from_stage[j] -> to_stage[j].
+# Does not execute or optimize stages.
+routine chain_dag_valid(stage_count: int, from_stage: view<int>, to_stage: view<int>) gives bool with trap
+    if stage_count < 0 or stage_count > 60
+        give false
+    if from_stage.count != to_stage.count
+        give false
+    var edge: int = 0
+    while edge < from_stage.count.to_int()
+        if from_stage[edge] < 0 or from_stage[edge] >= stage_count
+            give false
+        if to_stage[edge] < 0 or to_stage[edge] >= stage_count
+            give false
+        edge += 1
+    var complete: int = 0
+    var visited: ulong = 0
+    while complete < stage_count
+        var found: bool = false
+        var candidate: int = 0
+        while candidate < stage_count and not found
+            let mask: ulong = (1 as ulong) << candidate
+            if (visited & mask) == 0
+                var ready: bool = true
+                edge = 0
+                while edge < from_stage.count.to_int()
+                    if to_stage[edge] == candidate
+                        let predecessor: ulong = (1 as ulong) << from_stage[edge]
+                        if (visited & predecessor) == 0
+                            ready = false
+                    edge += 1
+                if ready
+                    visited = visited | mask
+                    complete += 1
+                    found = true
+            candidate += 1
+        if not found
+            give false
+    give true

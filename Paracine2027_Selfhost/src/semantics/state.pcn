@@ -1,0 +1,33 @@
+module semantics.state
+
+# Reversible single-value transaction kernel with explicitly local state.
+# There is no file, network, foreign, process, DMA or crash-durable rollback.
+record IntCheckpoint
+    before: long
+    after: long
+    active: bool
+    was_rolled_back: bool
+
+routine checkpoint_int(value: long) gives IntCheckpoint
+    give IntCheckpoint{before: value, after: value, active: true, was_rolled_back: false}
+
+routine checkpoint_update(var state: IntCheckpoint, updated: long) gives bool
+    if not state.active
+        give false
+    state.after = updated
+    give true
+
+routine checkpoint_commit(var state: IntCheckpoint) gives bool
+    if not state.active
+        give false
+    state.before = state.after
+    state.active = false
+    give true
+
+routine checkpoint_rollback(var state: IntCheckpoint) gives bool
+    if not state.active
+        give false
+    state.after = state.before
+    state.active = false
+    state.was_rolled_back = true
+    give true

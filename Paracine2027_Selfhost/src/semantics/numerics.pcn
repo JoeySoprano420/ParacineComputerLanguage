@@ -1,0 +1,18 @@
+module semantics.numerics
+
+# Type-domain and optimization legality checks for advanced numerics.
+routine valid_bitint_width(width: int) gives bool
+    give width >= 1 and width <= 4096
+
+routine valid_posit_configuration(width: int, exponent_bits: int) gives bool
+    # Placeholder eligibility check, not a full encoding definition.
+    give width >= 2 and width <= 4096 and exponent_bits >= 0 and exponent_bits < width
+
+routine integer_add_reassociate(is_modular_integer: bool, identical_width: bool, effect_free: bool, trap_free: bool) gives bool
+    give is_modular_integer and identical_width and effect_free and trap_free
+
+routine floating_add_reassociate(fastmath: bool, effect_free: bool, trap_free: bool) gives bool
+    give fastmath and effect_free and trap_free
+
+routine shape_matmul_valid(left_rows: int, left_cols: int, right_rows: int, right_cols: int) gives bool
+    give left_rows >= 0 and left_cols >= 0 and right_rows >= 0 and right_cols >= 0 and left_cols == right_rows

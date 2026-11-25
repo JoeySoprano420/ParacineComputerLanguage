@@ -1,0 +1,42 @@
+module semantics.effects
+
+# Explicit effect-set operations for SAGE's eventual fixed-point effect solver.
+record EffectSummary
+    alloc: bool
+    io: bool
+    thread: bool
+    trap: bool
+    unsafe: bool
+
+routine pure_effects() gives EffectSummary
+    give EffectSummary{alloc: false, io: false, thread: false, trap: false, unsafe: false}
+
+routine join_effects(left: EffectSummary, right: EffectSummary) gives EffectSummary
+    give EffectSummary{alloc: left.alloc or right.alloc, io: left.io or right.io, thread: left.thread or right.thread, trap: left.trap or right.trap, unsafe: left.unsafe or right.unsafe}
+
+routine effects_fit(actual: EffectSummary, declared: EffectSummary) gives bool
+    if actual.alloc and not declared.alloc
+        give false
+    if actual.io and not declared.io
+        give false
+    if actual.thread and not declared.thread
+        give false
+    if actual.trap and not declared.trap
+        give false
+    if actual.unsafe and not declared.unsafe
+        give false
+    give true
+
+routine effect_count(effects: EffectSummary) gives int
+    var count: int = 0
+    if effects.alloc
+        count += 1
+    if effects.io
+        count += 1
+    if effects.thread
+        count += 1
+    if effects.trap
+        count += 1
+    if effects.unsafe
+        count += 1
+    give count

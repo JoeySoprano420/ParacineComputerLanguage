@@ -1,0 +1,14 @@
+module semantics.inheritance
+
+# Necessary but not sufficient substitution checks for Family inheritance.
+record InheritanceObligations
+    parent_contract_preserved: bool
+    method_preconditions_not_strengthened: bool
+    method_postconditions_not_weakened: bool
+    state_layout_valid: bool
+    parent_private_state_protected: bool
+    no_new_authority: bool
+    overriding_effects_fit: bool
+
+routine inheritance_acceptable(o: InheritanceObligations) gives bool
+    give o.parent_contract_preserved and o.method_preconditions_not_strengthened and o.method_postconditions_not_weakened and o.state_layout_valid and o.parent_private_state_protected and o.no_new_authority and o.overriding_effects_fit

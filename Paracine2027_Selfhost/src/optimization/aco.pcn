@@ -1,0 +1,23 @@
+module optimization.aco
+
+# Conjecture legality gates; replacing a full typed E-graph would be unsound.
+record RewriteObligations
+    same_type: bool
+    equivalent_values: bool
+    same_effects: bool
+    same_traps: bool
+    same_ownership: bool
+    same_authority: bool
+    same_abi: bool
+    proof_verified: bool
+
+routine rewrite_is_legal(proof: RewriteObligations) gives bool
+    give proof.same_type and proof.equivalent_values and proof.same_effects and proof.same_traps and proof.same_ownership and proof.same_authority and proof.same_abi and proof.proof_verified
+
+routine candidate_status(proof: RewriteObligations, candidate_profitable: bool) gives int
+    # 0 rejected, 1 legal but not selected, 2 selected.
+    if not rewrite_is_legal(proof)
+        give 0
+    if not candidate_profitable
+        give 1
+    give 2

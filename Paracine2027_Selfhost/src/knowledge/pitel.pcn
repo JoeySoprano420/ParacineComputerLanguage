@@ -1,0 +1,23 @@
+module knowledge.pitel
+
+# Minimal semantic-cache identity/validity contract, not incremental scheduler.
+record KnowledgeKey
+    source_hash: ulong
+    compiler_hash: ulong
+    edition_id: int
+    target_id: int
+    dependency_hash: ulong
+    proof_hash: ulong
+
+routine can_reuse_fact(cached: KnowledgeKey, current: KnowledgeKey, proved: bool) gives bool
+    give proved and cached.source_hash == current.source_hash and cached.compiler_hash == current.compiler_hash and cached.edition_id == current.edition_id and cached.target_id == current.target_id and cached.dependency_hash == current.dependency_hash and cached.proof_hash == current.proof_hash
+
+routine classify_knowledge(observed: bool, derivation_verified: bool, has_unproved_premise: bool) gives int
+    # 0 unknown, 1 observation, 2 conditional, 3 proven.
+    if has_unproved_premise
+        give 2
+    if derivation_verified
+        give 3
+    if observed
+        give 1
+    give 0

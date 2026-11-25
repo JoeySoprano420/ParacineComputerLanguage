@@ -1,0 +1,5 @@
+module tests.bad_width
+
+capsule ValueHolder
+    isolate logical
+    private var flags: bitint<4097>

@@ -1,0 +1,18 @@
+[package]
+name = "violet.paracine-selfhost-bootstrap"
+version = "0.5.0"
+edition = "2026"
+kind = "app"
+root = "src"
+no_std = false
+no_prelude = false
+
+[target.windows-x86_64]
+abi = "msx64"
+subsystem = "console"
+
+[profile.debug]
+opt = 0
+debug = 2
+reproducible = true
+emit = ["obj", "exe"]

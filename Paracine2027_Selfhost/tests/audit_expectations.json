@@ -1,0 +1,8 @@
+{
+  "warning": "Expected results for Paracine-written audit-2027. Not executed in this environment.",
+  "positive/edition2027_features.pcn": {"expected_exit": 0, "scope": "structural audit only"},
+  "negative/bad_width.pcn": {"expected_error": 207},
+  "negative/bad_isolation.pcn": {"expected_error": 203},
+  "negative/orphan_stage.pcn": {"expected_error": 204},
+  "negative/missing_capsule_name.pcn": {"expected_error": 201}
+}

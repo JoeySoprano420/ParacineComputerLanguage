@@ -1,0 +1,4 @@
+module tests.missing_capsule_name
+
+capsule
+    isolate deep

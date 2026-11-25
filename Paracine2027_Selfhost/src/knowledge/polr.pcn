@@ -1,0 +1,47 @@
+module knowledge.polr
+
+# Deterministic bounded POLR candidate scoring; not a program repair system.
+# All costs/weights are nonnegative integers <= 1,000,000 to bound sums.
+record Route
+    valid_semantics: bool
+    valid_security: bool
+    valid_ownership: bool
+    valid_resources: bool
+    change_cost: int
+    runtime_cost: int
+    memory_cost: int
+    verification_cost: int
+
+record RouteWeights
+    change: int
+    runtime: int
+    memory: int
+    verification: int
+
+routine route_feasible(route: Route) gives bool
+    give route.valid_semantics and route.valid_security and route.valid_ownership and route.valid_resources
+
+routine valid_weight(value: int) gives bool
+    give value >= 0 and value <= 1000000
+
+routine score_route(route: Route, weights: RouteWeights) gives long
+    if not route_feasible(route)
+        give -1
+    if not valid_weight(route.change_cost) or not valid_weight(route.runtime_cost) or not valid_weight(route.memory_cost) or not valid_weight(route.verification_cost)
+        give -1
+    if not valid_weight(weights.change) or not valid_weight(weights.runtime) or not valid_weight(weights.memory) or not valid_weight(weights.verification)
+        give -1
+    give (route.change_cost as long) * (weights.change as long) + (route.runtime_cost as long) * (weights.runtime as long) + (route.memory_cost as long) * (weights.memory as long) + (route.verification_cost as long) * (weights.verification as long)
+
+routine select_route(routes: view<Route>, weights: RouteWeights) gives int with trap
+    var chosen: int = -1
+    var best: long = 0
+    var i: int = 0
+    while i < routes.count.to_int()
+        let cost: long = score_route(routes[i], weights)
+        if cost >= 0
+            if chosen == -1 or cost < best
+                chosen = i
+                best = cost
+        i += 1
+    give chosen

@@ -1,0 +1,4 @@
+module tests.bad_isolation
+
+capsule ValueHolder
+    isolate imaginary

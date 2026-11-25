@@ -1,0 +1,32 @@
+module knowledge.blueprint
+
+# Allocation-free dependency-graph reachability, up to 60 nodes.
+# IDs are 0..node_count-1, edges are directional, repeated edges are harmless.
+routine blueprint_reachable(node_count: int, edge_from: view<int>, edge_to: view<int>, start: int, destination: int) gives bool with trap
+    if node_count < 1 or node_count > 60
+        give false
+    if edge_from.count != edge_to.count
+        give false
+    if start < 0 or start >= node_count or destination < 0 or destination >= node_count
+        give false
+    if start == destination
+        give true
+    var edge: int = 0
+    while edge < edge_from.count.to_int()
+        if edge_from[edge] < 0 or edge_from[edge] >= node_count or edge_to[edge] < 0 or edge_to[edge] >= node_count
+            give false
+        edge += 1
+    var reached: ulong = (1 as ulong) << start
+    var changed: bool = true
+    while changed
+        changed = false
+        edge = 0
+        while edge < edge_from.count.to_int()
+            let from_bit: ulong = (1 as ulong) << edge_from[edge]
+            let to_bit: ulong = (1 as ulong) << edge_to[edge]
+            if (reached & from_bit) != 0 and (reached & to_bit) == 0
+                reached = reached | to_bit
+                changed = true
+            edge += 1
+    let final_bit: ulong = (1 as ulong) << destination
+    give (reached & final_bit) != 0

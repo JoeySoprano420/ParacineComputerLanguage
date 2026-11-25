@@ -1,0 +1,5 @@
+module tests.orphan_stage
+
+routine main() gives int
+    stage invalid = 1
+    give 0

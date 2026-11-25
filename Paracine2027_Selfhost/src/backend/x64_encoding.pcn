@@ -1,0 +1,29 @@
+module backend.x64_encoding
+
+# Real byte formulas for a few x86-64 encodings.  These are encoder kernels,
+# NOT a complete PMIR or machine-code emitter.
+routine mov_rax_immediate_size() gives int
+    give 10
+
+routine mov_rax_immediate_byte(value: long, index: int) gives int
+    # REX.W + MOV r64, imm64. Returns -1 for invalid byte index.
+    if index == 0
+        give 72
+    if index == 1
+        give 184
+    if index >= 2 and index < 10
+        let shift: int = (index - 2) * 8
+        give ((value >> shift) & 255).to_int()
+    give -1
+
+routine xor_eax_eax_byte(index: int) gives int
+    if index == 0
+        give 49
+    if index == 1
+        give 192
+    give -1
+
+routine ret_byte(index: int) gives int
+    if index == 0
+        give 195
+    give -1

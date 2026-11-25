@@ -1,0 +1,39 @@
+module optimization.abstract_interpretation
+
+# Simple interval transfer functions for deterministic SAGE analyses.
+# A sound analyzer must widen/mark unknown if an operation could overflow.
+record Interval
+    minimum: long
+    maximum: long
+    known: bool
+
+routine unknown_interval() gives Interval
+    give Interval{minimum: 0, maximum: 0, known: false}
+
+routine constant_interval(value: long) gives Interval
+    give Interval{minimum: value, maximum: value, known: true}
+
+routine join_intervals(left: Interval, right: Interval) gives Interval
+    if not left.known or not right.known
+        give unknown_interval()
+    var minimum: long = left.minimum
+    var maximum: long = left.maximum
+    if right.minimum < minimum
+        minimum = right.minimum
+    if right.maximum > maximum
+        maximum = right.maximum
+    give Interval{minimum: minimum, maximum: maximum, known: true}
+
+routine add_intervals(left: Interval, right: Interval) gives Interval
+    if not left.known or not right.known
+        give unknown_interval()
+    # 64-bit signed bounds checked BEFORE addition to avoid modular wrap.
+    if right.minimum > 0 and left.minimum > 9223372036854775807 - right.minimum
+        give unknown_interval()
+    if right.minimum < 0 and left.minimum < (-9223372036854775807 - 1) - right.minimum
+        give unknown_interval()
+    if right.maximum > 0 and left.maximum > 9223372036854775807 - right.maximum
+        give unknown_interval()
+    if right.maximum < 0 and left.maximum < (-9223372036854775807 - 1) - right.maximum
+        give unknown_interval()
+    give Interval{minimum: left.minimum + right.minimum, maximum: left.maximum + right.maximum, known: true}

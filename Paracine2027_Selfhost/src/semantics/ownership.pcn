@@ -1,0 +1,57 @@
+module semantics.ownership
+
+# A small, executable ownership-state transfer kernel.
+# This is NOT the complete nonlexical region, provenance, or alias solver.
+record BorrowState
+    initialized: bool
+    moved: bool
+    shared_count: int
+    exclusive: bool
+
+routine borrow_state_new() gives BorrowState
+    give BorrowState{initialized: true, moved: false, shared_count: 0, exclusive: false}
+
+routine can_borrow_shared(state: BorrowState) gives bool
+    give state.initialized and not state.moved and not state.exclusive
+
+routine can_borrow_exclusive(state: BorrowState) gives bool
+    give state.initialized and not state.moved and not state.exclusive and state.shared_count == 0
+
+routine begin_shared(var state: BorrowState) gives bool
+    if not can_borrow_shared(state)
+        give false
+    if state.shared_count >= 2147483647
+        give false
+    state.shared_count += 1
+    give true
+
+routine end_shared(var state: BorrowState) gives bool
+    if state.shared_count <= 0
+        give false
+    state.shared_count -= 1
+    give true
+
+routine begin_exclusive(var state: BorrowState) gives bool
+    if not can_borrow_exclusive(state)
+        give false
+    state.exclusive = true
+    give true
+
+routine end_exclusive(var state: BorrowState) gives bool
+    if not state.exclusive
+        give false
+    state.exclusive = false
+    give true
+
+routine transfer_ownership(var state: BorrowState) gives bool
+    if not can_borrow_exclusive(state)
+        give false
+    state.moved = true
+    give true
+
+routine reinitialize(var state: BorrowState) gives bool
+    if state.exclusive or state.shared_count != 0
+        give false
+    state.moved = false
+    state.initialized = true
+    give true

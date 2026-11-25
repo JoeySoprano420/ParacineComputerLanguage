@@ -1,0 +1,83 @@
+module backend.coff_tiny
+
+# A concrete, 88-byte AMD64 COFF object for:
+#    external int main() { return exit_code; }
+# This returns every actual object byte at a requested offset (0..87).
+# It can be wired to a standard-library binary-output API when available.
+# The one-symbol output is an illustrative native encoding milestone,
+# NOT a replacement for PMIR, relocations, object graphs, or a linker.
+
+routine tiny_coff_size() gives int
+    give 88
+
+routine u32_byte(value: int, part: int) gives int
+    if part < 0 or part > 3
+        give -1
+    give (value >> (part * 8)) & 255
+
+routine tiny_coff_byte(exit_code: int, offset: int) gives int
+    if offset < 0 or offset >= 88
+        give -1
+    # IMAGE_FILE_HEADER (20 bytes), machine AMD64 = 0x8664,
+    # one section, deterministic timestamp = 0, symbol table at 66.
+    if offset == 0
+        give 100
+    if offset == 1
+        give 134
+    if offset == 2
+        give 1
+    if offset == 8
+        give 66
+    if offset == 12
+        give 1
+
+    # IMAGE_SECTION_HEADER at 20..59: .text, raw size 6 at offset 60,
+    # IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ.
+    if offset == 20
+        give 46
+    if offset == 21
+        give 116
+    if offset == 22
+        give 101
+    if offset == 23
+        give 120
+    if offset == 24
+        give 116
+    if offset == 36
+        give 6
+    if offset == 40
+        give 60
+    if offset == 56
+        give 32
+    if offset == 59
+        give 96
+
+    # 6 bytes of real machine code: B8 imm32 C3, with a 32-bit return.
+    if offset == 60
+        give 184
+    if offset >= 61 and offset <= 64
+        give u32_byte(exit_code, offset - 61)
+    if offset == 65
+        give 195
+
+    # COFF symbol table at 66..83, name 'main', section 1,
+    # function symbol, external storage class, no auxiliary records.
+    if offset == 66
+        give 109
+    if offset == 67
+        give 97
+    if offset == 68
+        give 105
+    if offset == 69
+        give 110
+    if offset == 78
+        give 1
+    if offset == 80
+        give 32
+    if offset == 82
+        give 2
+
+    # 4-byte empty COFF string-table size, at 84..87.
+    if offset == 84
+        give 4
+    give 0
