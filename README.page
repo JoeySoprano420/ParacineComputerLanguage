@@ -3972,3 +3972,2061 @@ The result is a language architecture built around four inseparable principles:
 **Violet Aura Creations — Paracine Programming Language**
 
 **Unified Industrial Production Standard — Edition 2027, Specification 2.0**
+
+
+## *** ##
+
+
+# **PARACINE 2027**
+
+## **Normative Language Resolution Addendum — NLR-2027-01**
+
+**Specification:** 2.0 — Proposed Binding Clarifications\
+**Edition:** 2027\
+**Scope:** Grammar, object semantics, transactions, isolation, protocols, concurrency, numerical behavior, attributes, FFI, native production and compiler conformance.
+
+This addendum supplies concrete proposed resolutions for the 15 outstanding questions. Once adopted, these rules should become binding requirements for SAGE, the parser, PCIR, PMIR, the runtime and the native compiler.
+
+The governing distinction is important: **a finalized architectural design does not automatically constitute a complete formal language definition.** A conforming compiler must derive behavior from published normative rules, not fill specification gaps with implementation-specific assumptions.
+
+### **Normative interpretation**
+
+The terms **MUST**, **MUST NOT**, **SHOULD** and **MAY** have their conventional standards meanings.
+
+The proposed precedence order is:
+
+1. Frozen Edition-2026 constitutional resolutions for compatibility.
+2. Explicit Edition-2027 normative amendments.
+3. Target-specific ABI and security contracts.
+4. Standard-library and runtime API contracts.
+5. Informative examples and explanatory material.
+
+If two normative rules conflict, the specification must resolve the conflict before compiler qualification.
+
+One significant compatibility issue already requires attention: the [Posit Standard (2022)](https://posithub.org/docs/posit_standard-2.pdf?utm_source=chatgpt.com) specifies a fixed two-bit exponent arrangement, while Paracine proposes `posit<N,ES>` with a configurable exponent size. Consequently, `posit<N,2>` can be defined against the 2022 standard, but other exponent configurations require an explicitly defined Paracine extension rather than being represented as directly conforming to that standard.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://posithub.org\&sz=32)
+
+posithub.org+1
+
+
+
+# **PART I — LANGUAGE AND EXECUTION RESOLUTIONS**
+
+## **NLR-01 — Complete syntax and lexical authority**
+
+### **1.1 Keyword classification**
+
+Paracine 2027 SHALL recognize three distinct word classes.
+
+**Reserved keywords** cannot be used as ordinary identifiers. They include the retained Edition-2026 vocabulary, together with:
+
+```
+capsule family chain extension protocol
+checkpoint commit rollback revert recover
+ask respond self
+```
+
+The Edition-2026 reserved set includes its declaration, control-flow, ownership, operator and effect vocabulary, together with `public`, `private`, `export`, `to`, `until`, `return_` and `yield_`.
+
+**Contextual keywords** have special meaning only in designated grammatical positions:
+
+```
+isolate inherit member stage after capture
+contract invariant shared
+allow deny avoid limit zone
+init override virtual abstract final sealed
+request response error
+using within
+```
+
+For example, `stage` is an ordinary identifier outside a Chain declaration.
+
+**Ordinary identifiers** include library operation names such as `fill`, `cut`, `trim`, `scale`, `taper`, `train`, `identify` and `availability`. They are not reserved merely because they appear in the advanced feature register.
+
+This preserves namespace flexibility.
+
+### **1.2 Lexical grammar**
+
+The compiler SHALL first produce a stream of normalized lexical tokens.
+
+```
+IDENT
+INTEGER
+FLOATING
+STRING
+CHARACTER
+NEWLINE
+INDENT
+DEDENT
+EOF
+```
+
+The lexical specification SHALL require:
+
+- Unicode 15.1 XID identifiers, normalized to NFC.
+- ASCII digits for source-level numeric syntax.
+- No implicit multiplication or juxtaposition.
+- Four ASCII spaces per indentation level.
+- Indentation increases of exactly one level at a time.
+- Maximal-munch operator tokenization.
+- Layout suppression inside matched grouping delimiters.
+- No implicit statement termination inside expressions.
+- Original byte offsets retained independently of normalized text.
+- Comments treated as trivia, without changing syntactic meaning.
+
+Nested generic closers written `> >` are separate tokens. The adjacent spelling `>>` remains the shift operator, preserving parser-independent lexical classification.
+
+### **1.3 Proposed declaration and statement grammar**
+
+The following EBNF-style grammar fixes the structural syntax. `NL` represents a logical newline, while `INDENT` and `DEDENT` are produced by the lexical layout engine.
+
+```
+
+Source          = [ Module ], { Import | Declaration | NL }, EOF ;
+
+Module          = "module", QualifiedName, NL ;
+Import          = [ "public" ], "import", QualifiedName,
+                  [ "as", Identifier ], NL ;
+
+Declaration     = Attributes, [ Visibility ],
+                  ( RoutineDecl | RecordDecl | VariantDecl
+                  | CapabilityDecl | CapsuleDecl | FamilyDecl
+                  | ChainDecl | ExtensionDecl | ProtocolDecl
+                  | ContractDecl | AliasDecl | ForeignDecl
+                  | ConstantDecl | StaticDecl ) ;
+
+Visibility      = "private" | "public" | "export" ;
+
+Attributes      = { Attribute, NL } ;
+Attribute       = "@", Identifier, [ "(", AttributeArgs, ")" ] ;
+
+RoutineDecl     = MethodModifiers, "routine", Identifier,
+                  [ GenericParams ], "(", Parameters, ")",
+                  [ EffectClause ], [ "gives", Type ],
+                  NL, Suite ;
+
+MethodModifiers = { "virtual" | "override" | "final"
+                  | "abstract" } ;
+
+EffectClause    = "with", EffectName, { ",", EffectName } ;
+EffectName      = "alloc" | "io" | "thread"
+                  | "trap" | "unsafe" | "pure" ;
+
+Parameters      = [ Parameter, { ",", Parameter } ] ;
+Parameter       = [ "own" | "var" | "ref" | "raw" ],
+                  Identifier, ":", Type
+                  | [ "own" | "var" ], "self" ;
+
+RecordDecl      = "record", Identifier, [ GenericParams ],
+                  NL, INDENT, { Field | NL }, DEDENT ;
+
+VariantDecl     = "variant", Identifier, [ GenericParams ],
+                  NL, INDENT, { VariantCase | NL }, DEDENT ;
+
+CapsuleDecl     = "capsule", Identifier, [ GenericParams ],
+                  [ "inherit", TypeName ],
+                  NL, INDENT, { CapsuleMember | NL }, DEDENT ;
+
+CapsuleMember   = IsolationDecl | PolicyDecl | Field
+                  | Constructor | Declaration
+                  | InvariantDecl ;
+
+IsolationDecl   = "isolate", ("logical" | "memory" | "deep"), NL ;
+InvariantDecl   = "contract", "invariant", Expression, NL ;
+
+Constructor     = [ Visibility ], "init", "(",
+                  Parameters, ")", [ "gives", Type ],
+                  NL, Suite ;
+
+FamilyDecl      = "family", Identifier, [ GenericParams ],
+                  NL, INDENT, { FamilyMember | NL }, DEDENT ;
+
+FamilyMember    = "member", TypeName, NL
+                  | "contract", "shared", Identifier, NL
+                  | "sealed", NL ;
+
+ChainDecl       = "chain", Identifier, [ GenericParams ],
+                  "(", Parameters, ")",
+                  [ "gives", Type ],
+                  NL, INDENT, { StageDecl | NL }, DEDENT ;
+
+StageDecl       = "stage", Identifier,
+                  [ "after", Identifier,
+                    { ",", Identifier } ],
+                  ( "=", Expression, NL | NL, Suite ) ;
+
+ProtocolDecl    = "protocol", Identifier,
+                  NL, INDENT,
+                  RequestDecl, ResponseDecl, ErrorDecl,
+                  DEDENT ;
+
+RequestDecl     = "request", NL, INDENT, { Field }, DEDENT ;
+ResponseDecl    = "response", NL, INDENT, { Field }, DEDENT ;
+ErrorDecl       = "error", Type, NL ;
+
+ExtensionDecl   = "extension", TypeName,
+                  NL, INDENT, { Declaration }, DEDENT ;
+
+ForeignDecl     = "foreign", "abi", StringLiteral,
+                  NL, INDENT, { ForeignRoutine }, DEDENT ;
+
+Suite           = INDENT, { Statement | NL }, DEDENT ;
+
+Statement       = Binding | Assignment | ExpressionStmt
+                  | IfStmt | ChooseStmt | WhileStmt
+                  | ForStmt | DirectedLoop | PostTestLoop
+                  | LoopStmt | CheckpointStmt
+                  | RevertStmt | RollbackStmt | CommitStmt
+                  | ReturnStmt | FailureStmt
+                  | BreakStmt | ContinueStmt | DeferStmt
+                  | RespondStmt ;
+
+Binding         = ("let" | "var" | "const"), Identifier,
+                  [ ":", Type ], "=", Expression, NL ;
+
+Assignment      = Place, AssignOp, Expression, NL ;
+
+IfStmt          = "if", Expression, NL, Suite,
+                  [ "else", NL, Suite ] ;
+
+WhileStmt       = "while", Expression, NL, Suite ;
+
+ForStmt         = "for", Pattern, "in", Expression,
+                  [ "while", Expression ], NL, Suite ;
+
+DirectedLoop    = "from", Identifier, "=", Expression,
+                  "to", Expression, NL, Suite ;
+
+PostTestLoop    = "continue", "until", Expression,
+                  NL, Suite ;
+
+LoopStmt        = "loop", NL, Suite ;
+
+CheckpointStmt  = "checkpoint", "@", Identifier,
+                  NL, Suite,
+                  [ "recover", Identifier, NL, Suite ] ;
+
+RevertStmt      = "revert", "@", Identifier, NL ;
+RollbackStmt    = "rollback", "@", Identifier,
+                  [ "fail", Expression ], NL ;
+CommitStmt      = "commit", "@", Identifier, NL ;
+
+ReturnStmt      = "give", [ Expression ], NL ;
+FailureStmt     = "fail", Expression, NL ;
+RespondStmt     = "respond", Expression, NL ;
+
+BreakStmt       = "break", [ Identifier ], NL ;
+ContinueStmt    = "continue", [ Identifier ], NL ;
+DeferStmt       = "defer", NL, Suite ;
+
+```
+
+Additional declarations such as `alias`, `static`, `const`, capability signatures, generic constraints, patterns, fields and policy clauses use ordinary typed productions. They MUST have their own closed grammar rather than being parsed as unrestricted token sequences.
+
+### **1.4 Expression precedence**
+
+The following table is normative, from highest to lowest binding strength.
+
+| Precedence | Construct                                        | Associativity  |
+| ---------- | ------------------------------------------------ | -------------- |
+| 15         | Calls, member access, indexing, qualified access | Left           |
+| 14         | Unary `-`, `+`, `!`, `not`, `~`, `move`, `try`   | Right          |
+| 13         | Multiplication, division, remainder              | Left           |
+| 12         | Addition, subtraction                            | Left           |
+| 11         | Shifts `<<`, `>>`                                | Left           |
+| 10         | Bitwise AND `&`                                  | Left           |
+| 9          | Bitwise XOR `^`                                  | Left           |
+| 8          | Bitwise OR `\\|`                                 | Left           |
+| 7          | Ranges `..`, `..=`                               | Nonassociative |
+| 6          | Comparisons `<`, `<=`, `>`, `>=`, `is`, `in`     | Nonassociative |
+| 5          | Equality `==`, `!=`                              | Nonassociative |
+| 4          | Boolean `and`, `&&`                              | Left           |
+| 3          | Boolean `or`, `\\|\\|`                           | Left           |
+| 2          | Pipeline `\\|>`                                  | Left           |
+| 1          | Explicit conditional expression                  | Right          |
+
+Assignments are statements, not expressions. Comparison chaining such as `a < b < c` is rejected unless explicitly separated into Boolean conditions.
+
+Short-circuit Boolean operators preserve left-to-right evaluation.
+
+Operands of other ordinary expression operators are also evaluated left-to-right, except where an explicitly documented builtin defines a different evaluation contract.
+
+### **1.5 Grammar conflicts and semantic rejection**
+
+A conforming implementation MUST provide a machine-readable grammar, a lexer conformance corpus and a versioned operator table.
+
+A parser MAY internally use Pratt parsing, LR, recursive descent or another technique, but those implementation choices cannot change accepted syntax.
+
+Ambiguity must be eliminated by grammar rules before SAGE performs type-directed overload selection.
+
+**Acceptance criterion:** Every syntactically valid Edition-2027 input has one structural interpretation, independent of symbol-table contents.
+
+The grammar above establishes the central syntax; a ratified grammar annex must additionally enumerate all lexical productions and retained Edition-2026 declaration alternatives. That annex is necessary before claiming the language grammar is completely closed.
+
+## **NLR-02 — Capsule constructors, methods, overrides and Families**
+
+### **2.1 Capsule construction**
+
+The canonical constructor declaration is `init`.
+
+```
+capsule Counter
+    isolate logical
+
+    private var count: int
+
+    public init(initial: int)
+        self.count = initial
+
+    public routine value(self) gives int
+        give self.count
+
+    public routine increment(var self)
+        self.count += 1
+```
+
+Construction is invoked through the compiler-defined operation `Counter.new(...)`.
+
+```
+let counter = Counter.new(10)
+```
+
+A constructor returning `void` is infallible except for its declared terminal effects.
+
+A constructor returning `result<void,E>` creates a fallible construction operation with result type `result<own Counter,E>`.
+
+On failed construction, already initialized owned resources receive ordinary cleanup, and no partially constructed object escapes.
+
+All non-optional fields MUST be initialized before construction succeeds.
+
+### **2.2 Method receivers**
+
+| Receiver   | Meaning                          |
+| ---------- | -------------------------------- |
+| `self`     | Shared, nonmutating access       |
+| `var self` | Exclusive mutable access         |
+| `own self` | Consume or transfer the instance |
+
+`self` is an explicit receiver but is not a user-defined field.
+
+Static methods omit `self`.
+
+Method lookup searches the nominal type, inherited eligible members, then valid extensions. Extensions cannot override an instance method or access private state without authorization.
+
+### **2.3 Virtual dispatch and overrides**
+
+Methods are statically dispatched unless declared `virtual` or inherited as virtual.
+
+An override requires the `override` modifier.
+
+```
+capsule BaseCounter
+    isolate logical
+
+    public virtual routine describe(self) gives text
+        give "base"
+
+capsule SpecialCounter inherit BaseCounter
+    isolate logical
+
+    public override routine describe(self) gives text
+        give "special"
+```
+
+Overrides MUST preserve:
+
+- Parameter types and modes, except explicitly permitted safe variance.
+- Return-type compatibility.
+- Ownership obligations.
+- Contract preconditions and postconditions.
+- Public visibility.
+- ABI requirements.
+- Security authority.
+- Effects within the parent contract.
+
+A derived implementation cannot strengthen required preconditions, weaken guaranteed postconditions, or introduce stronger unadvertised effects.
+
+`final` prevents further overriding. `abstract` requires a conforming implementation before instantiation.
+
+Overload resolution uses exact matches first, followed by permitted contextual literal fitting and explicit generic constraint resolution. Ties are errors; declaration order is never an overload preference.
+
+### **2.4 Family resolution**
+
+Family membership is nominal and explicit.
+
+```
+family CounterFamily
+    member BaseCounter
+    member SpecialCounter
+```
+
+A listed member MUST resolve to a declared compatible type by the end of the module's declaration-resolution phase.
+
+Families can overlap, but ambiguous behavioral requirements require explicit resolution. Membership never establishes subtype inheritance by itself.
+
+Single-state inheritance is permitted. Multiple behavioral inheritance is permitted through validated capabilities and Family contracts.
+
+Parent-private storage remains private.
+
+**Isolation strengthening is permitted; isolation weakening is not.** A `deep` subclass of a `logical` base must place inherited protected state within the deep compartment and preserve the base's external behavior through mediated access.
+
+## **NLR-03 — Stable Capsule identity and representation**
+
+Paracine SHALL distinguish an identity-bearing Capsule from an explicitly value-oriented Capsule.
+
+### **3.1 Identity-bearing instances**
+
+Ordinary Capsule construction creates a stable logical object identity.
+
+Identity remains stable across movement of owning handles and is not identical to a memory address.
+
+A runtime identity comprises:
+
+```
+ObjectIdentity
+    compartment_identity
+    object_number
+    generation
+```
+
+Identity values are opaque. They are not security credentials.
+
+Generations prevent stale handles from referring to a newly created object that reused an internal slot.
+
+### **3.2 Isolation-specific representation**
+
+| Isolation | Representation                                                          | Identity stability             |
+| --------- | ----------------------------------------------------------------------- | ------------------------------ |
+| `logical` | Managed native object with an owning handle and concrete state layout   | Across legal handle moves      |
+| `memory`  | Protected storage allocation plus an authority-checked handle           | Across protection transitions  |
+| `deep`    | Opaque remote handle referencing a broker-controlled compartment object | Across IPC and handle movement |
+
+The ABI for each handle form is versioned separately.
+
+The compiler MUST NOT expose remote implementation pointers or silently reinterpret protected handles as local references.
+
+### **3.3 Value Capsules**
+
+An explicitly annotated `@value` Capsule may use inline aggregate representation.
+
+Value Capsules have value semantics, not persistent object identity.
+
+Moving an inline value transfers its contents under ordinary ownership rules.
+
+`@value` is restricted to Capsule definitions whose fields, inheritance, isolation and lifecycle contracts permit inline representation. An identity-bearing or deep-isolated Capsule cannot be converted into an inline value Capsule through optimization.
+
+### **3.4 Observable identity**
+
+An operation such as `identity_of(instance)` returns an opaque comparison key, not a pointer.
+
+Two live handles identifying the same object compare equal by identity.
+
+Two separately constructed objects have distinct identities even if their state is identical.
+
+An optimizer MAY eliminate an allocation only when object identity, resource effects, construction behavior, destruction and every other observable obligation remain equivalent.
+
+**Acceptance criterion:** ICF, specialization, inlining and scalar replacement cannot merge two observably distinct Capsule identities.
+
+## **NLR-04 — Checkpoint, revert, rollback, recover and commit**
+
+This is one of the most consequential language resolutions because it affects control flow, ownership, exception handling and memory effects.
+
+### **4.1 Transaction domain**
+
+A checkpoint creates a lexical, bounded reversible-state region.
+
+The compiler determines the mutation footprint from statically established ownership and effect summaries.
+
+Only modifications with a valid reversible contract can participate.
+
+A checkpoint may track owned scalar values, owned aggregates, approved collections and transactional Capsule state.
+
+Arbitrary I/O, foreign mutation, network transmission, irreversible resource disposal and terminal traps are not automatically reversible.
+
+### **4.2 Operational semantics**
+
+Let \\(\sigma\\) denote program state and \\(J\\) an undo journal.
+
+Checkpoint entry establishes a snapshot boundary:
+
+\\[ \langle checkpoint\ c,\sigma\rangle \rightarrow \langle body,\sigma,J_c=\varnothing\rangle \\]
+
+Before each tracked mutation, the journal records sufficient information to restore the preceding state.
+
+The permitted outcomes are:
+
+| Operation            | Observable behavior                                                            |
+| -------------------- | ------------------------------------------------------------------------------ |
+| Normal completion    | Commit tracked mutations                                                       |
+| `commit @c`          | Commit and exit the checkpoint body                                            |
+| `revert @c`          | Restore the checkpoint-entry state and continue within the active body         |
+| `rollback @c`        | Restore state and exit the checkpoint body                                     |
+| `rollback @c fail E` | Restore state and propagate the typed error                                    |
+| Recoverable failure  | Restore state, then propagate the error or invoke a matching `recover` handler |
+| Terminal trap        | Terminate the process without guaranteed restoration or cleanup                |
+
+A successful `give`, `break` or ordinary scope exit commits active checkpoint regions before completing the control transfer, unless a more specific failure or rollback rule applies.
+
+### **4.3 Correct rollback example**
+
+```
+routine update_stock(var stock: int, amount: int)
+    gives result<void, StockError>
+
+    checkpoint @stock_change
+        stock += amount
+
+        if stock < 0
+            rollback @stock_change
+                fail StockError.invalid_stock
+
+    give
+```
+
+The multiline presentation above illustrates the operation; the canonical grammar uses the single-statement form:
+
+```
+rollback @stock_change fail StockError.invalid_stock
+```
+
+This distinction matters because code after a plain rollback is not executed inside the abandoned checkpoint body.
+
+### **4.4 Nested checkpoints**
+
+Nested checkpoints use an ordered journal stack.
+
+If checkpoint B is created inside checkpoint A:
+
+- Successful B commits its changes into A's still-reversible transaction history.
+- Rolling back B restores only B's entry state.
+- Rolling back A restores all changes since A began, including those committed by B.
+- B cannot outlive A.
+- Only an active, lexically enclosing checkpoint may be named.
+- An error escaping B causes B to roll back before A handles or propagates the error.
+
+Journal memory allocation MUST succeed before the corresponding mutation is made observable.
+
+Failure to reserve required journal resources produces a recoverable error before mutation.
+
+### **4.5 Recovery handlers**
+
+```
+checkpoint @operation
+    perform_reversible_work()
+recover error
+    handle_failure(error)
+```
+
+A matching `recover` handler executes after automatic restoration and ordinary eligible cleanup.
+
+The handler begins outside the failed checkpoint but remains inside any enclosing checkpoint.
+
+Errors produced by a recovery handler propagate normally to enclosing scopes.
+
+### **4.6 Durability and external state**
+
+Memory rollback does not imply crash durability.
+
+Persistent transaction guarantees require a separate durable storage contract with write-ahead logging, synchronization and recovery validation.
+
+Cross-Capsule transactions require an explicit coordinated transaction protocol if atomicity across participants is promised.
+
+**Acceptance criterion:** Reference PCIR, optimized PCIR and native code must produce the same results and eligible state transitions under nested commit, rollback, revert and recovery.
+
+## **NLR-05 — Deep-isolation method calls and transferred data**
+
+`isolate deep` is a process or comparably qualified protected-compartment boundary, not merely a language visibility modifier.
+
+### **5.1&#x20;**`var self`**&#x20;across processes**
+
+A caller does not receive a direct mutable reference to remote state.
+
+Instead, a `var self` call is lowered into a mediated exclusive invocation.
+
+The runtime SHALL:
+
+1. Validate the caller's authority.
+2. Validate that the target object is live.
+3. Acquire exclusive access to the target instance.
+4. Decode and validate the request.
+5. Execute the method in the protected compartment.
+6. Commit or restore eligible local state according to its failure contract.
+7. Encode the response.
+8. Release exclusive access.
+
+The local compiler may represent this as a typed invocation operation, but the remote implementation remains protected.
+
+### **5.2 Borrowed values**
+
+Borrowed `text`, `view<T>` and `span<T>` values cannot be sent as raw pointer-and-length pairs across a deep boundary.
+
+They must be converted into a valid transferable representation.
+
+The standard distinguishes:
+
+- **Copied values:** Serialized into bounded messages.
+- **Owned transfers:** Ownership moves under an explicit transfer protocol.
+- **Shared protected regions:** Explicit OS-backed shared-memory contracts.
+- **Remote references:** Opaque validated handles.
+
+Borrow lifetimes do not magically extend across IPC.
+
+A borrowed argument may be copied for a synchronous call, but the remote compartment cannot retain the originating borrow after that request completes.
+
+### **5.3 Foreign handles**
+
+Raw Windows `HANDLE` values, file descriptors and device identifiers are not portable serialized values.
+
+An explicitly transferable OS handle requires validated duplication, rights reduction, ownership transfer or another supported platform operation.
+
+Failure to establish those conditions rejects the transfer.
+
+### **5.4 Serialization**
+
+Protected messages use a canonical, versioned wire representation with:
+
+- Fixed byte ordering.
+- Stable schema identities.
+- Length-delimited fields.
+- Defined integer and numerical encodings.
+- Bounds validation.
+- Duplicate-field rules.
+- Resource quotas.
+- Compatible schema evolution.
+- Explicit ownership of transferred capabilities.
+
+Serialized bytes cannot be interpreted as arbitrary in-process object layouts.
+
+### **5.5 Invocation ordering**
+
+Exclusive invocations against the same Capsule object are serialized.
+
+Shared invocations may execute concurrently only when the declared synchronization and object invariants permit it.
+
+Transport failure is reported separately from an application method's typed error.
+
+## **NLR-06 — Typed&#x20;**`ask`**&#x20;and&#x20;**`respond`**&#x20;protocols**
+
+### **6.1 Protocol declaration**
+
+A protocol establishes its request, response and application-error types.
+
+```
+protocol BalanceQuery
+    request
+        account_id: ulong
+
+    response
+        balance: long
+
+    error AccountError
+```
+
+This declaration creates nominal types:
+
+```
+BalanceQuery.Request
+BalanceQuery.Response
+BalanceQuery.Error
+```
+
+Each has a stable schema identity derived from its qualified protocol identity and declared version.
+
+### **6.2 Request syntax**
+
+The canonical synchronous request expression is:
+
+```
+let answer = ask account
+    with BalanceQuery(account_id: 42)
+```
+
+Its result type is:
+
+```
+result<
+    BalanceQuery.Response,
+    ProtocolFailure<BalanceQuery.Error>
+>
+```
+
+`ProtocolFailure<E>` is a tagged distinction between application errors, authorization refusal, incompatible protocol, transport failure, cancellation, resource exhaustion, deadline expiration and unknown remote outcome.
+
+The compiler must reject protocol requests that do not match the target's authorized protocol set.
+
+### **6.3 Response handler**
+
+A Capsule may provide a handler:
+
+```
+public respond BalanceQuery(
+    self,
+    request: BalanceQuery.Request
+) gives result<BalanceQuery.Response, AccountError>
+
+    give BalanceQuery.Response(
+        balance: self.balance
+    )
+```
+
+Inside a response handler, `respond value` is an alternative terminal response operation.
+
+It is not an unrestricted substitute for `give` in ordinary routines.
+
+### **6.4 Scheduling and delivery guarantees**
+
+The default protocol contract is:
+
+| Property         | Required behavior                                                                                        |
+| ---------------- | -------------------------------------------------------------------------------------------------------- |
+| Ordering         | FIFO admission for requests from one sender to one target, subject to explicitly documented cancellation |
+| Concurrency      | At most one mutable handler per target object                                                            |
+| Timeout          | Deadline expiration does not prove remote nonexecution                                                   |
+| Cancellation     | Best-effort cancellation of work that has not irreversibly completed                                     |
+| Retries          | No implicit automatic retry of effectful requests                                                        |
+| Delivery         | A request may fail before delivery or complete remotely without a confirmed response                     |
+| Authentication   | Target identity and caller authority validated before execution                                          |
+| Resource control | Bounded request sizes, queues and outstanding work                                                       |
+
+Exactly-once execution across crashes is not guaranteed without an additional durable deduplication and transaction protocol.
+
+Nested synchronous requests that would deadlock a serialized target must be rejected when statically provable and otherwise detected or bounded by the runtime.
+
+### **6.5 Chain integration**
+
+Chains may contain `ask` operations.
+
+Their inferred effects, possible failures, serialization costs and ordering constraints participate in dependency analysis.
+
+ACO must not fuse, reorder or eliminate protocol operations merely because their response values appear unused.
+
+## **NLR-07 — Concurrency and formal memory model**
+
+### **7.1 Memory locations and conflicting accesses**
+
+Two accesses conflict when they target overlapping memory locations and at least one modifies storage.
+
+A data race exists when conflicting non-atomic accesses occur in different threads without a happens-before ordering.
+
+**Safe Paracine MUST prevent data races within its documented memory-safety model.**
+
+A compiler-proven safe program cannot create an unprotected conflicting mutable alias through ordinary safe operations.
+
+Unsafe code that violates the memory model has unsafe undefined behavior.
+
+### **7.2 Happens-before relation**
+
+The memory model establishes:
+
+- Sequenced-before order within a thread.
+- Synchronizes-with relations through synchronization operations.
+- Transitive happens-before relationships.
+- Per-atomic-object modification order.
+- A global sequentially consistent order for applicable atomic operations.
+
+Ordinary code follows the as-if rule only when these relations and observable behavior are preserved.
+
+### **7.3 Atomic operations**
+
+Paracine defines:
+
+```
+relaxed
+acquire
+release
+acq_rel
+seq_cst
+```
+
+`seq_cst` is the default when no weaker ordering is explicitly requested.
+
+Loads permit relaxed, acquire and sequentially consistent ordering.
+
+Stores permit relaxed, release and sequentially consistent ordering.
+
+Read-modify-write operations permit the relevant supported orderings.
+
+Compare-exchange failure ordering cannot include release semantics and cannot be stronger than permitted by the corresponding successful operation.
+
+Weak compare-exchange may fail spuriously.
+
+### **7.4 Safe shared storage**
+
+Sharing mutable state across threads requires a valid synchronization abstraction.
+
+Examples include:
+
+```
+atomic<T>
+mutex<T>
+rwlock<T>
+channel<T>
+shared_region<T>
+```
+
+The actual library type names and supported atomic widths must be enumerated in the standard library contract.
+
+Unprotected `var` aliases cannot coexist across independently executing threads.
+
+### **7.5 Capsule memory semantics**
+
+Logical Capsules follow ordinary safe-language borrow and concurrency rules.
+
+Memory Capsules additionally enforce their memory-protection policy.
+
+Deep Capsules interact primarily through mediated messages and protected handles.
+
+An explicitly shared memory region connecting protected compartments must establish its own synchronization, ownership and authorization contract.
+
+Process isolation alone does not make shared-memory data-race-free.
+
+### **7.6 PCIR obligations**
+
+PCIR atomics explicitly record:
+
+```
+MemoryOrder
+AtomicWidth
+Alignment
+AddressSpace
+Provenance
+SynchronizationScope
+```
+
+ACO cannot substitute an ordinary load for an atomic load unless all required memory-model and observability obligations are discharged.
+
+Volatile accesses do not independently establish interthread synchronization.
+
+**Acceptance criterion:** Litmus tests, race-rejection tests, acquire/release publication tests, sequential-consistency tests and protected shared-memory tests must agree with the formal memory model.
+
+# **PART II — NUMERICAL, ATTRIBUTE AND INTEROPERABILITY RESOLUTIONS**
+
+## **NLR-08 — Decimal and posit numerical semantics**
+
+### **8.1 Decimal floating-point formats**
+
+Paracine SHALL define its decimal types against IEEE 754-2019 decimal arithmetic.
+
+| Type         | Storage width | Decimal precision | Maximum normal adjusted exponent |
+| ------------ | ------------- | ----------------- | -------------------------------- |
+| `decimal32`  | 32 bits       | 7 digits          | +96                              |
+| `decimal64`  | 64 bits       | 16 digits         | +384                             |
+| `decimal128` | 128 bits      | 34 digits         | +6144                            |
+
+The proposed canonical interchange encoding is densely packed decimal (DPD).
+
+The language guarantees the same numerical behavior whether an implementation uses hardware instructions or software arithmetic.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://dms-discourse-static.s3.dualstack.us-east-1.amazonaws.com\&sz=32)
+
+dms-discourse-static.s3.dualstack.us-east-1.amazonaws.com+1
+
+
+
+### **8.2 Rounding**
+
+The default rounding mode is **round to nearest, ties to even**.
+
+The explicitly supported rounding modes are:
+
+```
+nearest_even
+nearest_away
+toward_zero
+toward_positive
+toward_negative
+```
+
+A rounding-mode change applies only within an explicitly declared numerical evaluation context.
+
+The optimizer cannot move a rounding-sensitive calculation across a change of context unless it proves equivalence.
+
+### **8.3 Exceptional values**
+
+Decimal types support positive and negative infinity, positive and negative zero, quiet NaNs, signaling NaNs and subnormal values.
+
+Paracine SHALL define:
+
+- Division of nonzero finite values by zero produces the appropriately signed infinity and reports divide-by-zero status.
+- Zero divided by zero produces a quiet NaN and invalid-operation status.
+- Infinity minus itself produces a quiet NaN and invalid-operation status.
+- Overflow produces the IEEE-defined rounded result and applicable overflow/inexact status.
+- Underflow uses gradual underflow, with tininess determined after rounding.
+- Invalid signaling-NaN operations produce a quiet NaN and invalid-operation status.
+- Signed-zero results follow the selected rounding mode and the specified operation.
+- Normal arithmetic producing a NaN uses a canonical quiet-NaN representation; explicit raw-bit operations may preserve encoded payloads without performing arithmetic.
+
+The five IEEE status categories—invalid, divide-by-zero, overflow, underflow and inexact—are separately represented.
+
+### **8.4 Observable exception status**
+
+Ordinary decimal arithmetic produces defined numerical values without terminal traps.
+
+Exception-status observation is an explicit operation, for example:
+
+```
+let outcome = decimal.with_status(
+    routine() gives decimal64 => amount / divisor
+)
+
+let value = outcome.value
+let flags = outcome.flags
+```
+
+`FpOutcome<T>` contains the value and accumulated status flags for that evaluation region.
+
+This prevents an optimizer from assuming that observable arithmetic flags can be discarded when status collection is enabled.
+
+### **8.5 Posit profile**
+
+The proposed Edition-2027 supported configurations are:
+
+```
+posit<8,ES>
+posit<16,ES>
+posit<32,ES>
+posit<64,ES>
+```
+
+where `ES` is a compile-time integer from 0 through 4, subject to the format's available bits.
+
+`ES = 2` uses the Posit Standard (2022) encoding and arithmetic contract.
+
+For other values of `ES`, Paracine defines an extended posit encoding with regime scaling:
+
+\\[ \operatorname{useed}=2^{2^{ES}} \\]
+
+and finite nonexceptional magnitudes represented through the regime, exponent and fraction fields.
+
+The extended format MUST have its own explicit encoding, decoding and conversion test vectors. It cannot inherit compliance status solely from the 2022 standard.
+
+### **8.6 Posit exceptional behavior**
+
+Posit arithmetic is fundamentally different from IEEE floating-point arithmetic.
+
+The canonical posit profile provides:
+
+- A single zero representation.
+- One Not-a-Real value, NaR.
+- No signed zero.
+- No positive or negative infinity.
+- Correctly rounded basic arithmetic.
+- Saturation to finite extrema under the prescribed rounding rules.
+- NaR results for operations with non-real results.
+- Defined conversions between supported formats.
+
+For the standard-compatible profile, NaR equality and comparisons follow the Posit Standard's ordering rules, rather than IEEE NaN unordered-comparison rules.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://posithub.org\&sz=32)
+
+posithub.org+1
+
+
+
+### **8.7 Numerical optimization legality**
+
+ACO MUST distinguish exact mathematical equivalence from machine-numerical equivalence.
+
+For example:
+
+\\[ (a+b)+c \ne a+(b+c) \\]
+
+may hold under floating-point or posit rounding.
+
+An optimization is legal only when it preserves the relevant:
+
+- Result bits or explicitly relaxed result contract.
+- Rounding.
+- Exceptional values.
+- Signed zero.
+- NaN/NaR behavior.
+- Observable exception status.
+- Defined operation order.
+
+Explicit fused operations such as `fma` and posit quire operations may use their specified single-rounding behavior. An optimizer cannot silently introduce equivalent-looking fusion where it changes a mandated intermediate rounding result.
+
+The Posit Standard expressly constrains operation reordering that would affect rounding.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://posithub.org\&sz=32)
+
+posithub.org
+
+
+
+## **NLR-09 — Built-in attributes and reflection**
+
+### **9.1 Attribute processing**
+
+Attributes are compiler-recognized typed metadata.
+
+They are validated after parsing and before the affected semantic analysis or generation phase.
+
+Unknown unqualified compiler attributes are errors, not silently ignored annotations.
+
+Attribute arguments must be valid bounded compile-time expressions of the required type.
+
+### **9.2&#x20;**`@derive`
+
+`@derive` requests a compiler-defined implementation of a recognized capability.
+
+```
+@derive(Eq, Debug)
+record Position
+    x: int
+    y: int
+```
+
+Generated implementations are semantically equivalent to ordinary source-level declarations.
+
+Derivation follows these rules:
+
+- Every required field must satisfy the derived capability.
+- Field visitation follows declared field order.
+- Visibility restrictions remain enforced.
+- Recursive derivation must terminate or be rejected.
+- Incompatible duplicate implementations are rejected.
+- Generated code carries source and attribute provenance.
+- The resulting methods undergo ordinary SAGE checking.
+
+The exact supported derive inventory is versioned as part of Edition 2027. Unsupported derivations fail deterministically.
+
+### **9.3&#x20;**`@from`
+
+`@from(parameter)` declares the permitted origin of a returned borrow.
+
+```
+@from(source)
+routine first(source: view<int>) gives option<ref int>
+    if source.length() == 0
+        give nothing
+
+    give source[0]
+```
+
+SAGE checks every successful return path.
+
+A returned borrow cannot originate from a local temporary, an incompatible parameter or another lifetime shorter than the declared origin.
+
+`@from` cannot create a lifetime that does not exist.
+
+### **9.4&#x20;**`@fastmath`
+
+The bare `@fastmath` attribute enables the two retained Edition-2026 relaxations: reassociation and contraction, subject to its formal arithmetic contract.
+
+The more explicit form is:
+
+```
+@fastmath(reassociate: true, contract: true)
+```
+
+This does not independently authorize assuming finite operands, ignoring NaNs or changing signed-zero guarantees.
+
+Additional relaxations must be named explicitly and reflected in the routine's numerical contract. An invalid relaxation combination is rejected.
+
+The optimizer must maintain a proof record identifying which permissions justify each non-strict numerical rewrite.
+
+### **9.5 Typed reflection**
+
+Reflection is divided into compile-time metadata and explicitly authorized runtime metadata.
+
+Core compile-time operations include:
+
+```
+type_of<T>()
+fields_of<T>()
+methods_of<T>()
+layout_of<T>()
+effects_of<T>()
+contracts_of<T>()
+```
+
+Reflection results are typed immutable metadata values.
+
+Private metadata is accessible only where visibility permits.
+
+Deep Capsule implementation details cannot be obtained through an ordinary public reflection request.
+
+Target-dependent layout queries require a declared target context.
+
+Reflection cannot fabricate a field, manufacture an unsafe borrow, defeat encapsulation or bypass Capsule authority.
+
+### **9.6 ABI and layout attributes**
+
+The builtin attribute registry also defines:
+
+```
+@repr(C)
+@repr(transparent)
+@align(N)
+@packed
+@link_name("...")
+@link_library("...")
+@entry
+@value
+```
+
+Each attribute must specify eligible declaration kinds, argument types, precedence, target dependencies, and failure diagnostics.
+
+## **NLR-10 — Files, buffers and native library imports**
+
+### **10.1 Standard binary I/O**
+
+Paracine SHALL expose byte-oriented file interfaces independently of text encoding.
+
+The proposed namespaces are:
+
+```
+std.fs
+std.io
+std.bytes
+std.alloc
+```
+
+Core binary operations include:
+
+| API                          | Contract                                                                      |
+| ---------------------------- | ----------------------------------------------------------------------------- |
+| `fs.open(path, options)`     | Open or create a file with explicit options                                   |
+| `file.read(buffer)`          | Read up to the supplied writable capacity                                     |
+| `file.read_exact(buffer)`    | Fill the buffer or return an error                                            |
+| `file.write(data)`           | Attempt a write and return the byte count                                     |
+| `file.write_all(data)`       | Complete the full write or return an error                                    |
+| `file.flush()`               | Flush language-level buffering                                                |
+| `file.sync_all()`            | Request the platform's supported file synchronization                         |
+| `file.close()`               | Explicitly release the handle, reporting recoverable failure where applicable |
+| `fs.write_bytes(path, data)` | Convenience write using a documented create/truncate policy                   |
+
+All recoverable I/O failures use typed `result` values.
+
+`write_all` does not imply atomicity or crash durability.
+
+### **10.2 Buffer construction**
+
+An owning buffer has the conceptual type:
+
+```
+buffer<T>
+```
+
+Core construction APIs are:
+
+```
+buffer<T>.new()
+buffer<T>.with_capacity(n)
+buffer<T>.from_view(view)
+buffer<T>.filled(n, value)
+```
+
+Growth operations are fallible where allocation can fail.
+
+A borrowed view never becomes an owning buffer merely through a cast.
+
+### **10.3 Example**
+
+```
+routine save_data(path: text, data: view<byte>)
+    with alloc, io
+    gives result<void, IoError>
+
+    let file = try fs.open(
+        path,
+        fs.OpenOptions(
+            create: true,
+            write: true,
+            truncate: true
+        )
+    )
+
+    try file.write_all(data)
+    try file.sync_all()
+    give
+```
+
+This operation writes binary data. It does not perform text transcoding.
+
+The concrete API grammar must define the constructor syntax used for standard-library option records, including named arguments and their evaluation order.
+
+### **10.4 Native library imports**
+
+Paracine distinguishes language module imports from foreign linker dependencies.
+
+A language module import is resolved through the package and module graph.
+
+A native library dependency is declared through a build manifest or recognized `@link_library` metadata.
+
+Example:
+
+```
+@link_library("kernel32.lib")
+foreign abi "msx64"
+    @link_name("GetLastError")
+    public routine get_last_error()
+        with io, unsafe
+        gives uint
+```
+
+A native library does not automatically become a Paracine module.
+
+Importing a library never grants its functions safe-language authority.
+
+## **NLR-11 — ABI, FFI, namespaces and entrypoints**
+
+### **11.1 ABI identity**
+
+Every foreign callable declaration must identify an ABI.
+
+The canonical Windows ABI identifier is:
+
+```
+msx64
+```
+
+The compiler SHALL maintain a registry mapping ABI identifiers to target calling-convention contracts.
+
+Unsupported ABI/target combinations are rejected.
+
+### **11.2 Foreign calls**
+
+Foreign routines require:
+
+- Exact parameter and return layouts.
+- Calling-convention compatibility.
+- Valid marshaling.
+- Correct pointer provenance.
+- Explicit ownership transfer rules.
+- Defined callback lifetime.
+- Correct thread-affinity requirements.
+- Defined foreign-exception and unwind boundaries.
+
+Foreign functions must not be considered safe solely because their signatures type-check.
+
+### **11.3 Foreign error handling**
+
+Native platform error channels, such as Windows last-error status, are distinct from Paracine `result<T,E>` values.
+
+A standard wrapper may translate an OS error into a typed Paracine error.
+
+The translation must state precisely when the native error is captured and which foreign operations may overwrite it.
+
+### **11.4 Namespace ownership**
+
+The package manifest establishes package identity.
+
+The source file establishes module identity.
+
+For example:
+
+```
+[package]
+name = "acme.tool"
+root = "src"
+edition = "2027"
+```
+
+A source file at `src/security/account.pcn` declares:
+
+```
+module security.account
+```
+
+Its fully qualified identity is conceptually:
+
+```
+acme.tool::security.account
+```
+
+Local package imports may use their declared module paths. Cross-package imports are resolved against explicit manifest dependencies and lockfile identities.
+
+Aliases cannot create new declaration ownership or bypass visibility.
+
+### **11.5 Entrypoint ownership**
+
+An executable has exactly one selected native entrypoint.
+
+```
+@entry
+routine main(args: view<text>)
+    with alloc, io
+    gives int
+
+    give 0
+```
+
+The standard also permits a no-argument entrypoint where the target profile defines it.
+
+The runtime owns OS startup, TLS initialization, argument conversion and required library initialization before invoking the user entrypoint.
+
+The user entrypoint owns application execution.
+
+A DLL or library artifact does not acquire an executable-style application entrypoint merely because it contains a routine named `main`.
+
+### **11.6 Native symbols**
+
+Exported symbol names must have stable, documented mangling or explicit unmangled names.
+
+`@link_name` specifies an external symbol name.
+
+It does not alter the source-level type, calling convention or semantic identity.
+
+The integrated linker resolves imports and exports according to the qualified target's native format rules.
+
+## **NLR-12 — Complete Chain execution semantics**
+
+### **12.1 Chain type construction**
+
+A Chain is a typed computation with declared inputs and a final result.
+
+```
+chain Approval(request: ApprovalRequest)
+    gives ApprovalDecision
+
+    stage identity = verify_identity(request)
+
+    stage limits = verify_limits(request)
+
+    stage decision after identity, limits
+        give combine_decisions(identity, limits)
+```
+
+The complete result type and transitive effects are established by SAGE.
+
+A Chain is not implicitly a thread, coroutine, actor or asynchronous state machine.
+
+### **12.2 Stage references**
+
+Each stage has a unique identifier within the Chain.
+
+Stages may refer to:
+
+- Chain parameters.
+- Earlier dependency stages.
+- Visible constants.
+- Explicitly permitted immutable global values.
+- Values transferred through an authorized capture declaration.
+
+A reference to another stage establishes a dependency edge.
+
+Explicit `after` clauses add ordering edges even where no data dependency exists.
+
+Undeclared free-variable capture is rejected.
+
+### **12.3 Dependency graph**
+
+Let a Chain be represented by:
+
+\\[ G=(V,E) \\]
+
+where each vertex is a stage and each edge represents a dependency.
+
+Edition 2027 SHALL require \\(G\\) to be a directed acyclic graph.
+
+Self-dependencies, cycles and unresolved stage references are errors.
+
+Graph execution must honor a deterministic topological scheduling order where no explicit parallel policy applies.
+
+### **12.4 Ownership and stage lifetime**
+
+A value moved into a stage cannot be reused after the move without a valid new ownership relationship.
+
+Borrowed values must remain live through all consuming stages.
+
+A stage cannot return a borrowed reference whose origin has expired.
+
+A stage result is disposed after its final use unless ownership is transferred.
+
+### **12.5 Parallel execution**
+
+Dependency independence alone does not authorize parallel execution.
+
+The proposed grammar extension permits:
+
+```
+chain ParallelReview(request: ReviewRequest)
+    gives ReviewResult
+
+    stage parallel identity = verify_identity(request)
+    stage parallel limits = verify_limits(request)
+
+    stage decision after identity, limits
+        give combine(identity, limits)
+```
+
+`parallel` is contextual inside a Chain.
+
+Parallel execution requires demonstrated legal sharing, compatible effects and synchronization.
+
+The runtime may execute ready parallel stages concurrently, but a compiler cannot introduce observable concurrency into sequential stages without a valid optimization proof.
+
+### **12.6 Failure behavior**
+
+Each stage has an inferred or declared failure contract.
+
+A recoverable stage failure prevents dependent stages from starting.
+
+Other independent parallel stages may already have executed, so their external effects are not silently undone.
+
+Where multiple failures are present, the final reported failure is selected using a documented stable stage ordering, even though the runtime execution order may vary.
+
+Terminal traps retain process-termination semantics.
+
+### **12.7 Chain optimization**
+
+Pure stages may be fused or eliminated when their behavior is provably equivalent.
+
+Effectful stages require additional ordering and observability proofs.
+
+Protected Capsule operations cannot be inlined across an isolation boundary if doing so removes required mediation.
+
+**Acceptance criterion:** The reference Chain executor and optimized PCIR must agree on dependencies, produced values, failure selection, ownership and permitted effects.
+
+# **PART III — COMPILE-TIME AND NATIVE PRODUCTION RESOLUTIONS**
+
+## **NLR-13 — Constant evaluation and compiler intrinsics**
+
+### **13.1 Constant evaluation model**
+
+Paracine constant evaluation SHALL use a deterministic interpretation of verified PCIR operations.
+
+Compile-time and runtime evaluation must agree wherever the language requires equivalent computations.
+
+Constant evaluation accepts:
+
+- Literals and immutable constants.
+- Pure arithmetic and comparisons.
+- Pure function calls.
+- Bounded recursion.
+- Arrays, records and variants.
+- Type and layout metadata.
+- Pure generic computations.
+- Approved compiler intrinsics.
+- Bounded temporary allocations internal to the constant evaluator.
+
+It rejects operations involving ordinary file I/O, threads, unsafe pointer dereferencing, external mutable state, environment-dependent randomness and undeclared build inputs.
+
+### **13.2 Resource limits**
+
+The proposed default limits are:
+
+| Resource                              | Default   |
+| ------------------------------------- | --------- |
+| Evaluation steps                      | 1,000,000 |
+| Evaluation memory                     | 64 MiB    |
+| Recursion depth                       | 256 calls |
+| Collection elements                   | 1,000,000 |
+| Type recursion depth                  | 128       |
+| Generic instantiations per evaluation | 10,000    |
+
+One evaluation step corresponds to one defined reference-PCIR operation, rather than an implementation-dependent native instruction.
+
+The compiler may permit increased limits through explicit manifest configuration, subject to hard implementation-profile limits.
+
+Configuration affecting accepted constant computations becomes part of build identity.
+
+### **13.3 Exhaustion semantics**
+
+Resource exhaustion is not a computed constant value.
+
+For example, a constant computation that exceeds its fuel budget MUST produce a deterministic diagnostic such as:
+
+```
+E2710: constant evaluation step limit exceeded
+```
+
+It must not silently return a partial result.
+
+Increasing a declared budget may permit the computation to complete, but cannot change the meaning of an already completed valid evaluation.
+
+### **13.4 Intrinsic registry**
+
+Every compiler intrinsic has a versioned specification covering its signature, effects, constant-evaluation behavior and target dependence.
+
+The registry includes operations such as:
+
+```
+sizeof<T>()
+alignof<T>()
+type_id<T>()
+layout_of<T>()
+bitcast<T>(value)
+checked_add(a, b)
+checked_mul(a, b)
+fib(n)
+fib_big(n)
+```
+
+Target-dependent layout intrinsics are evaluated against the selected target profile.
+
+A pure intrinsic must not produce different language results merely because the compiler internally uses different hardware.
+
+### **13.5 Embedded resources**
+
+Compile-time resource embedding is restricted to declared, hashed inputs.
+
+For example:
+
+```
+@embed("assets/config.bin")
+const CONFIG_BYTES = embedded_resource()
+```
+
+The build system must validate path containment, content hashes, size limits and declared dependencies.
+
+Arbitrary compiler-side script execution remains excluded.
+
+### **13.6 Conformance requirement**
+
+The compiler SHALL compare eligible constant-evaluation results with the reference PCIR interpreter and native execution.
+
+Tests include:
+
+- Overflow and modular arithmetic.
+- Floating-point edge cases.
+- Recursive evaluation.
+- Unicode constants.
+- Generic specialization.
+- Invalid operations.
+- Resource exhaustion.
+- Target-dependent layout.
+- Reproducible diagnostics.
+
+## **NLR-14 — Windows native debugging, COMDAT, unwind and CFG**
+
+This resolution establishes the requirements for native binary qualification.
+
+### **14.1 PDB generation**
+
+When the build requests full native Windows debugging information, the compiler MUST produce a valid native PDB or fail with a specific unsupported-capability diagnostic.
+
+A valid PDB includes the required information for:
+
+- Source files and line mappings.
+- Routine symbols.
+- Type identities.
+- Local and parameter variable information.
+- Scope boundaries.
+- Native instruction relationships.
+- Relevant inline call sites.
+
+The final PE image contains a CodeView debug-directory record identifying the PDB.
+
+The PDB's signature and age must match the corresponding image metadata. Microsoft DIA supports this form of signature-based validation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://learn.microsoft.com\&sz=32)
+
+Microsoft Learn+1
+
+
+
+### **14.2 Reproducibility**
+
+For reproducible builds, PDB identity must derive deterministically from declared build inputs.
+
+A proposed method is to derive the signature from a versioned content hash and initialize the age according to a documented deterministic policy.
+
+Build paths included in the PDB must follow explicit path-mapping rules.
+
+Machine-specific absolute paths cannot silently enter reproducible artifacts.
+
+### **14.3 COMDAT resolution**
+
+The integrated linker must implement the relevant COFF COMDAT selection contracts.
+
+These include:
+
+- No duplicates.
+- Any definition.
+- Same size.
+- Exact match.
+- Associative selection.
+- Largest selection.
+
+Associative COMDAT graphs must be valid and acyclic.
+
+The linker must not select arbitrary incompatible definitions under an exact-match requirement.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://learn.microsoft.com\&sz=32)
+
+Microsoft Learn
+
+
+
+### **14.4 Identical-code folding**
+
+ICF is permitted only for eligible sections.
+
+Folding is rejected when distinct native addresses or identities are observable under the language or foreign ABI contract.
+
+Protected categories include:
+
+- Address-distinct exported functions.
+- Identity-bearing objects.
+- Required unique registration entries.
+- Security-sensitive dispatch identities.
+- Foreign callback identities where unique addresses are required.
+- Other symbols whose identity is defined to be address-distinct.
+
+If a routine-pointer comparison can observe distinct addresses, the optimizer must preserve that distinction or prohibit the corresponding folding.
+
+Debug records for eligible folded functions must still allow accurate source attribution, subject to explicitly documented debugger limitations.
+
+Microsoft also documents that ICF can affect function names appearing in stack traces.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://learn.microsoft.com\&sz=32)
+
+Microsoft Learn
+
+
+
+### **14.5 SEH and unwind metadata**
+
+The Windows x64 backend MUST generate valid unwind records for functions requiring them.
+
+Applicable functions include those that allocate stack space, call other routines, save nonvolatile registers or otherwise require structured unwind information.
+
+The compiler must correctly generate and validate:
+
+```
+.pdata
+.xdata
+RUNTIME_FUNCTION
+UNWIND_INFO
+```
+
+Prologs and epilogs must follow Windows x64 rules so that native unwinding and stack walking remain correct.
+
+Unwind metadata supports OS exception dispatch and stack reconstruction; it does not make Paracine terminal traps recoverable.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://learn.microsoft.com\&sz=32)
+
+Microsoft Learn+1
+
+
+
+### **14.6 Control Flow Guard**
+
+If CFG is enabled, the compiler and linker MUST provide a complete valid CFG realization.
+
+This includes, as applicable:
+
+- Guarded indirect-call lowering.
+- Guard-check or dispatch support.
+- Valid indirect-call target metadata.
+- GFIDS entries.
+- Load Configuration Directory fields.
+- Appropriate guard flags.
+- Valid address-taken import information.
+- Required long-jump target metadata.
+- Correct relocations and image protection flags.
+
+The Windows PE load-configuration format provides the relevant metadata structures.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://learn.microsoft.com\&sz=32)
+
+Microsoft Learn+1
+
+
+
+### **14.7 CFG failure behavior**
+
+If the requested CFG profile cannot be satisfied, the linker SHALL reject the image.
+
+It must not quietly produce an executable with CFG disabled.
+
+The same principle applies to mandatory relocation, NX, unwind and supported binary-integrity requirements.
+
+### **14.8 Native qualification**
+
+Before a Windows target is marked production-qualified, the compiler must pass independent:
+
+- COFF parsing and relocation tests.
+- PDB identity and debugger-consumption tests.
+- Win64 ABI tests.
+- Unwind and stack-walking tests.
+- COMDAT and ICF tests.
+- CFG metadata validation.
+- Binary reparse tests.
+- Native execution and differential tests.
+
+The independent verifier cannot simply trust the backend's declaration that its output is correct.
+
+## **NLR-15 — Isolation threat models and fail-closed security**
+
+### **15.1 Isolation is a security contract**
+
+The three Capsule isolation profiles have different adversarial assumptions.
+
+| Profile   | Protected against                                                                                               | Not inherently protected against                                                            |
+| --------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `logical` | Unauthorized access by conforming safe Paracine code                                                            | Arbitrary hostile native writes or compromised unsafe code                                  |
+| `memory`  | Unauthorized safe access plus designated memory access violations under the target's enforced protection policy | Fully compromised same-process privileged code that can alter protection mappings           |
+| `deep`    | Unauthorized access by isolated processes under the declared OS boundary and policy                             | Kernel compromise, sufficiently privileged host compromise, or a compromised trusted broker |
+
+The distinction is mandatory.
+
+Language-private fields cannot substitute for process isolation.
+
+Page protection alone cannot establish a complete hostile-code containment boundary.
+
+### **15.2 Windows deep-isolation profile**
+
+The canonical Windows design uses an independently protected compartment process with:
+
+- A restricted security token.
+- An applicable AppContainer or comparably qualified OS isolation configuration.
+- Explicitly restricted capabilities.
+- Controlled process and resource policies.
+- Broker-mediated communication.
+- Handle-access validation.
+- Protected IPC endpoints.
+- Memory and execution separation.
+- Verified compartment lifecycle.
+
+Windows AppContainer provides operating-system-enforced process restrictions and controlled resource access, making it suitable as a basis for the declared compartment model when its actual restrictions satisfy the threat model.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://learn.microsoft.com\&sz=32)
+
+Microsoft Learn+1
+
+
+
+### **15.3 Authority model**
+
+Capsule authority is an unforgeable runtime capability relationship, not a conventional numeric ID.
+
+An authorized handle establishes:
+
+```
+CapabilityHandle
+    target_identity
+    authority_set
+    lifetime
+    generation
+    issuer_identity
+    integrity_protection
+```
+
+Capability validation must precede access.
+
+Possession of an object identifier alone is insufficient.
+
+A derived class, Family member or Chain stage cannot increase its authority through type relationships.
+
+### **15.4 Fail-closed startup sequence**
+
+A deep-isolated Capsule cannot become operational until all mandatory security conditions have been verified.
+
+Required startup state machine
+
+Conceptual startup contract. A policy failure must never silently downgrade a requested deep Capsule to memory or logical isolation.
+
+### **15.5 Startup rejection conditions**
+
+Required failures include:
+
+- Unsupported OS security feature.
+- Inability to create the declared protected process.
+- Failure to establish required token restrictions.
+- Failure to apply required resource limits.
+- Incompatible capability policy.
+- Unprotected required communication endpoint.
+- Invalid compartment image or identity.
+- Failure of mandatory handle restrictions.
+- Missing required runtime or broker functionality.
+- Failed security-policy validation.
+
+A policy requiring deep isolation cannot be satisfied by a weaker profile.
+
+### **15.6 Runtime violation behavior**
+
+A security-policy violation is distinct from an application-level error.
+
+Authorized, expected refusals produce typed protocol errors.
+
+Memory corruption, compromised runtime invariants or failures that invalidate the isolation boundary require immediate containment under the target security contract.
+
+Termination of a compromised compartment does not grant permission to continue executing its code inside the host process.
+
+### **15.7 Security evidence**
+
+G05 and related security qualification gates require testing with:
+
+- Unauthorized remote access.
+- Forged object identifiers.
+- Stale generations.
+- Invalid capability transfers.
+- Malformed serialized messages.
+- Oversized message inputs.
+- Unauthorized native handles.
+- Failed sandbox initialization.
+- Broken IPC connections.
+- Resource exhaustion.
+- Compartment termination.
+- Broker-policy failures.
+
+Passing language-level type checking alone does not establish deep-isolation qualification.
+
+# **PART IV — FORMAL GRAMMAR COMPLETION AND COMPILER OBLIGATIONS**
+
+## **16. Remaining grammar productions**
+
+NLR-01 introduced the principal concrete syntax. To make its grammar usable as a parser contract, the following subordinate productions must be incorporated into the grammar annex.
+
+```
+
+QualifiedName   = Identifier,
+                  { ".", Identifier | "::", Identifier } ;
+
+GenericParams   = "<", GenericParam,
+                  { ",", GenericParam }, ">" ;
+
+GenericParam    = Identifier, [ ":", Type ]
+                  | "const", Identifier, ":", Type ;
+
+Type            = [ "own" | "ref" | "mut" | "raw" ],
+                  TypePrimary ;
+
+TypePrimary     = QualifiedName, [ TypeArguments ]
+                  | "(", Type, { ",", Type }, ")"
+                  | "[", Type, ";", ConstExpression, "]" ;
+
+TypeArguments   = "<", TypeArgument,
+                  { ",", TypeArgument }, ">" ;
+
+TypeArgument    = Type | ConstExpression ;
+
+Field           = Attributes, [ Visibility ],
+                  [ "let" | "var" ],
+                  Identifier, ":", Type,
+                  [ "=", Expression ], NL ;
+
+VariantCase     = Identifier,
+                  [ "(", Type, { ",", Type }, ")" ], NL ;
+
+AliasDecl       = "alias", Identifier,
+                  [ GenericParams ], "=", Type, NL ;
+
+ConstantDecl    = "const", Identifier, ":", Type,
+                  "=", ConstExpression, NL ;
+
+StaticDecl      = "static", [ "var" ],
+                  Identifier, ":", Type,
+                  [ "=", ConstExpression ], NL ;
+
+Expression      = Conditional ;
+
+Conditional     = Pipeline,
+                  [ "if", Expression,
+                    "else", Conditional ] ;
+
+Pipeline        = OrExpr, { "|>", OrExpr } ;
+OrExpr          = AndExpr,
+                  { ("or" | "||"), AndExpr } ;
+
+AndExpr         = Equality,
+                  { ("and" | "&&"), Equality } ;
+
+Equality        = Comparison,
+                  [ ("==" | "!="), Comparison ] ;
+
+Comparison      = RangeExpr,
+                  [ CompareOp, RangeExpr ] ;
+
+CompareOp       = "<" | "<=" | ">" | ">="
+                  | "is" | "in" ;
+
+RangeExpr       = BitOrExpr,
+                  [ (".." | "..="), BitOrExpr ] ;
+
+BitOrExpr       = BitXorExpr,
+                  { "|", BitXorExpr } ;
+
+BitXorExpr      = BitAndExpr,
+                  { "^", BitAndExpr } ;
+
+BitAndExpr      = ShiftExpr,
+                  { "&", ShiftExpr } ;
+
+ShiftExpr       = AddExpr,
+                  { ("<<" | ">>"), AddExpr } ;
+
+AddExpr         = MulExpr,
+                  { ("+" | "-"), MulExpr } ;
+
+MulExpr         = Unary,
+                  { ("*" | "/" | "%"), Unary } ;
+
+Unary           = ("+" | "-" | "!" | "not"
+                  | "~" | "move" | "try"), Unary
+                  | Postfix ;
+
+Postfix         = Primary,
+                  { CallSuffix | IndexSuffix
+                  | MemberSuffix } ;
+
+CallSuffix      = "(", [ Arguments ], ")" ;
+IndexSuffix     = "[", Expression, "]" ;
+
+MemberSuffix    = ".", Identifier
+                  | "::", Identifier ;
+
+Arguments       = Argument, { ",", Argument } ;
+
+Argument        = [ Identifier, ":" ], Expression ;
+
+Primary         = Literal
+                  | QualifiedName
+                  | "self"
+                  | "(", Expression, ")"
+                  | ArrayLiteral
+                  | ConstructorExpression
+                  | ClosureExpression
+                  | AskExpression ;
+
+AskExpression   = "ask", Postfix,
+                  "with", QualifiedName,
+                  "(", [ Arguments ], ")" ;
+
+ConstExpression = Expression ;
+
+Identifier      = UnicodeXIDIdentifier
+                  - ReservedKeyword ;
+
+```
+
+This still requires exact separately versioned productions for patterns, capabilities, contracts, policy clauses, lambdas, closure capture lists, foreign signatures and lexical literal formats.
+
+Those rules cannot be responsibly considered settled merely by naming their constructs. A final parser-ready specification should publish them in a single machine-readable grammar file and include parser conflict tests.
+
+In particular, the following rules must be reconciled with the productions above:
+
+- Numeric and string-literal grammar.
+- Generic type arguments versus constant arguments.
+- Qualified-name and member-access ambiguity.
+- Callable-type grammar.
+- Closure-capture syntax.
+- Array and record construction.
+- `choose` patterns and exhaustiveness.
+- Statement-only versus expression forms.
+- Foreign variadics and `...`.
+- Named return-borrow origins.
+- Source attribute placement.
+- Trailing comma and newline rules.
+
+The binding implementation contract should forbid a parser from accepting unspecified forms simply because its parser library happens to recognize them.
+
+## **17. Required corrections to the supplied Specification 2.0**
+
+Several examples in the original master document would need editorial or semantic correction before normative ratification.
+
+| Existing area                | Required correction                                                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Capsule constructor examples | Add explicit `init` semantics or explicitly identify fields initialized through defaults                                 |
+| Family contracts             | Define every named shared contract, including `valid_balance`                                                            |
+| Capsule identity             | Distinguish inline value Capsules from identity-bearing handles                                                          |
+| Deep isolation               | Explain that protected method invocations are mediated, not direct reference access                                      |
+| Transaction examples         | Use the canonical single-statement `rollback @name fail E` form when restoration and error propagation are both intended |
+| `@derive` examples           | Place attributes according to the adopted declaration-attachment grammar                                                 |
+| Chain examples               | Declare Chain parameters and free-variable captures explicitly                                                           |
+| Chain responses              | Reserve `respond` for typed protocol responses; use `give` for ordinary Chain results                                    |
+| Posit declarations           | Separate standard-compatible and Paracine-extended configurations                                                        |
+| Numerical claims             | State exact rounding, exceptional-value and observation rules                                                            |
+| Foreign imports              | Distinguish Paracine imports from native linker dependencies                                                             |
+| Native security              | Specify when unsupported CFG or isolation settings cause mandatory failure                                               |
+
+These corrections do not require abandoning the architecture. They make the intended architecture implementable without undocumented language behavior.
+
+## **18. Required machine-readable specification package**
+
+A binding language definition should not depend on prose alone.
+
+I recommend adding a versioned normative package to the Paracine compiler repository:
+
+```
+spec/
+└── 2027/
+    ├── edition.toml
+    ├── grammar/
+    │   ├── lexer.ebnf
+    │   ├── declarations.ebnf
+    │   ├── expressions.ebnf
+    │   ├── statements.ebnf
+    │   └── keywords.toml
+    ├── semantics/
+    │   ├── typing.md
+    │   ├── ownership.md
+    │   ├── effects.md
+    │   ├── memory-model.md
+    │   ├── capsules.md
+    │   ├── families.md
+    │   ├── chains.md
+    │   ├── transactions.md
+    │   ├── protocols.md
+    │   ├── numerics.md
+    │   └── attributes.md
+    ├── runtime/
+    │   ├── isolation.md
+    │   ├── serialization.md
+    │   ├── io-api.md
+    │   └── resource-limits.md
+    ├── targets/
+    │   └── windows-x86_64/
+    │       ├── abi.md
+    │       ├── object-format.md
+    │       ├── linker.md
+    │       ├── debug.md
+    │       ├── unwind.md
+    │       └── security.md
+    └── conformance/
+        ├── grammar/
+        ├── ownership/
+        ├── capsules/
+        ├── transactions/
+        ├── protocols/
+        ├── numerics/
+        ├── native/
+        └── security/
+```
+
+Each normative rule should have a permanent identifier, a conformance classification and at least one positive or negative test.
+
+A complete compiler conformance record should link:
+
+\\[ \text{Rule} \rightarrow \text{Implementation} \rightarrow \text{Test} \rightarrow \text{Result} \rightarrow \text{Evidence} \\]
+
+This directly complements SAGE's authoritative knowledge model, VSJ proof records and the Whole-Program Blueprint.
+
+## **19. Proposed ratification criteria**
+
+Before declaring these resolutions binding, the language committee or project owner should require:
+
+1. A complete grammar with no unresolved syntactic ambiguity.
+2. Formal typing, evaluation, ownership and effect judgments for every new construct.
+3. Defined serialization, identity, concurrency and transaction behavior.
+4. Exact numerical reference implementations and test vectors.
+5. Canonical native ABI and binary-output requirements.
+6. Explicit security threat models and failure behavior.
+7. Positive and negative conformance corpora.
+8. Edition compatibility tests preserving the 68 retained resolutions.
+9. Verified agreement between reference PCIR, optimized PCIR and native execution.
+10. A versioned normative change record documenting every accepted resolution.
+
+The compiler should reject a construct when a required binding semantic rule is absent, rather than silently choosing a behavior.
+
+# **FINAL NORMATIVE ASSESSMENT**
+
+The original Paracine 2027 document establishes an unusually broad architectural scope, but the 15 issues identify a real distinction between a comprehensive engineering blueprint and an executable language standard.
+
+The proposed resolutions establish the critical missing contracts, particularly for object identity, transactional state, IPC, memory ordering, numerical precision and native Windows production.
+
+They also reveal a few places where syntax and semantic details still need a fully expanded formal annex, especially the complete grammar, precise policy language, generic/capability rules and exhaustive standard-library signatures.
+
+**The correct next specification milestone is therefore NLR-2027-01 ratification, not a declaration that all 15 issues are already closed.**
+
+Once the missing subordinate productions and semantic rules are completed, reviewed and adopted, the resulting binding specification can serve as the single authority for the C++23 compiler, SAGE, the reference PCIR interpreter, the native backend and all 30 acceptance gates.
+
+Paracine's principle then becomes an enforceable engineering requirement rather than merely a design ambition:
+
+**Write with intent. Compile with certainty.**
+
+*Every accepted construct has one specified meaning. Every security guarantee has an enforceable boundary. Every native transformation carries its proof obligations. Every qualified output has reproducible evidence.*
