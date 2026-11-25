@@ -1,0 +1,78 @@
+module twin_operatives
+import std.io
+
+routine main(args: view<text>) gives int with io, trap
+    std.io.println("TWIN OPERATIVES: VAULT NINE")
+    std.io.println("Rhea and Vex face an automated security turret.")
+    std.io.println("Win by destroying the turret or hacking the vault.")
+    std.io.println("Moves: blast, hack, guard, patch")
+
+    if args.count == 0
+        std.io.println("Example: twin_operatives.exe blast hack guard hack hack")
+        give 0
+
+    var team_health: int = 12
+    var turret_health: int = 9
+    var hack_progress: int = 0
+    var patches: int = 1
+
+    for action in args
+        if team_health > 0 and turret_health > 0 and hack_progress < 3
+            var incoming: int = 2
+
+            if action.equals("blast")
+                turret_health -= 3
+                std.io.println("Rhea fires! The turret takes 3 damage.")
+            else
+                if action.equals("hack")
+                    hack_progress += 1
+                    std.io.println("Vex breaks another security lock.")
+                else
+                    if action.equals("guard")
+                        turret_health -= 1
+                        incoming = 0
+                        std.io.println("Rhea guards Vex and lands a quick shot.")
+                    else
+                        if action.equals("patch")
+                            if patches > 0
+                                patches -= 1
+                                team_health += 4
+                                if team_health > 12
+                                    team_health = 12
+                                std.io.println("Vex patches the team's armor.")
+                            else
+                                std.io.println("No repair patches remain!")
+                        else
+                            incoming = 0
+                            std.io.println("Unknown move. Use blast, hack, guard, or patch.")
+
+            if turret_health > 0 and hack_progress < 3
+                team_health -= incoming
+                if incoming > 0
+                    std.io.println("The turret fires back!")
+                else
+                    std.io.println("The team avoids the counterattack.")
+
+            if team_health <= 4 and team_health > 0
+                std.io.println("WARNING: Team armor is critical.")
+
+            if turret_health <= 3 and turret_health > 0
+                std.io.println("The turret is sparking!")
+
+            if hack_progress == 2
+                std.io.println("One security lock remains.")
+
+    if turret_health <= 0
+        std.io.println("VICTORY! Rhea destroys the turret.")
+        give 0
+
+    if hack_progress >= 3
+        std.io.println("VICTORY! Vex opens Vault Nine.")
+        give 0
+
+    if team_health <= 0
+        std.io.println("DEFEAT! The operatives are overwhelmed.")
+        give 1
+
+    std.io.println("MISSION INCOMPLETE. Supply more moves and try again.")
+    give 2
