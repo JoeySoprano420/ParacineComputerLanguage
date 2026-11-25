@@ -6828,6 +6828,7 @@ namespace pcn {
             if (isStdIOReadAll(c.callee)) return "string";
             if (isStdIOCall(c.callee)) return "void";
             if (auto* m = c.callee ? std::get_if<MemberExpr>(&c.callee->node) : nullptr) { auto o = inferExprType(m->object); if (o == "text" && m->member == "to_string")return "string"; if (o == "string" && m->member == "to_text")return "text"; if ((o == "text" || o == "string") && m->member == "count")return "size"; if (o == "text" && (m->member == "equals" || m->member == "starts_with" || m->member == "ends_with" || m->member == "stdout_write" || m->member == "stderr_write" || m->member == "is_ascii" || m->member == "contains" || m->member == "contains_byte"))return "bool"; if (o == "text" && (m->member == "byte_at" || m->member == "find_byte" || m->member == "find" || m->member == "hash64" || m->member == "codepoint_at" || m->member == "codepoint_count" || m->member == "compare" || m->member == "rfind"))return "int"; if ((o == "size" && m->member == "to_int") || (o == "int" && m->member == "to_size"))return m->member == "to_int" ? "int" : "size"; if (o == "string" && (m->member == "clear" || m->member == "dispose" || m->member == "append"))return "void"; }
+            if (auto* m = c.callee ? std::get_if<MemberExpr>(&c.callee->node) : nullptr) { auto o = inferExprType(m->object); if (o == "text" && m->member == "to_string")return "string"; if (o == "string" && m->member == "to_text")return "text"; if ((o == "text" || o == "string") && m->member == "count")return "size"; if (o == "text" && (m->member == "equals" || m->member == "starts_with" || m->member == "ends_with" || m->member == "stdout_write" || m->member == "stderr_write" || m->member == "is_ascii" || m->member == "contains" || m->member == "contains_byte"))return "bool"; if (o == "text" && (m->member == "byte_at" || m->member == "find_byte" || m->member == "find" || m->member == "find_from" || m->member == "hash64" || m->member == "codepoint_at" || m->member == "codepoint_count" || m->member == "compare" || m->member == "rfind"))return "int"; if ((o == "size" && m->member == "to_int") || (o == "int" && m->member == "to_size"))return m->member == "to_int" ? "int" : "size"; if (o == "string" && (m->member == "clear" || m->member == "dispose" || m->member == "append"))return "void"; }
             auto* v = c.callee ? std::get_if<VariableExpr>(&c.callee->node) : nullptr; if (v && (v->name == "ok" || v->name == "err" || v->name == "some") && c.arguments.size() == 1)return "__" + v->name + "<" + inferExprType(c.arguments[0]) + ">"; if (v && v->name == "none")return "__none"; std::map<std::string, std::string>s; if (auto* r = resolveCall(c, &s))return substituteGenericType(r->returnType, s); return "unknown";
         }
 
@@ -7642,10 +7643,7 @@ namespace pcn {
                 }
                 else collectStatementEffects(routine->body, facts);
             }
-            }
 
-            std::unordered_map<std::string, std::set<std::string>> resolved;
-            for (const auto& [key, facts] : effectFacts_) resolved[key] = facts.direct;
             result_->resolvedDeclarationEffects.clear();
             result_->resolvedClosureEffects.clear();
             result_->resolvedEffects.clear();
@@ -7665,6 +7663,9 @@ namespace pcn {
                         throw std::runtime_error("SAGE effect analysis: resolved closure is missing from the source graph");
                     effects.insert(it->second.begin(), it->second.end());
                 }
+
+            std::unordered_map<std::string, std::set<std::string>> resolved;
+            for (const auto& [key, facts] : effectFacts_) resolved[key] = facts.direct;
                 return effects.size() != before;
             };
             bool changed = true;
@@ -7823,6 +7824,7 @@ namespace pcn {
                             facts.direct.insert("alloc");
                         }
                         else if (member->member == "byte_at" || member->member == "codepoint_at" || member->member == "slice" || member->member == "to_int" || member->member == "to_size") {
+                        else if (member->member == "byte_at" || member->member == "codepoint_at" || member->member == "slice" || member->member == "find_from" || member->member == "to_int" || member->member == "to_size") {
                             facts.direct.insert("trap");
                         }
                     }
@@ -10932,6 +10934,7 @@ namespace pcn {
                         if ((objectType.kind == IRValueKind::Text || objectType.kind == IRValueKind::String) && m->member == "count")return makeIRIntType();
                         if (objectType.kind == IRValueKind::Text && (m->member == "equals" || m->member == "starts_with" || m->member == "ends_with" || m->member == "stdout_write" || m->member == "stderr_write" || m->member == "is_ascii" || m->member == "contains" || m->member == "contains_byte"))return makeIRBoolType();
                         if (objectType.kind == IRValueKind::Text && (m->member == "byte_at" || m->member == "find_byte" || m->member == "find" || m->member == "hash64" || m->member == "codepoint_at" || m->member == "codepoint_count" || m->member == "compare" || m->member == "rfind"))return makeIRIntType();
+                        if (objectType.kind == IRValueKind::Text && (m->member == "byte_at" || m->member == "find_byte" || m->member == "find" || m->member == "find_from" || m->member == "hash64" || m->member == "codepoint_at" || m->member == "codepoint_count" || m->member == "compare" || m->member == "rfind"))return makeIRIntType();
                         if (objectType.kind == IRValueKind::Text && m->member == "slice")return makeIRTextType();
                         if ((m->member == "to_int" || m->member == "to_size") && objectType.kind == IRValueKind::Int64)return makeIRIntType();
                         if (objectType.kind == IRValueKind::String && (m->member == "clear" || m->member == "append"))return makeIRVoidType();
@@ -11869,6 +11872,10 @@ namespace pcn {
                     }
                     for (auto target : inst.targetBlocks) if (!blockIds.contains(static_cast<std::uint32_t>(target))) errors.push_back(fn.name + ": branch references invalid block");
                     if (phi && inst.op != IROpcode::Phi) errors.push_back(fn.name + ": non-phi instruction in phi list");
+                    if (!phi && inst.op == IROpcode::Phi) errors.push_back(fn.name + ": PHI instruction outside phi list");
+                    if (!phi && !inst.phiInputs.empty()) errors.push_back(fn.name + ": PHI inputs on ordinary instruction");
+                    if (phi && (inst.dest == VReg::None || !inst.args.empty() || !inst.targetBlocks.empty()))
+                        errors.push_back(fn.name + ": malformed PHI in " + block.labelName);
                     };
                 for (const auto& phi : block.phiNodes) checkInst(phi, true);
                 for (std::size_t i = 0; i < block.instructions.size(); ++i) {
@@ -11877,6 +11884,39 @@ namespace pcn {
                     if (terminated) errors.push_back(fn.name + ": instruction appears after terminator in " + block.labelName);
                     if (isTerminator(inst.op)) terminated = true;
                     if (isTerminator(inst.op) && i + 1 != block.instructions.size()) errors.push_back(fn.name + ": terminator is not final instruction in " + block.labelName);
+                    auto requireValueShape = [&](std::size_t arity) {
+                        if (inst.dest == VReg::None || inst.args.size() != arity)
+                            errors.push_back(fn.name + ": malformed scalar opcode #" + std::to_string(static_cast<int>(inst.op)) + " in " + block.labelName);
+                    };
+                    switch (inst.op) {
+                    case IROpcode::ConstInt: case IROpcode::ConstFloat: case IROpcode::ConstText:
+                    case IROpcode::ConstBool: case IROpcode::ConstNull:
+                        requireValueShape(0); break;
+                    case IROpcode::Copy: case IROpcode::Neg: case IROpcode::BitNot: case IROpcode::Not:
+                        requireValueShape(1); break;
+                    case IROpcode::Add: case IROpcode::Sub: case IROpcode::Mul: case IROpcode::Div:
+                    case IROpcode::Mod: case IROpcode::BitAnd: case IROpcode::BitOr: case IROpcode::BitXor:
+                    case IROpcode::Shl: case IROpcode::Shr: case IROpcode::Eq: case IROpcode::Ne:
+                    case IROpcode::Lt: case IROpcode::Le: case IROpcode::Gt: case IROpcode::Ge:
+                    case IROpcode::And: case IROpcode::Or:
+                        requireValueShape(2); break;
+                    default: break;
+                    }
+                    const auto kind = inst.valueType.kind;
+                    if ((inst.op == IROpcode::ConstInt && kind != IRValueKind::Int64) ||
+                        (inst.op == IROpcode::ConstFloat && kind != IRValueKind::Float32 && kind != IRValueKind::Float64) ||
+                        (inst.op == IROpcode::ConstText && kind != IRValueKind::Text) ||
+                        (inst.op == IROpcode::ConstBool && kind != IRValueKind::Bool) ||
+                        (inst.op == IROpcode::ConstNull && kind != IRValueKind::Null))
+                        errors.push_back(fn.name + ": constant opcode has incompatible result type in " + block.labelName);
+                    if (inst.op != IROpcode::Branch && inst.op != IROpcode::BranchIf && !inst.targetBlocks.empty())
+                        errors.push_back(fn.name + ": branch targets on non-branch instruction in " + block.labelName);
+                    if ((inst.op == IROpcode::Branch || inst.op == IROpcode::BranchIf || inst.op == IROpcode::Return) && inst.dest != VReg::None)
+                        errors.push_back(fn.name + ": control-flow instruction has a destination in " + block.labelName);
+                    if (inst.op == IROpcode::Branch && !inst.args.empty())
+                        errors.push_back(fn.name + ": unconditional branch has operands in " + block.labelName);
+                    if (inst.op == IROpcode::Return && inst.args.size() != (fn.returnType == "void" ? 0u : 1u))
+                        errors.push_back(fn.name + ": return operand count does not match function return in " + block.labelName);
                     if (inst.isVariadicCall && (inst.op != IROpcode::Call || inst.variadicFixedArgs == 0 ||
                         inst.variadicFixedArgs > inst.args.size()))
                         errors.push_back(fn.name + ": malformed foreign variadic call metadata");
@@ -11947,6 +11987,7 @@ namespace pcn {
                 const auto& b = *found->second;
                 if (b.instructions.empty() || !isTerminator(b.instructions.back().op)) {
                     if (fn.returnType != "void")errors.push_back(fn.name + ": reachable " + b.labelName + " falls through without returning " + fn.returnType);
+                    errors.push_back(fn.name + ": reachable " + b.labelName + " falls through without a terminator");
                     continue;
                 }
                 for (auto target : b.instructions.back().targetBlocks)work.push_back(static_cast<std::uint32_t>(target));
@@ -11964,6 +12005,31 @@ namespace pcn {
                     preds[static_cast<std::uint32_t>(t)].insert(static_cast<std::uint32_t>(b.id));
             }
             const auto entry = static_cast<std::uint32_t>(fn.blocks.front().id);
+            for (const auto& block : fn.blocks) {
+                const auto id = static_cast<std::uint32_t>(block.id);
+                std::set<std::uint32_t> destinations;
+                if (id == entry && !block.phiNodes.empty())
+                    errors.push_back(fn.name + ": entry block cannot contain PHI nodes");
+                for (const auto& phi : block.phiNodes) {
+                    const auto destination = static_cast<std::uint32_t>(phi.dest);
+                    if (phi.dest != VReg::None && !destinations.insert(destination).second)
+                        errors.push_back(fn.name + ": duplicate PHI destination v" + std::to_string(destination) + " in " + block.labelName);
+                    std::set<std::uint32_t> incoming;
+                    for (const auto& [predecessor, value] : phi.phiInputs) {
+                        (void)value;
+                        const auto predecessorId = static_cast<std::uint32_t>(predecessor);
+                        if (!incoming.insert(predecessorId).second)
+                            errors.push_back(fn.name + ": duplicate PHI predecessor in " + block.labelName);
+                        if (!preds[id].contains(predecessorId))
+                            errors.push_back(fn.name + ": PHI incoming from non-predecessor into " + block.labelName);
+                    }
+                    for (auto predecessor : preds[id])
+                        if (!incoming.contains(predecessor))
+                            errors.push_back(fn.name + ": PHI missing incoming predecessor bb_" + std::to_string(predecessor) + " in " + block.labelName);
+                    if (preds[id].empty() && id != entry)
+                        errors.push_back(fn.name + ": PHI has no incoming control-flow edges in " + block.labelName);
+                }
+            }
             std::set<std::uint32_t> universe;
             for (auto d : defined)universe.insert(d);
             std::set<std::uint32_t> params;
@@ -11972,6 +12038,7 @@ namespace pcn {
             for (auto id : visited) { inDefs[id] = (id == entry ? params : universe); outDefs[id] = universe; }
             bool changed = true;
             for (std::size_t iteration = 0; changed && iteration <= fn.blocks.size() * 2 + 4; ++iteration) {
+            while (changed) {
                 changed = false;
                 for (const auto& b : fn.blocks) {
                     const auto id = static_cast<std::uint32_t>(b.id);
@@ -12004,6 +12071,7 @@ namespace pcn {
                         const auto predId = static_cast<std::uint32_t>(pred);
                         if (!preds[id].contains(predId))errors.push_back(fn.name + ": PHI incoming from non-predecessor into " + b.labelName);
                         if (visited.contains(predId) && !outDefs[predId].contains(static_cast<std::uint32_t>(value)))
+                        if (preds[id].contains(predId) && visited.contains(predId) && !outDefs[predId].contains(static_cast<std::uint32_t>(value)))
                             errors.push_back(fn.name + ": PHI reads v" + std::to_string(static_cast<std::uint32_t>(value)) + " without definite definition on incoming edge");
                     }
                     if (phi.dest != VReg::None)live.insert(static_cast<std::uint32_t>(phi.dest));
@@ -14253,6 +14321,30 @@ namespace pcn {
                 if (!names.insert(fn.name).second)errors.push_back("duplicate PMIR function: " + fn.name); if ((fn.frameSize & 15u) != 0)errors.push_back(fn.name + ": frame is not 16-byte aligned"); if (fn.outgoingArea < 32)errors.push_back(fn.name + ": Microsoft x64 shadow space is missing"); if (fn.richReturn && !fn.sretCellOffset)errors.push_back(fn.name + ": rich return missing hidden sret cell");
                 std::unordered_set<std::uint32_t>blocks; for (const auto& b : fn.blocks)blocks.insert(b.id); auto slotOK = [&](std::uint32_t s) {return s == 0 || (s <= fn.totalSlots && fn.slots.contains(s)); }; for (auto p : fn.parameterSlots)if (!slotOK(p) || p == 0)errors.push_back(fn.name + ": invalid parameter stack slot");
                 const auto usable = fn.frameSize - fn.outgoingArea; for (const auto& [slot, si] : fn.slots) { if (si.cellOffset > usable)errors.push_back(fn.name + ": slot cell overlaps outgoing call area"); if (si.rich && (si.objectOffset > usable || si.objectOffset < si.objectSize))errors.push_back(fn.name + ": rich object storage outside local frame"); (void)slot; }
+                const bool validFrame = fn.outgoingArea <= fn.frameSize && fn.frameSize <= static_cast<std::uint32_t>(std::numeric_limits<std::int32_t>::max());
+                if (!validFrame) errors.push_back(fn.name + ": invalid PMIR frame size or outgoing area");
+                const auto usable = validFrame ? fn.frameSize - fn.outgoingArea : 0u;
+                std::vector<std::pair<std::uint32_t, std::uint32_t>> regions;
+                auto region = [&](std::uint32_t offset, std::uint32_t size, std::uint32_t alignment, const char* description) {
+                    if (!alignment || offset % alignment != 0 || offset < size || offset > usable) {
+                        errors.push_back(fn.name + ": invalid " + description + " in local frame");
+                        return;
+                    }
+                    regions.emplace_back(offset - size, offset);
+                };
+                for (const auto& [slot, si] : fn.slots) {
+                    if (!slot || slot > fn.totalSlots) errors.push_back(fn.name + ": invalid allocated PMIR slot");
+                    region(si.cellOffset, 8, 8, "slot cell");
+                    if (si.rich) region(si.objectOffset, std::max(si.objectSize, 1u), si.objectAlignment, "rich object storage");
+                }
+                if (fn.richReturn && fn.sretCellOffset) region(fn.sretCellOffset, 8, 8, "hidden sret cell");
+                if (!fn.richReturn && fn.sretCellOffset) errors.push_back(fn.name + ": unexpected hidden sret cell");
+                std::sort(regions.begin(), regions.end());
+                for (std::size_t n = 1; n < regions.size(); ++n)
+                    if (regions[n].first < regions[n - 1].second) {
+                        errors.push_back(fn.name + ": overlapping PMIR local frame storage");
+                        break;
+                    }
                 for (const auto& b : fn.blocks)for (const auto& i : b.instructions) {
                     if (!slotOK(i.destSlot))errors.push_back(fn.name + ": invalid PMIR destination slot"); for (auto x : i.srcSlots)if (!slotOK(x) || x == 0)errors.push_back(fn.name + ": invalid PMIR source slot"); for (auto t : i.targets)if (!blocks.contains(t))errors.push_back(fn.name + ": invalid PMIR branch target"); if (i.op == PMIROpcode::Branch && i.targets.size() != 1)errors.push_back(fn.name + ": PMIR branch requires one target"); if (i.op == PMIROpcode::BranchIf && (i.targets.size() != 2 || i.srcSlots.size() != 1))errors.push_back(fn.name + ": PMIR conditional branch shape invalid");
                     if (i.isVariadicCall && (i.op != PMIROpcode::Call || i.variadicFixedArgs == 0 ||
@@ -19433,6 +19525,65 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                       if (runNativeExecutable(file) != 21) throw std::runtime_error("native parallel phi lowering differs from oracle");
 #endif
                                   });
+                                  test("PCIR verifies complete PHI edge contracts", [&] {
+                                      IRProgram program; IRFunction fn; fn.name = "main"; fn.returnType = "int"; fn.valueType = makeIRIntType(); fn.totalVregs = 4;
+                                      IRBasicBlock entry; entry.id = static_cast<BlockID>(1); entry.labelName = "entry";
+                                      IRInstruction condition; condition.op = IROpcode::ConstBool; condition.dest = static_cast<VReg>(1); condition.valueType = makeIRBoolType(); condition.immediate = 1;
+                                      entry.instructions.push_back(condition);
+                                      IRInstruction branch; branch.op = IROpcode::BranchIf; branch.args = { static_cast<VReg>(1) }; branch.targetBlocks = { static_cast<BlockID>(2),static_cast<BlockID>(3) }; entry.instructions.push_back(branch);
+                                      IRBasicBlock left; left.id = static_cast<BlockID>(2); left.labelName = "left";
+                                      IRInstruction constant; constant.op = IROpcode::ConstInt; constant.dest = static_cast<VReg>(2); constant.valueType = makeIRIntType(); constant.literalText = "42"; left.instructions.push_back(constant);
+                                      IRInstruction jump; jump.op = IROpcode::Branch; jump.targetBlocks = { static_cast<BlockID>(4) }; left.instructions.push_back(jump);
+                                      IRBasicBlock right; right.id = static_cast<BlockID>(3); right.labelName = "right";
+                                      constant.dest = static_cast<VReg>(3); constant.literalText = "17"; right.instructions.push_back(constant); right.instructions.push_back(jump);
+                                      IRBasicBlock join; join.id = static_cast<BlockID>(4); join.labelName = "join";
+                                      IRInstruction phi; phi.op = IROpcode::Phi; phi.dest = static_cast<VReg>(4); phi.valueType = makeIRIntType(); phi.phiInputs = { {left.id,static_cast<VReg>(2)},{right.id,static_cast<VReg>(3)} }; join.phiNodes.push_back(phi);
+                                      IRInstruction ret; ret.op = IROpcode::Return; ret.args = { static_cast<VReg>(4) }; join.instructions.push_back(ret);
+                                      fn.blocks = { entry,left,right,join }; program.functions.push_back(fn);
+                                      auto rejects = [](const IRProgram& candidate, const std::string& diagnostic) {
+                                          const auto errors = PCIRVerifier{}.verify(candidate);
+                                          return std::any_of(errors.begin(), errors.end(), [&](const auto& error) { return error.find(diagnostic) != std::string::npos; });
+                                      };
+                                      if (!PCIRVerifier{}.verify(program).empty()) throw std::runtime_error("valid diamond PHI rejected");
+                                      auto invalid = program; invalid.functions[0].blocks[3].phiNodes[0].phiInputs.pop_back();
+                                      if (!rejects(invalid, "PHI missing incoming predecessor bb_3")) throw std::runtime_error("missing PHI edge accepted");
+                                      invalid = program; invalid.functions[0].blocks[3].phiNodes[0].phiInputs.push_back({ left.id,static_cast<VReg>(2) });
+                                      if (!rejects(invalid, "duplicate PHI predecessor")) throw std::runtime_error("duplicate PHI edge accepted");
+                                      invalid = program; invalid.functions[0].blocks[3].phiNodes[0].phiInputs[0].first = entry.id;
+                                      if (!rejects(invalid, "PHI incoming from non-predecessor")) throw std::runtime_error("non-predecessor PHI accepted");
+                                      invalid = program; invalid.functions[0].blocks[3].phiNodes.push_back(phi);
+                                      if (!rejects(invalid, "duplicate PHI destination")) throw std::runtime_error("ambiguous PHI writes accepted");
+                                      invalid = program; invalid.functions[0].blocks[3].phiNodes[0].dest = VReg::None;
+                                      if (!rejects(invalid, "malformed PHI")) throw std::runtime_error("destination-free PHI accepted");
+                                      invalid = program; invalid.functions[0].blocks[0].phiNodes.push_back(phi);
+                                      if (!rejects(invalid, "entry block cannot contain PHI")) throw std::runtime_error("entry PHI accepted");
+                                      invalid = program; invalid.functions[0].blocks[3].instructions.insert(invalid.functions[0].blocks[3].instructions.begin(), phi);
+                                      if (!rejects(invalid, "PHI instruction outside phi list")) throw std::runtime_error("ordinary-instruction PHI accepted");
+                                      invalid = program; invalid.functions[0].blocks[3].instructions[0].phiInputs = phi.phiInputs;
+                                      if (!rejects(invalid, "PHI inputs on ordinary instruction")) throw std::runtime_error("ordinary instruction accepted PHI metadata");
+                                      invalid = program; invalid.functions[0].blocks[3].phiNodes[0].phiInputs[0].second = static_cast<VReg>(3);
+                                      if (!rejects(invalid, "without definite definition on incoming edge")) throw std::runtime_error("edge-uninitialized PHI accepted");
+                                      invalid = program; invalid.functions[0].blocks[0].instructions.back().targetBlocks = { left.id,left.id };
+                                      if (!PCIRVerifier{}.verify(invalid).empty()) throw std::runtime_error("unreachable predecessor with valid PHI rejected");
+                                      invalid.functions[0].blocks[3].phiNodes[0].phiInputs.pop_back();
+                                      if (!rejects(invalid, "PHI missing incoming predecessor bb_3")) throw std::runtime_error("missing unreachable predecessor accepted");
+                                      invalid = program; invalid.functions[0].returnType = "void"; invalid.functions[0].blocks[3].instructions.clear();
+                                      if (!rejects(invalid, "falls through without a terminator")) throw std::runtime_error("unterminated void block accepted");
+                                      for (bool takeLeft : { false,true }) for (int level : { 0,3 }) {
+                                          auto tested = program; tested.functions[0].blocks[0].instructions[0].immediate = takeLeft ? 1 : 0;
+                                          PCIROptimizer(level, 1).optimize(tested);
+                                          if (!PCIRVerifier{}.verify(tested).empty()) throw std::runtime_error("optimized PHI graph rejected");
+                                          const int expected = takeLeft ? 42 : 17;
+                                          if (PCIRInterpreter(tested).run("") != expected) throw std::runtime_error("PHI interpreter selected wrong edge");
+                                          const auto mir = PMIRLowerer{}.lower(tested); const auto machine = X64Encoder{}.encode(mir, "");
+#if defined(_WIN32)
+                                          const auto file = std::filesystem::temp_directory_path() / ("paracine-phi-edges-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".exe");
+                                          struct Cleanup { std::filesystem::path path; ~Cleanup() { std::error_code ec; std::filesystem::remove(path, ec); } } cleanup{ file };
+                                          writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(tested, mir, machine));
+                                          if (runNativeExecutable(file) != expected) throw std::runtime_error("native PHI edge differs from interpreter");
+#endif
+                                      }
+                                  });
                                   test("System V scalar ABI register banks stack arguments and native execution", [&] {
                                       const std::string source =
                                           "routine integers(a: int,b: int,c: int,d: int,e: int,f: int,g: int,h: int) gives int\n    give a + b * 2 + c * 3 + d * 4 + e * 5 + f * 6 + g * 7 + h * 8\n"
@@ -19932,6 +20083,67 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                           return e.find("operand v3 has no definition") != std::string::npos;
                                           })) throw std::runtime_error("verifier failed to reject undefined operand v3");
                                       });
+                                  test("PCIR checks scalar opcode and control-flow shapes", [&] {
+                                      IRProgram program; IRFunction fn; fn.name = "main"; fn.returnType = "int"; fn.totalVregs = 3;
+                                      IRBasicBlock block; block.id = static_cast<BlockID>(1); block.labelName = "entry";
+                                      IRInstruction constant; constant.op = IROpcode::ConstInt; constant.valueType = makeIRIntType(); constant.literalText = "1";
+                                      constant.dest = static_cast<VReg>(1); block.instructions.push_back(constant);
+                                      constant.dest = static_cast<VReg>(2); block.instructions.push_back(constant);
+                                      IRInstruction op; op.op = IROpcode::Add; op.dest = static_cast<VReg>(3); op.valueType = makeIRIntType(); op.args = { static_cast<VReg>(1),static_cast<VReg>(2) };
+                                      block.instructions.push_back(op);
+                                      IRInstruction ret; ret.op = IROpcode::Return; ret.args = { static_cast<VReg>(3) }; block.instructions.push_back(ret);
+                                      fn.blocks.push_back(block); program.functions.push_back(fn);
+                                      auto rejects = [](const IRProgram& value, const std::string& message) {
+                                          const auto errors = PCIRVerifier{}.verify(value);
+                                          return std::any_of(errors.begin(), errors.end(), [&](const auto& error) { return error.find(message) != std::string::npos; });
+                                      };
+                                      if (!PCIRVerifier{}.verify(program).empty()) throw std::runtime_error("valid scalar instructions rejected");
+                                      const std::vector<IROpcode> binaries = { IROpcode::Add,IROpcode::Sub,IROpcode::Mul,IROpcode::Div,IROpcode::Mod,IROpcode::BitAnd,IROpcode::BitOr,IROpcode::BitXor,IROpcode::Shl,IROpcode::Shr,IROpcode::Eq,IROpcode::Ne,IROpcode::Lt,IROpcode::Le,IROpcode::Gt,IROpcode::Ge,IROpcode::And,IROpcode::Or };
+                                      for (auto opcode : binaries) {
+                                          auto invalid = program; auto& instruction = invalid.functions[0].blocks[0].instructions[2];
+                                          instruction.op = opcode; instruction.args.pop_back();
+                                          if (!rejects(invalid, "malformed scalar opcode")) throw std::runtime_error("binary opcode accepted missing operand");
+                                          instruction.args.push_back(static_cast<VReg>(2)); instruction.dest = VReg::None;
+                                          if (!rejects(invalid, "malformed scalar opcode")) throw std::runtime_error("binary opcode accepted missing destination");
+                                      }
+                                      for (auto opcode : { IROpcode::Copy,IROpcode::Neg,IROpcode::BitNot,IROpcode::Not }) {
+                                          auto invalid = program; auto& instruction = invalid.functions[0].blocks[0].instructions[2]; instruction.op = opcode;
+                                          if (!rejects(invalid, "malformed scalar opcode")) throw std::runtime_error("unary opcode accepted extra operand");
+                                      }
+                                      auto invalid = program; invalid.functions[0].blocks[0].instructions[0].valueType = makeIRTextType();
+                                      if (!rejects(invalid, "constant opcode has incompatible result type")) throw std::runtime_error("constant accepted wrong type");
+                                      invalid = program; invalid.functions[0].blocks[0].instructions[0].targetBlocks = { block.id };
+                                      if (!rejects(invalid, "branch targets on non-branch")) throw std::runtime_error("non-branch accepted target");
+                                      invalid = program; invalid.functions[0].blocks[0].instructions.back().args.clear();
+                                      if (!rejects(invalid, "return operand count")) throw std::runtime_error("non-void return accepted no value");
+                                      invalid = program; invalid.functions[0].blocks[0].instructions.back().dest = static_cast<VReg>(1);
+                                      if (!rejects(invalid, "control-flow instruction has a destination")) throw std::runtime_error("return accepted destination");
+                                  });
+                                  test("PMIR verifies disjoint local frame storage", [&] {
+                                      PMIRProgram program; PMIRFunction fn; fn.name = "frame"; fn.frameSize = 96; fn.outgoingArea = 32; fn.totalSlots = 2;
+                                      PMIRSlotInfo first; first.cellOffset = 8; first.type = makeIRIntType();
+                                      PMIRSlotInfo second; second.cellOffset = 16; second.rich = true; second.type = makeIRTextType(); second.objectOffset = 40; second.objectSize = 16; second.objectAlignment = 8;
+                                      fn.slots.emplace(1, first); fn.slots.emplace(2, second); fn.richReturn = true; fn.sretCellOffset = 48; program.functions.push_back(fn);
+                                      auto rejects = [](const PMIRProgram& value, const std::string& message) {
+                                          const auto errors = PMIRVerifier{}.verify(value);
+                                          return std::any_of(errors.begin(), errors.end(), [&](const auto& error) { return error.find(message) != std::string::npos; });
+                                      };
+                                      if (!PMIRVerifier{}.verify(program).empty()) throw std::runtime_error("valid adjacent frame regions rejected");
+                                      auto invalid = program; invalid.functions[0].outgoingArea = 112;
+                                      if (!rejects(invalid, "invalid PMIR frame size or outgoing area")) throw std::runtime_error("oversized outgoing area accepted");
+                                      invalid = program; invalid.functions[0].slots.at(2).cellOffset = 8;
+                                      if (!rejects(invalid, "overlapping PMIR local frame storage")) throw std::runtime_error("overlapping cells accepted");
+                                      invalid = program; invalid.functions[0].slots.at(2).objectOffset = 24;
+                                      if (!rejects(invalid, "overlapping PMIR local frame storage")) throw std::runtime_error("object overlapping cell accepted");
+                                      invalid = program; invalid.functions[0].sretCellOffset = 40;
+                                      if (!rejects(invalid, "overlapping PMIR local frame storage")) throw std::runtime_error("sret overlapping object accepted");
+                                      invalid = program; invalid.functions[0].slots.at(2).objectAlignment = 0;
+                                      if (!rejects(invalid, "invalid rich object storage")) throw std::runtime_error("zero alignment accepted");
+                                      invalid = program; invalid.functions[0].slots.at(1).cellOffset = 0;
+                                      if (!rejects(invalid, "invalid slot cell")) throw std::runtime_error("zero-offset cell accepted");
+                                      invalid = program; invalid.functions[0].slots.emplace(3, first);
+                                      if (!rejects(invalid, "invalid allocated PMIR slot")) throw std::runtime_error("out-of-range allocated slot accepted");
+                                  });
                                   test("symbol resolution and stdout PCIR integration", [&] {
                                       const auto src = "module hello\n\nimport std.io\n\n"
                                           "routine add(a: int, b: int) gives int\n    give a + b\n\n"
@@ -23466,6 +23678,48 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                           const auto result = compileAll(std::string("routine main() gives bool\n    let s: text = \"abc\"\n    give ") + expression + "\n", CompilerOptions{}, false);
                                           if (result.analysis.succeeded()) throw std::runtime_error(std::string("contains_byte accepted invalid call: ") + expression);
                                       }
+                                  });
+                                  test("stdlib: find_from composes and retains checked effects", [&] {
+                                      const std::string src =
+                                          "routine locate(s: text, start: int) gives int with trap\n"
+                                          "    let position = s.find_from(\"a\", start)\n"
+                                          "    if position != 3\n        give 1\n"
+                                          "    give s.find_from(\"a\", start).to_size().to_int()\n"
+                                          "routine main() gives int with trap\n"
+                                          "    if locate(\"banana\", 2) != 3\n        give 1\n"
+                                          "    if \"banana\".find_from(\"z\", 0) != -1\n        give 2\n"
+                                          "    if \"banana\".find_from(\"\", 6) != 6\n        give 3\n"
+                                          "    give 42\n";
+                                      for (int level : { 0, 3 }) {
+                                          CompilerOptions options; options.optimizationLevel = level;
+                                          const auto compiled = compileAll(src, options);
+                                          if (!compiled.analysis.succeeded() || !compiled.analysis.resolvedEffects.at("locate#2").contains("trap") || PCIRInterpreter(compiled.pcir).run("") != 42)
+                                              throw std::runtime_error("find_from interpreter or effect mismatch");
+                                          const auto position = std::find_if(compiled.analysis.skm.symbols.begin(), compiled.analysis.skm.symbols.end(),
+                                              [](const auto& symbol) { return symbol.name == "position"; });
+                                          if (position == compiled.analysis.skm.symbols.end() || position->typeName != "int")
+                                              throw std::runtime_error("find_from local has incorrect inferred type");
+#if defined(_WIN32)
+                                          const auto file = std::filesystem::temp_directory_path() / ("paracine-find-from-" + std::to_string(std::uint64_t(std::chrono::steady_clock::now().time_since_epoch().count())) + ".exe");
+                                          struct CleanupFindFrom { std::filesystem::path path; ~CleanupFindFrom() { std::error_code ec; std::filesystem::remove(path, ec); } } cleanup{ file };
+                                          writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(compiled.pcir, compiled.pmir, compiled.machine));
+                                          if (runNativeExecutable(file) != 42) throw std::runtime_error("find_from native result mismatch");
+#elif defined(__linux__) && defined(__x86_64__)
+                                          if (executeEmittedMachineTextIsolated(compiled.machine) != 42) throw std::runtime_error("find_from native result mismatch");
+#endif
+                                          for (const auto& start : { "-1", "3", "1" }) {
+                                              const std::string text = std::string(start) == "1" ? "\\u{e9}" : "ab";
+                                              const auto invalid = compileAll("routine main() gives int with trap\n    let unused = \"" + text + "\".find_from(\"\", " + start + ")\n    give 0\n", options);
+                                              bool trapped = false;
+                                              try { (void)PCIRInterpreter(invalid.pcir).run(""); }
+                                              catch (const std::runtime_error& error) { trapped = std::string(error.what()).find("Paracine trap: text.slice") != std::string::npos; }
+                                              if (!trapped) throw std::runtime_error("find_from failed to retain invalid-offset trap");
+                                          }
+                                      }
+                                      auto program = Parser(Lexer("routine main() gives int with pure\n    give \"abc\".find_from(\"a\", 1)\n").tokenize()).parse();
+                                      auto analysis = SemanticAnalyzer{}.analyze(program);
+                                      SAGEEngine{}.analyze(program, analysis);
+                                      if (!hasDiagnostic(analysis, "E0360 undeclared effect 'trap'")) throw std::runtime_error("find_from trap effect missing");
                                   });
                                   test("premium optimizer: observable stdout operations remain ordered", [&] {
                                       const std::string src =
