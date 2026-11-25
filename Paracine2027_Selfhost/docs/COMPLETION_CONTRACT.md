@@ -35,22 +35,4 @@
 | G29 | ELF/Mach-O/target qualification | None |
 | G30 | System-wide industrial regression and release evidence | Fixtures only |
 
-## Formal language questions that need normative resolutions
 
-1. Full EBNF or other unambiguous expression/declaration grammar, including reserved vs contextual keywords.
-2. Exact syntax and resolution behavior for Capsule constructors, methods, overrides and Family relationships.
-3. Stable object identity and native representation of class-like Capsules under each isolation profile.
-4. Formal observable semantics of `checkpoint`, `revert`, `rollback`, `recover`, including commit and nested error cases.
-5. Cross-process `var self`, borrowed data, foreign handles and serialization semantics for `isolate deep`.
-6. Exact `ask` and `respond` protocol type construction, failure and scheduling contracts.
-7. Memory model and formal data-race behavior for atomics, threads and Capsule shared storage.
-8. All decimal/posit rounding, NaR/NaN, signed-zero and exception rules needed for legal ACO rewriting.
-9. Meaning and binding of `@derive`, `@from`, `@fastmath`, built-in reflection and typed attributes.
-10. APIs and syntax for binary file writes, buffer construction and native target library imports.
-11. Syntax and semantics for ABI annotations, foreign calls, module and package namespaces, and entrypoint ownership.
-12. Complete syntax and legality of Chain dataflow, stage capture, effects, cycles, parallel execution and failure.
-13. Precise bounded constant evaluation, compiler intrinsics and compile-time resource limits.
-14. Canonical PDB behavior, COMDAT/ICF restrictions, SEH/unwind generation and Win64 CFG metadata.
-15. Threat model for `memory` and `deep` isolation, policy enforcement, and requirements for fail-closed startup.
-
-A complete implementation must resolve these questions against a binding specification rather than inventing behavior in the compiler.
