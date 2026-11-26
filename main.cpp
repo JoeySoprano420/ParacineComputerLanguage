@@ -168,6 +168,13 @@ namespace pcn {
         "pure", "raw", "record", "return_", "routine", "static", "test", "then",
         "thread", "to", "trap", "true", "try", "unsafe", "until", "var", "variant",
         "when", "where", "while", "with", "yield_"
+        "abi", "alias", "alloc", "and", "as", "break", "capability", "checkpoint", "commit",
+        "choose", "const", "continue", "defer", "deny", "else", "export", "extension", "fail",
+        "false", "for", "foreign", "from", "give", "gives", "if", "inherit", "import", "in",
+        "io", "is", "isolate", "let", "limit", "loop", "module", "move", "not", "nothing",
+        "or", "own", "private", "protocol", "public", "pure", "raw", "record", "recover", "respond", "revert", "rollback", "return_",
+        "routine", "stage", "static", "test", "then", "thread", "to", "trap", "true", "try",
+        "unsafe", "until", "var", "variant", "when", "where", "while", "with", "yield_"
     };
 
     static const std::unordered_set<std::string> kCompatibilityKeywords = {
@@ -1230,6 +1237,33 @@ namespace pcn {
         SourceLocation location;
     };
 
+    struct CheckpointStmt {
+        std::string name;
+        std::vector<StmtPtr> body;
+        std::vector<StmtPtr> recoverBody;
+        SourceSpan span;
+        SourceLocation location;
+    };
+
+    struct CommitStmt {
+        std::string name;
+        SourceSpan span;
+        SourceLocation location;
+    };
+
+    struct RollbackStmt {
+        std::string name;
+        ExprPtr failure;
+        SourceSpan span;
+        SourceLocation location;
+    };
+
+    struct RevertStmt {
+        std::string name;
+        SourceSpan span;
+        SourceLocation location;
+    };
+
     struct BlockStmt {
         std::vector<StmtPtr> statements;
         SourceSpan span;
@@ -1238,6 +1272,7 @@ namespace pcn {
 
     struct Stmt {
         using Node = std::variant<LetStmt, VarStmt, AssignStmt, ArraySetStmt, RecordSetStmt, ExprStmt, ReturnStmt, GiveStmt, IfStmt, EachStmt, FromStmt, ContinueUntilStmt, UnsafeStmt, DeferStmt, FailStmt, WhileStmt, BreakStmt, ContinueStmt, BlockStmt>;
+        using Node = std::variant<LetStmt, VarStmt, AssignStmt, ArraySetStmt, RecordSetStmt, ExprStmt, ReturnStmt, GiveStmt, IfStmt, EachStmt, FromStmt, ContinueUntilStmt, UnsafeStmt, DeferStmt, FailStmt, WhileStmt, BreakStmt, ContinueStmt, CheckpointStmt, CommitStmt, RollbackStmt, RevertStmt, BlockStmt>;
         Node node;
         SourceSpan span;
         SourceLocation location;
@@ -1420,8 +1455,87 @@ namespace pcn {
         SourceLocation location;
     };
 
+    struct StaticDecl {
+        std::string name;
+        std::string typeName;
+        ExprPtr value;
+        bool isThreadLocal = false;
+        bool isPublic = false;
+        SourceSpan span;
+        SourceLocation location;
+    };
+
+    struct TestDecl {
+        std::string name;
+        std::vector<StmtPtr> body;
+        bool isPublic = false;
+        SourceSpan span;
+        SourceLocation location;
+    };
+
+    struct CapsuleDecl {
+        std::string name;
+        std::string isolateProfile = "logical";
+        std::string inheritance;
+        bool isPublic = false;
+        std::vector<FieldDecl> fields;
+        std::vector<Routine> methods;
+        std::vector<std::string> policies;
+        std::vector<std::string> contracts;
+        SourceSpan span;
+        SourceLocation location;
+    };
+
+    struct FamilyDecl {
+        std::string name;
+        bool isPublic = false;
+        bool sealed = false;
+        std::vector<std::string> members;
+        std::vector<std::string> contracts;
+        SourceSpan span;
+        SourceLocation location;
+    };
+
+    struct ChainStage {
+        std::string name;
+        std::string expression;
+        std::vector<std::string> dependencies;
+        ExprPtr value;
+        SourceLocation location;
+    };
+
+    struct ChainDecl {
+        std::string name;
+        bool isPublic = false;
+        std::vector<ChainStage> stages;
+        SourceSpan span;
+        SourceLocation location;
+    };
+
+    struct ProtocolDecl {
+        std::string name;
+        bool isPublic = false;
+        std::vector<FieldDecl> requestFields;
+        std::vector<FieldDecl> responseFields;
+        std::string errorType;
+        SourceSpan span;
+        SourceLocation location;
+    };
+
+    struct ExtensionDecl {
+        std::string targetType;
+        bool isPublic = false;
+        std::vector<Routine> routines;
+        std::vector<CapabilityDecl> capabilities;
+        SourceSpan span;
+        SourceLocation location;
+    };
+
     struct Declaration {
         using Node = std::variant<Routine, RecordDecl, EnumDecl, UnionDecl, VariantDecl, ModuleDecl, UseDecl, AliasDecl, ConstDecl, CapabilityDecl, ForeignDecl>;
+        using Node = std::variant<Routine, RecordDecl, EnumDecl, UnionDecl, VariantDecl, ModuleDecl, UseDecl,
+            AliasDecl, ConstDecl, CapabilityDecl, ForeignDecl, StaticDecl, TestDecl, CapsuleDecl, FamilyDecl, ChainDecl,
+            ProtocolDecl, ExtensionDecl>;
         Node node;
         SourceSpan span;
         SourceLocation location;
@@ -1842,6 +1956,29 @@ namespace pcn {
         SourceLocation location;
     };
 
+    struct SKMCapsuleFact {
+        std::string name;
+        std::string isolateProfile;
+        std::string inheritance;
+        std::vector<std::string> fields;
+        std::vector<std::string> methods;
+        std::vector<std::string> policies;
+        SourceLocation location;
+    };
+
+    struct SKMFamilyFact {
+        std::string name;
+        std::vector<std::string> members;
+        std::vector<std::string> contracts;
+        SourceLocation location;
+    };
+
+    struct SKMChainFact {
+        std::string name;
+        std::vector<std::pair<std::string, std::vector<std::string>>> stages;
+        SourceLocation location;
+    };
+
     struct SKMBlueprintRoutine {
         std::string name, owner, signature;
         SourceLocation location;
@@ -1872,6 +2009,9 @@ namespace pcn {
         std::vector<SKMLayoutFact> layouts;
         std::vector<SKMAliasFact> aliases;
         std::vector<SKMVerificationPoint> verificationPoints;
+        std::vector<SKMCapsuleFact> capsules;
+        std::vector<SKMFamilyFact> families;
+        std::vector<SKMChainFact> chains;
         std::vector<std::string> structuralFacts;
     };
 
@@ -2467,6 +2607,7 @@ namespace pcn {
                     if (peek().kind == TokenKind::Indent)
                         throw std::runtime_error("E0201 unexpected indentation block at " + std::to_string(peek().location.line) + ":" + std::to_string(peek().location.column));
                     if (checkKeyword("public") || checkKeyword("compile") || checkKeyword("record") || checkKeyword("enum") || checkKeyword("variant") || checkKeyword("union") || checkKeyword("module") || checkKeyword("use") || checkKeyword("import") || checkKeyword("alias") || checkKeyword("const") || checkKeyword("capability") || checkKeyword("foreign")) {
+                    if (checkKeyword("public") || checkKeyword("compile") || checkKeyword("record") || checkKeyword("enum") || checkKeyword("variant") || checkKeyword("union") || checkKeyword("module") || checkKeyword("use") || checkKeyword("import") || checkKeyword("alias") || checkKeyword("const") || checkKeyword("capability") || checkKeyword("foreign") || checkKeyword("protocol") || checkKeyword("extension") || (peek().kind == TokenKind::Identifier && (peek().text == "capsule" || peek().text == "family" || peek().text == "chain")) || checkKeyword("var") || checkKeyword("thread") || checkKeyword("test") || checkKeyword("static")) {
                         auto declaration = parseDeclaration();
                         if (std::holds_alternative<ModuleDecl>(declaration.node)) {
                             if (sawModule) throw std::runtime_error("E0220 duplicate module declaration");
@@ -2531,6 +2672,35 @@ namespace pcn {
             if (matchKeyword("capability")) {
                 return parseCapabilityDeclaration(isPublic);
             }
+            if (matchIdentifierText("capsule")) {
+                return parseCapsuleDeclaration(isPublic, isCompile);
+            }
+            if (matchIdentifierText("family")) {
+                return parseFamilyDeclaration(isPublic, isCompile);
+            }
+            if (matchIdentifierText("chain")) {
+                return parseChainDeclaration(isPublic, isCompile);
+            }
+            if (matchKeyword("protocol")) {
+                return parseProtocolDeclaration(isPublic, isCompile);
+            }
+            if (matchKeyword("extension")) {
+                return parseExtensionDeclaration(isPublic, isCompile);
+            }
+            if (matchKeyword("var")) {
+                if (matchKeyword("static")) return parseStaticDeclaration(isPublic, false);
+                throw std::runtime_error("E0200 top-level var must use 'var static'");
+            }
+            if (matchKeyword("thread")) {
+                if (!matchKeyword("var") || !matchKeyword("static")) throw std::runtime_error("E0200 thread global must use 'thread var static'");
+                return parseStaticDeclaration(isPublic, true);
+            }
+            if (matchKeyword("static")) {
+                return parseStaticDeclaration(isPublic, false);
+            }
+            if (matchKeyword("test")) {
+                return parseTestDeclaration(isPublic, isCompile);
+            }
             throw std::runtime_error("expected top-level declaration");
         }
 
@@ -2569,6 +2739,10 @@ namespace pcn {
                 checkKeyword("enum") || checkKeyword("variant") || checkKeyword("union") || checkKeyword("module") ||
                 checkKeyword("use") || checkKeyword("import") || checkKeyword("alias") || checkKeyword("const") ||
                 checkKeyword("capability") || checkKeyword("foreign");
+                checkKeyword("capability") || checkKeyword("foreign") ||
+                checkKeyword("protocol") || checkKeyword("extension") ||
+                (peek().kind == TokenKind::Identifier && (peek().text == "capsule" || peek().text == "family" || peek().text == "chain")) ||
+                checkKeyword("var") || checkKeyword("thread") || checkKeyword("test") || checkKeyword("static");
         }
 
         void synchronizeTopLevel(std::size_t itemStart) {
@@ -2606,7 +2780,14 @@ namespace pcn {
         }
         bool matchSymbol(const std::string& value) {
             if (checkSymbol(value)) {
-                ++index_;
+                ++index_; 
+                return true;
+            }
+            return false;
+        }
+        bool matchIdentifierText(const std::string& value) {
+            if (peek().kind == TokenKind::Identifier && peek().text == value) {
+                ++index_; 
                 return true;
             }
             return false;
@@ -2887,13 +3068,137 @@ namespace pcn {
             decl.span = { decl.location, decl.location };
             decl.isPublic = isPublic;
             decl.isCompileTime = isCompile;
+            ConstDecl decl; decl.location = previous().location; decl.span = { decl.location, decl.location };
+            decl.isPublic = isPublic; decl.isCompileTime = isCompile;
+            decl.name = expectIdentifier().text;
+            if (matchSymbol(":")) decl.typeName = parseTypeName();
+            expectSymbol("="); decl.value = parseExpression(); consumeLineBreak();
+            return Declaration{ decl, decl.span, decl.location };
+        }
+
+        Declaration parseStaticDeclaration(bool isPublic, bool isThreadLocal) {
+            StaticDecl decl; decl.location = previous().location; decl.span = { decl.location, decl.location };
+            decl.isPublic = isPublic; decl.isThreadLocal = isThreadLocal;
             decl.name = expectIdentifier().text;
             if (matchSymbol(":")) {
                 decl.typeName = parseTypeName();
+            expectSymbol(":"); decl.typeName = parseTypeName();
+            expectSymbol("="); decl.value = parseExpression(); consumeLineBreak();
+            return Declaration{ decl, decl.span, decl.location };
+        }
+
+        Declaration parseTestDeclaration(bool isPublic, bool isCompile) {
+            TestDecl decl; decl.location = previous().location; decl.span = { decl.location, decl.location };
+            decl.isPublic = isPublic; decl.name = expectIdentifier().text; consumeLineBreak();
+            expectIndent(); decl.body = parseBlockStatements(); expectDedent();
+            (void)isCompile; return Declaration{ decl, decl.span, decl.location };
+        }
+
+        Declaration parseCapsuleDeclaration(bool isPublic, bool isCompile) {
+            CapsuleDecl decl; decl.location = previous().location; decl.span = { decl.location, decl.location };
+            decl.isPublic = isPublic; decl.name = expectIdentifier().text;
+            skipNewlines(); expectIndent();
+            while (!checkToken(TokenKind::Dedent) && !checkToken(TokenKind::EndOfFile)) {
+                if (matchKeyword("isolate")) {
+                    decl.isolateProfile = expectIdentifier().text;
+                    if (decl.isolateProfile != "logical" && decl.isolateProfile != "memory" && decl.isolateProfile != "deep")
+                        throw std::runtime_error("E0209 capsule isolate profile must be logical, memory, or deep");
+                    consumeLineBreak(); skipNewlines(); continue;
+                }
+                if (matchKeyword("inherit")) { decl.inheritance = parseQualifiedName(); consumeLineBreak(); skipNewlines(); continue; }
+                if (matchKeyword("limit")) { decl.policies.push_back("limit " + parseQualifiedName()); consumeLineBreak(); skipNewlines(); continue; }
+                if (matchKeyword("contract") || matchKeyword("deny") || matchKeyword("allow") || matchKeyword("avoid")) {
+                    decl.contracts.push_back(previous().text + " " + parseQualifiedName()); consumeLineBreak(); skipNewlines(); continue;
+                }
+                bool memberPublic = matchKeyword("public"); bool memberPrivate = matchKeyword("private");
+                if (checkKeyword("routine")) {
+                    ++index_; Routine method = parseRoutineCore(); method.isPublic = memberPublic;
+                    decl.methods.push_back(std::move(method)); skipNewlines(); continue;
+                }
+                if (checkKeyword("var") || checkKeyword("let") || checkKeyword("own") ) {
+                    bool mutableField = matchKeyword("var"); if (!mutableField) (void)matchKeyword("let"); (void)matchKeyword("own");
+                    FieldDecl field; field.location = peek().location; field.name = expectIdentifier().text;
+                    expectSymbol(":"); field.typeName = parseTypeName();
+                    if (matchSymbol("=")) (void)parseExpression();
+                    decl.fields.push_back(std::move(field)); consumeLineBreak(); skipNewlines(); continue;
+                }
+                if (peek().kind == TokenKind::Identifier) {
+                    FieldDecl field; field.location = peek().location; field.name = expectIdentifier().text;
+                    if (matchSymbol(":")) { field.typeName = parseTypeName(); decl.fields.push_back(std::move(field)); }
+                    consumeLineBreak(); skipNewlines(); continue;
+                }
+                throw std::runtime_error("E0201 unsupported capsule member near " + tokenDescription(peek()));
             }
+            expectDedent();
+            if (decl.isolateProfile == "deep") decl.policies.push_back("deep isolation requires an enforced compartment target");
+            (void)isCompile; return Declaration{ decl, decl.span, decl.location };
+        }
+
+        Declaration parseFamilyDeclaration(bool isPublic, bool isCompile) {
+            FamilyDecl decl; decl.location = previous().location; decl.span = { decl.location, decl.location };
+            decl.isPublic = isPublic; decl.name = expectIdentifier().text; skipNewlines(); expectIndent();
+            while (!checkToken(TokenKind::Dedent) && !checkToken(TokenKind::EndOfFile)) {
+                if (matchIdentifierText("member")) { decl.members.push_back(parseQualifiedName()); consumeLineBreak(); skipNewlines(); continue; }
+                if (matchIdentifierText("contract") || matchKeyword("sealed")) { decl.contracts.push_back(previous().text + " " + parseQualifiedName()); consumeLineBreak(); skipNewlines(); continue; }
+                throw std::runtime_error("E0201 unsupported family member near " + tokenDescription(peek()));
+            }
+            expectDedent(); (void)isCompile; return Declaration{ decl, decl.span, decl.location };
+        }
+
+        Declaration parseChainDeclaration(bool isPublic, bool isCompile) {
+            ChainDecl decl; decl.location = previous().location; decl.span = { decl.location, decl.location };
+            decl.isPublic = isPublic; decl.name = expectIdentifier().text; skipNewlines(); expectIndent();
+            while (!checkToken(TokenKind::Dedent) && !checkToken(TokenKind::EndOfFile)) {
+                if (!matchKeyword("stage")) throw std::runtime_error("E0201 chain body requires stage declarations");
+                ChainStage stage; stage.location = previous().location; stage.name = expectIdentifier().text;
+                if (matchIdentifierText("after")) do { stage.dependencies.push_back(expectIdentifier().text); } while (matchSymbol(","));
+                expectSymbol("="); stage.value = parseExpression(); consumeLineBreak(); decl.stages.push_back(std::move(stage)); skipNewlines();
+            }
+            expectDedent(); (void)isCompile; return Declaration{ decl, decl.span, decl.location };
+        }
+
+        Declaration parseProtocolDeclaration(bool isPublic, bool isCompile) {
+            ProtocolDecl decl; decl.location = previous().location; decl.span = { decl.location, decl.location };
+            decl.isPublic = isPublic; decl.name = expectIdentifier().text; skipNewlines(); expectIndent();
+            bool hasRequest = false, hasResponse = false, hasError = false;
+            while (!checkToken(TokenKind::Dedent) && !checkToken(TokenKind::EndOfFile)) {
+                if (matchIdentifierText("request") || matchIdentifierText("response") || matchIdentifierText("error")) {
+                    const auto section = previous().text;
+                    bool& seen = section == "request" ? hasRequest : section == "response" ? hasResponse : hasError;
+                    if (seen) throw std::runtime_error("E0201 duplicate protocol " + section + " section");
+                    seen = true;
+                    if (section == "error") {
+                        decl.errorType = parseTypeName(); consumeLineBreak(); skipNewlines(); continue;
+                    }
             expectSymbol("=");
             decl.value = parseExpression();
-            consumeLineBreak();
+                    consumeLineBreak();
+                    auto fields = parseFieldsBlock();
+                    if (section == "request") decl.requestFields = std::move(fields); else decl.responseFields = std::move(fields);
+                    skipNewlines(); continue;
+                }
+                throw std::runtime_error("E0201 protocol requires request, response, or error near " + tokenDescription(peek()));
+            }
+            expectDedent();
+            if (!hasRequest || !hasResponse || !hasError)
+                throw std::runtime_error("E0201 protocol '" + decl.name + "' requires request, response, and error sections");
+            (void)isCompile;
+            return Declaration{ decl, decl.span, decl.location };
+        }
+
+        Declaration parseExtensionDeclaration(bool isPublic, bool isCompile) {
+            ExtensionDecl decl; decl.location = previous().location; decl.span = { decl.location, decl.location };
+            decl.isPublic = isPublic; decl.targetType = parseTypeName(); skipNewlines(); expectIndent();
+            while (!checkToken(TokenKind::Dedent) && !checkToken(TokenKind::EndOfFile)) {
+                if (matchKeyword("routine")) {
+                    decl.routines.push_back(parseRoutineCore()); skipNewlines(); continue;
+                }
+                if (matchKeyword("capability")) {
+                    decl.capabilities.push_back(std::get<CapabilityDecl>(parseCapabilityDeclaration(isPublic).node)); skipNewlines(); continue;
+                }
+                throw std::runtime_error("E0201 extension requires routine or capability declarations near " + tokenDescription(peek()));
+            }
+            expectDedent(); (void)isCompile;
             return Declaration{ decl, decl.span, decl.location };
         }
         void skipNewlines() {
@@ -3010,8 +3315,13 @@ namespace pcn {
                     }
                     parameter.name = expectIdentifier().text;
                     parameter.location = previous().location;
-                    expectSymbol(":");
-                    parameter.typeName = parseTypeName();
+                    if (parameter.name == "self" && !checkSymbol(":")) {
+                        parameter.typeName = "Self";
+                    }
+                    else {
+                        expectSymbol(":");
+                        parameter.typeName = parseTypeName();
+                    }
                     params.push_back(parameter);
                     if (matchSymbol(",")) {
                         if (checkSymbol(")")) break;
@@ -3213,6 +3523,18 @@ namespace pcn {
                 }
                 else if constexpr (std::is_same_v<T, ContinueStmt>) {
                     return AstFactory::makeStmt(Stmt{ ContinueStmt{ value.label, span, location }, span, location }, span);
+                }
+                else if constexpr (std::is_same_v<T, CheckpointStmt>) {
+                    return AstFactory::makeStmt(Stmt{ CheckpointStmt{ value.name, value.body, value.recoverBody, span, location }, span, location }, span);
+                }
+                else if constexpr (std::is_same_v<T, CommitStmt>) {
+                    return AstFactory::makeStmt(Stmt{ CommitStmt{ value.name, span, location }, span, location }, span);
+                }
+                else if constexpr (std::is_same_v<T, RollbackStmt>) {
+                    return AstFactory::makeStmt(Stmt{ RollbackStmt{ value.name, value.failure, span, location }, span, location }, span);
+                }
+                else if constexpr (std::is_same_v<T, RevertStmt>) {
+                    return AstFactory::makeStmt(Stmt{ RevertStmt{ value.name, span, location }, span, location }, span);
                 }
                 else if constexpr (std::is_same_v<T, BlockStmt>) {
                     return AstFactory::makeStmt(Stmt{ BlockStmt{ value.statements, span, location }, span, location }, span);
@@ -3483,6 +3805,38 @@ namespace pcn {
                 return makeStmt(UnsafeStmt{ std::move(body),{ start, location }, location }, { start, location }, location);
             }
 
+            if (matchKeyword("checkpoint")) {
+                auto location = previous().location;
+                auto start = location;
+                expectSymbol("@"); const auto name = expectIdentifier().text;
+                consumeLineBreak(); skipNewlines(); expectIndent();
+                auto body = parseBlockStatements(); expectDedent();
+                std::vector<StmtPtr> recoverBody;
+                skipNewlines();
+                if (matchKeyword("recover")) {
+                    (void)expectIdentifier(); consumeLineBreak(); skipNewlines(); expectIndent();
+                    recoverBody = parseBlockStatements(); expectDedent();
+                }
+                return makeStmt(CheckpointStmt{name,std::move(body),std::move(recoverBody),{start,location},location},{start,location},location);
+            }
+            if (matchKeyword("commit")) {
+                auto location = previous().location; auto start = location;
+                expectSymbol("@"); const auto name = expectIdentifier().text; consumeLineBreak();
+                return makeStmt(CommitStmt{name,{start,location},location},{start,location},location);
+            }
+            if (matchKeyword("rollback")) {
+                auto location = previous().location; auto start = location;
+                expectSymbol("@"); const auto name = expectIdentifier().text;
+                ExprPtr failure;
+                if (matchKeyword("fail")) failure = parseExpression();
+                consumeLineBreak();
+                return makeStmt(RollbackStmt{name,failure,{start,location},location},{start,location},location);
+            }
+            if (matchKeyword("revert")) {
+                auto location = previous().location; auto start = location;
+                expectSymbol("@"); const auto name = expectIdentifier().text; consumeLineBreak();
+                return makeStmt(RevertStmt{name,{start,location},location},{start,location},location);
+            }
             if (matchKeyword("defer")) {
                 auto location = previous().location;
                 auto start = location;
@@ -4303,20 +4657,29 @@ namespace pcn {
             catch (const std::exception&) {
                 report(loc, "E0320 malformed type annotation '" + spelling + "'"); return false;
             }
+            std::function<bool(const CanonicalTypeExpr&)> hasUnsupportedDynamicClosure = [&](const CanonicalTypeExpr& t) {
+                if (!t.tuple && t.head == "dyn_closure" && !generics.contains(t.head) &&
+                    !nominalTypes_.contains(t.head)) return true;
+                return std::any_of(t.args.begin(), t.args.end(), hasUnsupportedDynamicClosure);
+            };
+            if (hasUnsupportedDynamicClosure(parsed)) {
+                report(loc, "E0622 dynamic closure types are not implemented"); return false;
+            }
+            if (spelling.find("::") != std::string::npos) return true; // imported path: resolved by package loader
             std::function<bool(const CanonicalTypeExpr&)> validate = [&](const CanonicalTypeExpr& t)->bool {
                 if (t.tuple) {
                     bool valid = true;
                     for (const auto& component : t.args) valid = validate(component) && valid;
                     return valid;
                 }
-                if (generics.contains(t.head)) {
+                 if (generics.contains(t.head)) {
                     if (!t.args.empty()) {
                         report(loc, "E0322 type parameter '" + t.head + "' takes no type arguments");
                         return false;
                     }
                     return true;
                 }
-                if (isBuiltinTypeName(t.head) || t.head == "never") {
+                 if (isBuiltinTypeName(t.head) || t.head == "never") {
                     if (!t.args.empty()) {
                         report(loc, "E0322 primitive type '" + t.head + "' takes no type arguments"); return false;
                     }
@@ -4325,6 +4688,9 @@ namespace pcn {
                 const auto nominal = nominalTypes_.find(t.head);
                 if (nominal != nominalTypes_.end() && nominal->second.info.kind != "module" &&
                     nominal->second.info.kind != "capability") {
+                    if (nominal->second.info.kind == "protocol") {
+                        report(loc, "E0624 protocol values are not implemented: '" + t.head + "'"); return false;
+                    }
                     if (!t.args.empty()) {
                         report(loc, "E0322 non-generic type '" + t.head + "' takes no type arguments"); return false;
                     }
@@ -4677,6 +5043,62 @@ namespace pcn {
                     DeclarationInfo info{ node.name, "routine", node.isPublic, node.isCompileTime, node.isForeign ? node.foreignAbi : std::string{} };
                     result_.declarations.push_back(std::move(info));
                 }
+                else if constexpr (std::is_same_v<T, StaticDecl>) {
+                    DeclarationInfo info{ node.name, node.isThreadLocal ? "thread static" : "static", node.isPublic, false, node.typeName };
+                    result_.declarations.push_back(std::move(info));
+                    if (!node.isThreadLocal) {
+                        NominalTypeInfo infoType; infoType.name = node.name; infoType.kind = "static"; infoType.isPublic = node.isPublic;
+                        result_.nominalTypes[node.name] = std::move(infoType);
+                    }
+                }
+                else if constexpr (std::is_same_v<T, TestDecl>) {
+                    DeclarationInfo info{ node.name, "test", node.isPublic, false, std::to_string(node.body.size()) + " statement(s)" };
+                    result_.declarations.push_back(std::move(info));
+                }
+                else if constexpr (std::is_same_v<T, CapsuleDecl>) {
+                    registerNominal(node.name, "capsule", node.isPublic, false, node.location);
+                    NominalTypeInfo info; info.name = node.name; info.kind = "capsule"; info.isPublic = node.isPublic; info.layout = node.isolateProfile;
+                    for (const auto& field : node.fields) info.fields.emplace_back(field.name, field.typeName);
+                    for (const auto& method : node.methods) info.members.emplace_back(method.name, method.returnType);
+                    result_.nominalTypes[node.name] = std::move(info);
+                    result_.declarations.push_back({ node.name, "capsule", node.isPublic, false, node.isolateProfile });
+                    SKMCapsuleFact fact; fact.name = node.name; fact.isolateProfile = node.isolateProfile; fact.inheritance = node.inheritance; fact.policies = node.policies; fact.location = node.location;
+                    for (const auto& field : node.fields) fact.fields.push_back(field.name + ":" + field.typeName);
+                    for (const auto& method : node.methods) fact.methods.push_back(method.name);
+                    result_.skm.capsules.push_back(std::move(fact));
+                }
+                else if constexpr (std::is_same_v<T, FamilyDecl>) {
+                    registerNominal(node.name, "family", node.isPublic, false, node.location);
+                    NominalTypeInfo info; info.name = node.name; info.kind = "family"; info.isPublic = node.isPublic;
+                    for (const auto& member : node.members) info.members.emplace_back(member, "member");
+                    result_.nominalTypes[node.name] = std::move(info);
+                    result_.declarations.push_back({ node.name, "family", node.isPublic, false, std::to_string(node.members.size()) + " member(s)" });
+                    SKMFamilyFact fact; fact.name = node.name; fact.members = node.members; fact.contracts = node.contracts; fact.location = node.location;
+                    result_.skm.families.push_back(std::move(fact));
+                }
+                else if constexpr (std::is_same_v<T, ChainDecl>) {
+                    registerNominal(node.name, "chain", node.isPublic, false, node.location);
+                    NominalTypeInfo info; info.name = node.name; info.kind = "chain"; info.isPublic = node.isPublic;
+                    for (const auto& stage : node.stages) info.members.emplace_back(stage.name, "stage");
+                    result_.nominalTypes[node.name] = std::move(info);
+                    result_.declarations.push_back({ node.name, "chain", node.isPublic, false, std::to_string(node.stages.size()) + " stage(s)" });
+                    SKMChainFact fact; fact.name = node.name; fact.location = node.location;
+                    for (const auto& stage : node.stages) fact.stages.emplace_back(stage.name, stage.dependencies);
+                    result_.skm.chains.push_back(std::move(fact));
+                }
+                else if constexpr (std::is_same_v<T, ProtocolDecl>) {
+                    registerNominal(node.name, "protocol", node.isPublic, false, node.location);
+                    NominalTypeInfo info; info.name = node.name; info.kind = "protocol"; info.isPublic = node.isPublic; info.layout = node.errorType;
+                    for (const auto& field : node.requestFields) info.fields.emplace_back("request." + field.name, field.typeName);
+                    for (const auto& field : node.responseFields) info.fields.emplace_back("response." + field.name, field.typeName);
+                    result_.nominalTypes[node.name] = std::move(info);
+                    result_.declarations.push_back({ node.name, "protocol", node.isPublic, false, node.errorType });
+                    result_.skm.structuralFacts.push_back("protocol " + node.name + " request_fields=" + std::to_string(node.requestFields.size()) + " response_fields=" + std::to_string(node.responseFields.size()) + " error=" + node.errorType);
+                }
+                else if constexpr (std::is_same_v<T, ExtensionDecl>) {
+                    // handled below as a nominal extension fact
+                    result_.declarations.push_back({ node.targetType, "extension", node.isPublic, false, std::to_string(node.routines.size()) + " routine(s)" });
+                }
                 }, declaration.node);
         }
 
@@ -4711,6 +5133,60 @@ namespace pcn {
                 }
                 else if constexpr (std::is_same_v<T, Routine>) {
                     analyzeRoutine(node);
+                }
+                else if constexpr (std::is_same_v<T, StaticDecl>) {
+                    if (node.value) {
+                        const auto actual = analyzeExpr(node.value);
+                        if (!node.typeName.empty()) {
+                            const auto expected = semanticTypeFromName(node.typeName);
+                            if (!isAssignableTo(expected, actual))
+                                report(node.location, "E0327 static type mismatch: expected " + node.typeName + ", got " + semanticTypeName(actual));
+                        }
+                    }
+                }
+                else if constexpr (std::is_same_v<T, TestDecl>) {
+                    pushScope(); analyzeStatementList(node.body); popScope();
+                }
+                else if constexpr (std::is_same_v<T, CapsuleDecl>) {
+                    for (const auto& field : node.fields) validateTypeReference(field.typeName, field.location);
+                    if (node.isolateProfile == "deep") {
+                        result_.skm.structuralFacts.push_back("capsule " + node.name + ": deep isolation requires a target-enforced compartment");
+                        report(node.location, "E0621 capsule '" + node.name + "' requests deep isolation, but no target-enforced compartment is available");
+                    }
+                    for (const auto& method : node.methods) analyzeRoutine(method);
+                }
+                else if constexpr (std::is_same_v<T, FamilyDecl>) {
+                    for (const auto& member : node.members) if (nominalTypes_.find(member) == nominalTypes_.end())
+                        report(node.location, "E0321 unknown family member type '" + member + "'");
+                }
+                else if constexpr (std::is_same_v<T, ChainDecl>) {
+                    std::unordered_set<std::string> known;
+                    for (const auto& stage : node.stages) {
+                        for (const auto& dependency : stage.dependencies) if (!known.contains(dependency))
+                            report(stage.location, "E0620 chain stage '" + stage.name + "' has unknown dependency '" + dependency + "'");
+                        if (stage.value) (void)analyzeExpr(stage.value);
+                        known.insert(stage.name);
+                    }
+                }
+                else if constexpr (std::is_same_v<T, ProtocolDecl>) {
+                    auto validateFields = [&](const std::vector<FieldDecl>& fields, const std::string& section) {
+                        std::unordered_set<std::string> names;
+                        for (const auto& field : fields) {
+                            if (!names.insert(field.name).second)
+                                report(field.location, "E0325 duplicate " + section + " field '" + field.name + "' in protocol " + node.name);
+                            validateTypeReference(field.typeName, field.location);
+                            if (field.typeName == "void" || field.typeName == "never")
+                                report(field.location, "E0324 protocol field '" + field.name + "' cannot have type " + field.typeName);
+                        }
+                    };
+                    validateFields(node.requestFields, "request");
+                    validateFields(node.responseFields, "response");
+                    validateTypeReference(node.errorType, node.location);
+                }
+                else if constexpr (std::is_same_v<T, ExtensionDecl>) {
+                    if (nominalTypes_.find(node.targetType) == nominalTypes_.end())
+                        report(node.location, "E0321 unknown extension target type '" + node.targetType + "'");
+                    for (const auto& routine : node.routines) analyzeRoutine(routine);
                 }
                 }, declaration.node);
         }
@@ -4833,6 +5309,10 @@ namespace pcn {
                 else if constexpr (std::is_same_v<T, BreakStmt> || std::is_same_v<T, ContinueStmt>) {
                     // No expression payload to analyze in unreachable jump statements.
                 }
+                else if constexpr (std::is_same_v<T, CheckpointStmt> || std::is_same_v<T, CommitStmt> ||
+                    std::is_same_v<T, RollbackStmt> || std::is_same_v<T, RevertStmt>) {
+                    report(node.location, "E0623 reversible checkpoint operations are not implemented");
+                }
                 else if constexpr (std::is_same_v<T, BlockStmt>) {
                     analyzeUnreachableBlock(node);
                 }
@@ -4896,6 +5376,29 @@ namespace pcn {
                 }
                 else if constexpr (std::is_same_v<T, ContinueStmt>) {
                     return analyzeContinue(statement);
+                }
+                else if constexpr (std::is_same_v<T, CheckpointStmt>) {
+                    report(statement.location, "E0623 reversible checkpoint operations are not implemented");
+                    analyzeStatementList(statement.body);
+                    if (!statement.recoverBody.empty()) analyzeStatementList(statement.recoverBody);
+                    result_.skm.structuralFacts.push_back("checkpoint " + statement.name + " at " + std::to_string(statement.location.line));
+                    return true;
+                }
+                else if constexpr (std::is_same_v<T, CommitStmt>) {
+                    report(statement.location, "E0623 reversible checkpoint operations are not implemented");
+                    result_.skm.structuralFacts.push_back("commit " + statement.name + " at " + std::to_string(statement.location.line));
+                    return true;
+                }
+                else if constexpr (std::is_same_v<T, RollbackStmt>) {
+                    report(statement.location, "E0623 reversible checkpoint operations are not implemented");
+                    result_.skm.structuralFacts.push_back("rollback " + statement.name + " at " + std::to_string(statement.location.line));
+                    if (statement.failure) analyzeExpr(statement.failure);
+                    return false;
+                }
+                else if constexpr (std::is_same_v<T, RevertStmt>) {
+                    report(statement.location, "E0623 reversible checkpoint operations are not implemented");
+                    result_.skm.structuralFacts.push_back("revert " + statement.name + " at " + std::to_string(statement.location.line));
+                    return true;
                 }
                 else if constexpr (std::is_same_v<T, BlockStmt>) {
                     return analyzeBlock(statement);
@@ -5934,9 +6437,13 @@ namespace pcn {
                 else if constexpr (std::is_same_v<T, ClosureExpr>) {
                     std::string closureType = "closure$" + std::to_string(node.closureId);
                     RoutineSignature sig; sig.name = closureType;
+                    const auto generics = currentRoutine_ ? genericNamesFor(*currentRoutine_) : std::unordered_set<std::string>{};
+                    const auto constGenerics = currentRoutine_ ? constGenericNamesFor(*currentRoutine_) : std::unordered_set<std::string>{};
+                    validateTypeReference(node.returnType, node.location, generics, constGenerics);
                     pushScope();
                     for (const auto& p : node.parameters) {
                         if (p.typeName.empty()) report(p.location, "closure parameter '" + p.name + "' requires a type without an expected callable context");
+                        else validateTypeReference(p.typeName, p.location, generics, constGenerics);
                         auto pt = semanticTypeFromName(p.typeName); sig.parameterNames.push_back(p.name); sig.parameterTypes.push_back(pt); sig.parameterModes.push_back(p.mode); declareSymbol(p.location, p.name, { pt,p.mode == "var",true });
                     }
                     SemanticType rt = node.returnType.empty() ? makeUnknownType() : semanticTypeFromName(node.returnType);
@@ -6044,6 +6551,10 @@ namespace pcn {
                 report(node.location, "unknown nominal type: " + node.typeName);
                 return makeUnknownType();
             }
+            if (nominal->kind == "protocol") {
+                report(node.location, "E0624 protocol values are not implemented: '" + node.typeName + "'");
+                return makeUnknownType();
+            }
             if (nominal->kind == "record" || nominal->kind == "union") {
                 std::unordered_set<std::string> supplied;
                 for (const auto& field : node.fields) {
@@ -6147,6 +6658,8 @@ namespace pcn {
             auto it = routines_.find(name);
             if (it == routines_.end()) {
                 report(location, "unknown routine: " + name);
+                if (name == "box_closure") report(location, "E0622 dynamic closure boxing is not implemented");
+                else report(location, "unknown routine: " + name);
                 for (const auto& argument : arguments) {
                     analyzeExpr(argument);
                 }
@@ -6383,6 +6896,12 @@ namespace pcn {
                 std::unordered_set<std::string> parameters;
                 if (currentRoutine_) for (const auto& parameter : currentRoutine_->genericParameters) parameters.insert(parameter.name);
                 return canonicalKnownConcrete(parsed, nominalTypes_, closureSignatures_, parameters);
+                std::function<bool(const CanonicalTypeExpr&)> containsProtocol = [&](const CanonicalTypeExpr& t) {
+                    const auto nominal = nominalTypes_.find(t.head);
+                    if (!t.tuple && !parameters.contains(t.head) && nominal != nominalTypes_.end() && nominal->second.info.kind == "protocol") return true;
+                    return std::any_of(t.args.begin(), t.args.end(), containsProtocol);
+                };
+                return !containsProtocol(parsed) && canonicalKnownConcrete(parsed, nominalTypes_, closureSignatures_, parameters);
             }
             catch (...) {
                 return false;
@@ -6642,6 +7161,7 @@ namespace pcn {
 
         void buildLayouts() {
             for (const auto& [name, n] : result_->nominalTypes) {
+                if (n.kind == "protocol") continue;
                 auto [size, align] = layoutOf(name); SKMLayoutFact f; f.typeName = name; f.size = size; f.alignment = align;
                 if (n.kind == "record") { std::size_t off = 0; for (const auto& field : n.fields) { auto l = layoutOf(field.second); off = alignUpSize(off, l.second); f.fieldOffsets.push_back({ field.first,off }); off += l.first; } }
                 if (n.kind == "enum" || n.kind == "variant") {
@@ -6827,9 +7347,10 @@ namespace pcn {
             if (isStdFSWriteText(c.callee)) return "bool";
             if (isStdIOReadAll(c.callee)) return "string";
             if (isStdIOCall(c.callee)) return "void";
-            if (auto* m = c.callee ? std::get_if<MemberExpr>(&c.callee->node) : nullptr) { auto o = inferExprType(m->object); if (o == "text" && m->member == "to_string")return "string"; if (o == "string" && m->member == "to_text")return "text"; if ((o == "text" || o == "string") && m->member == "count")return "size"; if (o == "text" && (m->member == "equals" || m->member == "starts_with" || m->member == "ends_with" || m->member == "stdout_write" || m->member == "stderr_write" || m->member == "is_ascii" || m->member == "contains" || m->member == "contains_byte"))return "bool"; if (o == "text" && (m->member == "byte_at" || m->member == "find_byte" || m->member == "find" || m->member == "hash64" || m->member == "codepoint_at" || m->member == "codepoint_count" || m->member == "compare" || m->member == "rfind"))return "int"; if ((o == "size" && m->member == "to_int") || (o == "int" && m->member == "to_size"))return m->member == "to_int" ? "int" : "size"; if (o == "string" && (m->member == "clear" || m->member == "dispose" || m->member == "append"))return "void"; }
             if (auto* m = c.callee ? std::get_if<MemberExpr>(&c.callee->node) : nullptr) { auto o = inferExprType(m->object); if (o == "text" && m->member == "to_string")return "string"; if (o == "string" && m->member == "to_text")return "text"; if ((o == "text" || o == "string") && m->member == "count")return "size"; if (o == "text" && (m->member == "equals" || m->member == "starts_with" || m->member == "ends_with" || m->member == "stdout_write" || m->member == "stderr_write" || m->member == "is_ascii" || m->member == "contains" || m->member == "contains_byte"))return "bool"; if (o == "text" && (m->member == "byte_at" || m->member == "find_byte" || m->member == "find" || m->member == "find_from" || m->member == "hash64" || m->member == "codepoint_at" || m->member == "codepoint_count" || m->member == "compare" || m->member == "rfind"))return "int"; if ((o == "size" && m->member == "to_int") || (o == "int" && m->member == "to_size"))return m->member == "to_int" ? "int" : "size"; if (o == "string" && (m->member == "clear" || m->member == "dispose" || m->member == "append"))return "void"; }
             auto* v = c.callee ? std::get_if<VariableExpr>(&c.callee->node) : nullptr; if (v && (v->name == "ok" || v->name == "err" || v->name == "some") && c.arguments.size() == 1)return "__" + v->name + "<" + inferExprType(c.arguments[0]) + ">"; if (v && v->name == "none")return "__none"; std::map<std::string, std::string>s; if (auto* r = resolveCall(c, &s))return substituteGenericType(r->returnType, s); return "unknown";
+            if (auto* m = c.callee ? std::get_if<MemberExpr>(&c.callee->node) : nullptr) { auto o = inferExprType(m->object); if (o == "text" && m->member == "to_string")return "string"; if (o == "string" && m->member == "to_text")return "text"; if ((o == "text" || o == "string") && m->member == "count")return "size"; if (o == "text" && (m->member == "equals" || m->member == "starts_with" || m->member == "ends_with" || m->member == "stdout_write" || m->member == "stderr_write" || m->member == "is_ascii" || m->member == "contains" || m->member == "contains_byte"))return "bool";            if (o == "text" && (m->member == "byte_at" || m->member == "find_byte" || m->member == "find" || m->member == "find_from" || m->member == "hash64" || m->member == "codepoint_at" || m->member == "codepoint_count" || m->member == "compare" || m->member == "rfind"))return "int"; if ((o == "size" && m->member == "to_int") || (o == "int" && m->member == "to_size"))return m->member == "to_int" ? "int" : "size"; if (o == "string" && (m->member == "clear" || m->member == "dispose" || m->member == "append"))return "void"; }
+            auto* v = c.callee ? std::get_if<VariableExpr>(&c.callee->node) : nullptr;            if (v && (v->name == "ok" || v->name == "err" || v->name == "some") && c.arguments.size() == 1)return "__" + v->name + "<" + inferExprType(c.arguments[0]) + ">"; if (v && v->name == "none")return "__none"; std::map<std::string, std::string>s; if (auto* r = resolveCall(c, &s))return substituteGenericType(r->returnType, s); return "unknown";
         }
 
         void buildRoutine(const Routine& routine) {
@@ -6938,7 +7459,6 @@ namespace pcn {
         }
 
         void walkCall(const CallExpr& call, bool inClosure) {
-            if (auto* m = call.callee ? std::get_if<MemberExpr>(&call.callee->node) : nullptr) {
             const auto closure = result_->resolvedClosureCalls.find(&call);
             if (auto* m = call.callee && closure == result_->resolvedClosureCalls.end() ? std::get_if<MemberExpr>(&call.callee->node) : nullptr) {
                 const std::string objectType = inferExprType(m->object);
@@ -6956,7 +7476,6 @@ namespace pcn {
                 for (const auto& a : call.arguments)walkExpr(a, inClosure);
                 return;
             }
-            auto* v = call.callee ? std::get_if<VariableExpr>(&call.callee->node) : nullptr; std::map<std::string, std::string>sub; const Routine* r = resolveCall(call, &sub);
             auto* v = call.callee ? std::get_if<VariableExpr>(&call.callee->node) : nullptr; std::map<std::string, std::string>sub;
             const Routine* r = closure == result_->resolvedClosureCalls.end() ? resolveCall(call, &sub) : nullptr;
             if (closure != result_->resolvedClosureCalls.end()) {
@@ -6975,7 +7494,6 @@ namespace pcn {
                         for (const auto cid : closures->second) closureLastUse_[cid] = point_;
                 }
                 result_->skm.calls.push_back({ currentRoutine_,v->name,call.location });
-                if (r) { SKMEffectEdgeFact edge; edge.caller = currentRoutine_; edge.callee = keyFor(*r); auto it = result_->resolvedEffects.find(edge.callee); if (it != result_->resolvedEffects.end())edge.effects = it->second; result_->skm.effectEdges.push_back(std::move(edge)); }
                 if (r) { SKMEffectEdgeFact edge; edge.caller = currentRoutine_; edge.callee = keyFor(*r); auto it = result_->resolvedDeclarationEffects.find(r); if (it != result_->resolvedDeclarationEffects.end())edge.effects = it->second; result_->skm.effectEdges.push_back(std::move(edge)); }
             }
             if (r && !r->genericParameters.empty()) {
@@ -6985,7 +7503,6 @@ namespace pcn {
             }
             std::unordered_map<std::string, std::vector<std::pair<std::size_t, std::string>>> same;
             for (std::size_t i = 0; i < call.arguments.size(); ++i) {
-                const std::string mode = (r && i < r->parameters.size()) ? r->parameters[i].mode : "shared";
                 const std::string mode = callArgumentMode(*result_, call, i);
                 if (r && foreignRoutines_.contains(r) && !borrowOrigins(call.arguments[i]).empty())
                     result_->diagnostics.push_back({ call.arguments[i]->location,
@@ -7025,37 +7542,6 @@ namespace pcn {
 
         std::size_t addBorrow(const LiveSymbol& ls, const std::string& name, BorrowKind kind, std::size_t begin, std::size_t end, std::size_t cid, bool escaping, SourceLocation loc) { auto& sf = result_->skm.symbols[ls.factIndex]; SKMBorrowRegionFact b; b.id = nextBorrowId_++; b.sourceSymbol = sf.id; b.sourceName = name; b.kind = kind; b.beginPoint = begin; b.endPoint = end; b.closureId = cid; b.escaping = escaping; b.location = loc; result_->skm.borrowRegions.push_back(b); const auto idx = result_->skm.borrowRegions.size() - 1; if (cid && kind != BorrowKind::Owned)closureBorrowIndexes_[cid].push_back(idx); return idx; }
 
-        void inferClosureExprEffects(const ExprPtr& e, std::set<std::string>& out) {
-            if (!e)return; std::visit([&](const auto& n) {using T = std::decay_t<decltype(n)>;
-            if constexpr (std::is_same_v<T, UnaryExpr>)inferClosureExprEffects(n.operand, out);
-            else if constexpr (std::is_same_v<T, BinaryExpr>) { inferClosureExprEffects(n.left, out); inferClosureExprEffects(n.right, out); if (n.op == "/" || n.op == "%")out.insert("trap"); }
-            else if constexpr (std::is_same_v<T, CallExpr>) { for (auto& a : n.arguments)inferClosureExprEffects(a, out); if (isStdFSReadText(n.callee) || isStdFSExists(n.callee) || isStdFSWriteText(n.callee) || isStdIOReadAll(n.callee) || isStdProcessRun(n.callee)) { out.insert("io"); out.insert("alloc"); out.insert("trap"); } else if (isStdIOCall(n.callee)) out.insert("io"); else if (auto* m = n.callee ? std::get_if<MemberExpr>(&n.callee->node) : nullptr) { inferClosureExprEffects(m->object, out); if (m->member == "to_string" || m->member == "append")out.insert("alloc"); if (m->member == "append")out.insert("trap"); if (m->member == "stdout_write" || m->member == "stderr_write")out.insert("io"); if (m->member == "byte_at" || m->member == "codepoint_at" || m->member == "to_int" || m->member == "to_size")out.insert("trap"); } else if (auto* v = n.callee ? std::get_if<VariableExpr>(&n.callee->node) : nullptr) { if (v->name == "print" || v->name == "println")out.insert("io"); auto ri = routines_.find(v->name); if (ri != routines_.end())for (auto* r : ri->second)if (r->parameters.size() == n.arguments.size()) { auto ef = result_->resolvedEffects.find(keyFor(*r)); if (ef != result_->resolvedEffects.end())out.insert(ef->second.begin(), ef->second.end()); break; } } }
-            else if constexpr (std::is_same_v<T, PipelineExpr>) { inferClosureExprEffects(n.input, out); for (auto& x : n.stages)inferClosureExprEffects(x, out); }
-            else if constexpr (std::is_same_v<T, RangeExpr>) { inferClosureExprEffects(n.start, out); inferClosureExprEffects(n.end, out); inferClosureExprEffects(n.step, out); }
-            else if constexpr (std::is_same_v<T, ChooseExpr>) { inferClosureExprEffects(n.subject, out); for (auto& x : n.cases) { inferClosureExprEffects(x.condition, out); inferClosureExprEffects(x.value, out); }inferClosureExprEffects(n.otherwiseValue, out); }
-            else if constexpr (std::is_same_v<T, TryExpr>)inferClosureExprEffects(n.operand, out);
-            else if constexpr (std::is_same_v<T, GroupExpr>)inferClosureExprEffects(n.expression, out);
-            else if constexpr (std::is_same_v<T, MemberExpr>)inferClosureExprEffects(n.object, out);
-            else if constexpr (std::is_same_v<T, ConstructExpr>)for (auto& f : n.fields)inferClosureExprEffects(f.value, out);
-            else if constexpr (std::is_same_v<T, ArrayExpr>)for (auto& item : n.elements)inferClosureExprEffects(item, out);
-            else if constexpr (std::is_same_v<T, IndexExpr>) { inferClosureExprEffects(n.object, out); inferClosureExprEffects(n.index, out); out.insert("trap"); }
-                }, e->node);
-        }
-        void inferClosureStmtEffects(const std::vector<StmtPtr>& ss, std::set<std::string>& out) {
-            for (auto& s : ss)if (s)std::visit([&](const auto& n) {using T = std::decay_t<decltype(n)>;
-            if constexpr (std::is_same_v<T, LetStmt> || std::is_same_v<T, VarStmt>)inferClosureExprEffects(n.initializer, out); else if constexpr (std::is_same_v<T, AssignStmt>)inferClosureExprEffects(n.value, out);
-            else if constexpr (std::is_same_v<T, ArraySetStmt>) { inferClosureExprEffects(n.index, out); inferClosureExprEffects(n.value, out); out.insert("trap"); }
-            else if constexpr (std::is_same_v<T, RecordSetStmt>)inferClosureExprEffects(n.value, out); else if constexpr (std::is_same_v<T, ExprStmt>)inferClosureExprEffects(n.expression, out); else if constexpr (std::is_same_v<T, ReturnStmt>) { if (n.hasValue)inferClosureExprEffects(n.value, out); }
-            else if constexpr (std::is_same_v<T, GiveStmt>)inferClosureExprEffects(n.value, out); else if constexpr (std::is_same_v<T, FailStmt>)inferClosureExprEffects(n.expression, out); else if constexpr (std::is_same_v<T, IfStmt>) { inferClosureExprEffects(n.condition, out); inferClosureStmtEffects(n.thenBranch, out); inferClosureStmtEffects(n.elseBranch, out); }
-            else if constexpr (std::is_same_v<T, WhileStmt>) { inferClosureExprEffects(n.condition, out); inferClosureStmtEffects(n.body, out); }
-            else if constexpr (std::is_same_v<T, EachStmt>) { inferClosureExprEffects(n.range, out); inferClosureExprEffects(n.guard, out); inferClosureStmtEffects(n.body, out); }
-            else if constexpr (std::is_same_v<T, FromStmt>) { inferClosureExprEffects(n.first, out); inferClosureExprEffects(n.last, out); inferClosureStmtEffects(n.body, out); }
-            else if constexpr (std::is_same_v<T, ContinueUntilStmt>) { inferClosureExprEffects(n.condition, out); inferClosureStmtEffects(n.body, out); }
-            else if constexpr (std::is_same_v<T, UnsafeStmt>) { out.insert("unsafe"); inferClosureStmtEffects(n.body, out); }
-            else if constexpr (std::is_same_v<T, DeferStmt>)inferClosureExprEffects(n.expression, out); else if constexpr (std::is_same_v<T, BlockStmt>)inferClosureStmtEffects(n.statements, out);
-                }, s->node);
-        }
-
         void analyzeClosure(const ClosureExpr& c) {
             if (!analyzedClosureIds_.insert(c.closureId).second) return;
             const auto checked = result_->checkedClosureSignatures.find(c.closureId);
@@ -7067,9 +7553,6 @@ namespace pcn {
             for (const auto& type : checked->second.parameterTypes) sig.parameters.push_back(semanticTypeName(type));
             sig.returnType = semanticTypeName(checked->second.returnType);
             closureSignatures_[c.closureId] = sig;
-            std::set<std::string> inferredEffects;
-            if (c.hasExpressionBody) inferClosureExprEffects(c.expressionBody, inferredEffects);
-            else inferClosureStmtEffects(c.blockBody, inferredEffects);
             const auto effects = result_->resolvedClosureEffects.find("closure$" + std::to_string(c.closureId));
             if (effects == result_->resolvedClosureEffects.end()) {
                 result_->diagnostics.push_back({ c.location,"E0344 closure is missing inferred effect facts" });
@@ -7118,14 +7601,8 @@ namespace pcn {
                                 if (const auto* root = std::get_if<VariableExpr>(&member->object->node))
                                     note(root->name, c.moveCapture ? BorrowKind::Owned : BorrowKind::Exclusive, root->location);
                         }
-                        const auto* routine = resolveCall(node);
                         for (std::size_t i = 0; i < node.arguments.size(); ++i) {
                             if (const auto* variable = std::get_if<VariableExpr>(&node.arguments[i]->node)) {
-                                BorrowKind kind = c.moveCapture ? BorrowKind::Owned : BorrowKind::Shared;
-                                if (!c.moveCapture && routine && i < routine->parameters.size()) {
-                                    const auto& mode = routine->parameters[i].mode;
-                                    kind = mode == "own" ? BorrowKind::Owned : mode == "var" ? BorrowKind::Exclusive : BorrowKind::Shared;
-                                }
                                 const auto mode = callArgumentMode(*result_, node, i);
                                 const BorrowKind kind = c.moveCapture || mode == "own" ? BorrowKind::Owned :
                                     mode == "var" ? BorrowKind::Exclusive : BorrowKind::Shared;
@@ -7478,8 +7955,6 @@ namespace pcn {
                             candidate->parameters[i].mode != member.parameters[i].mode) { compatible = false; break; }
                     }
                     if (!compatible) continue;
-                    const auto effects = result_->resolvedEffects.find(keyFor(*candidate));
-                    if (effects == result_->resolvedEffects.end()) continue;
                     const auto effects = result_->resolvedDeclarationEffects.find(candidate);
                     if (effects == result_->resolvedDeclarationEffects.end()) continue;
                     const std::set<std::string> allowed(member.effects.begin(), member.effects.end());
@@ -7532,11 +8007,9 @@ namespace pcn {
         void analyze(const Program& program, SemanticAnalysisResult& result) {
             result_ = &result;
             buildRoutineIndex(program);
-            analyzeEffects(program);
             analyzeEffects();
             SemanticKnowledgeBuilder skmBuilder;
             skmBuilder.build(program, result);
-            analyzeOwnership(program);
             analyzeOwnership();
             result.skm.blueprint = buildBlueprint(program, result);
             result_ = nullptr;
@@ -7577,7 +8050,6 @@ namespace pcn {
 
         struct EffectFacts {
             std::set<std::string> direct;
-            std::set<std::string> calls;
             std::set<const Routine*> calls;
             std::set<std::string> closureCalls;
             bool isClosure = false;
@@ -7589,9 +8061,6 @@ namespace pcn {
 
         void buildRoutineIndex(const Program& program) {
             routines_.clear();
-            for (const auto& routine : program.routines) {
-                routines_[routineKey(routine.name, routine.parameters.size())] = &routine;
-            }
             for (const auto& routine : program.routines) routines_.push_back(&routine);
             collectForeign(program.declarations);
         }
@@ -7600,16 +8069,6 @@ namespace pcn {
             for (const auto& declaration : declarations) {
                 std::visit([&](const auto& node) {
                     using T = std::decay_t<decltype(node)>;
-                    if constexpr (std::is_same_v<T, ForeignDecl>) {
-                        routines_[routineKey(node.routine.name, node.routine.parameters.size())] = &node.routine;
-                        foreign_.insert(routineKey(node.routine.name, node.routine.parameters.size()));
-                    }
-                    else if constexpr (std::is_same_v<T, Routine>) {
-                        routines_[routineKey(node.name, node.parameters.size())] = &node;
-                    }
-                    else if constexpr (std::is_same_v<T, ModuleDecl>) {
-                        collectForeign(node.declarations);
-                    }
                     if constexpr (std::is_same_v<T, ForeignDecl>) routines_.push_back(&node.routine);
                     else if constexpr (std::is_same_v<T, Routine>) routines_.push_back(&node);
                     else if constexpr (std::is_same_v<T, ModuleDecl>) collectForeign(node.declarations);
@@ -7617,17 +8076,8 @@ namespace pcn {
             }
         }
 
-        void analyzeEffects(const Program& program) {
         void analyzeEffects() {
             effectFacts_.clear();
-            for (const auto& routine : program.routines) {
-                auto key = routineKey(routine.name, routine.parameters.size());
-                auto& facts = effectFacts_[key];
-                collectStatementEffects(routine.body, facts);
-            }
-            for (const auto& [key, routine] : routines_) {
-                if (foreign_.contains(key)) {
-                    auto& facts = effectFacts_[key];
             closureEffectFacts_.clear();
             closureExpressions_.clear();
             for (const auto* routine : routines_) {
@@ -7637,8 +8087,6 @@ namespace pcn {
                         facts.direct.insert("io");
                         facts.direct.insert("trap");
                     }
-                    else {
-                        for (const auto& effect : routine->effects) if (effect != "pure") facts.direct.insert(effect);
                     else for (const auto& effect : routine->effects) if (effect != "pure") facts.direct.insert(effect);
                 }
                 else collectStatementEffects(routine->body, facts);
@@ -7663,23 +8111,11 @@ namespace pcn {
                         throw std::runtime_error("SAGE effect analysis: resolved closure is missing from the source graph");
                     effects.insert(it->second.begin(), it->second.end());
                 }
-
-            std::unordered_map<std::string, std::set<std::string>> resolved;
-            for (const auto& [key, facts] : effectFacts_) resolved[key] = facts.direct;
                 return effects.size() != before;
             };
             bool changed = true;
-            for (std::size_t iteration = 0; changed && iteration < routines_.size() + 8; ++iteration) {
             while (changed) {
                 changed = false;
-                for (const auto& [key, facts] : effectFacts_) {
-                    auto next = resolved[key];
-                    for (const auto& callee : facts.calls) {
-                        auto it = resolved.find(callee);
-                        if (it == resolved.end()) continue;
-                        next.insert(it->second.begin(), it->second.end());
-                    }
-                    if (next != resolved[key]) { resolved[key] = std::move(next); changed = true; }
                 for (const auto& [routine, facts] : effectFacts_)
                     changed |= propagate(result_->resolvedDeclarationEffects.at(routine), facts);
                 for (const auto& [closure, facts] : closureEffectFacts_)
@@ -7691,25 +8127,14 @@ namespace pcn {
                 aggregate.insert(inferred.begin(), inferred.end());
             }
 
-            for (const auto& routine : program.routines) {
-                auto key = routineKey(routine.name, routine.parameters.size());
-                const auto& inferred = resolved[key];
-                result_->resolvedEffects[key] = inferred;
-                if (!routine.effects.empty()) {
             for (const auto* routine : routines_) {
                 if (routine->isForeign || routine->effects.empty()) continue;
                 const auto& inferred = result_->resolvedDeclarationEffects.at(routine);
                 std::set<std::string> allowed;
-                    if (!(routine.effects.size() == 1 && routine.effects.front() == "pure")) {
-                        for (const auto& e : routine.effects) allowed.insert(e);
                 if (!(routine->effects.size() == 1 && routine->effects.front() == "pure")) {
                     for (const auto& e : routine->effects) allowed.insert(e);
                 }
                 for (const auto& e : inferred) {
-                        if (!allowed.contains(e)) {
-                            report(routine.location, "E0360 undeclared effect '" + e + "' in routine '" + routine.name + "'");
-                        }
-                    }
                     if (!allowed.contains(e))
                         report(routine->location, "E0360 undeclared effect '" + e + "' in routine '" + routine->name + "'");
                 }
@@ -7797,7 +8222,6 @@ namespace pcn {
                 }
                 else if constexpr (std::is_same_v<T, CallExpr>) {
                     for (const auto& a : node.arguments) collectExprEffects(a, facts);
-                    if (isStdFSReadText(node.callee) || isStdFSExists(node.callee) || isStdFSWriteText(node.callee) || isStdIOReadAll(node.callee) || isStdProcessRun(node.callee)) {
                     const auto closureCall = result_->resolvedClosureCalls.find(&node);
                     if (closureCall != result_->resolvedClosureCalls.end()) {
                         collectExprEffects(node.callee, facts);
@@ -7823,15 +8247,12 @@ namespace pcn {
                         if (member->member == "to_string") {
                             facts.direct.insert("alloc");
                         }
-                        else if (member->member == "byte_at" || member->member == "codepoint_at" || member->member == "slice" || member->member == "to_int" || member->member == "to_size") {
                         else if (member->member == "byte_at" || member->member == "codepoint_at" || member->member == "slice" || member->member == "find_from" || member->member == "to_int" || member->member == "to_size") {
                             facts.direct.insert("trap");
                         }
                     }
                     else if (const auto* variable = node.callee ? std::get_if<VariableExpr>(&node.callee->node) : nullptr) {
                         if (variable->name == "print" || variable->name == "println") facts.direct.insert("io");
-                        auto key = routineKey(variable->name, node.arguments.size());
-                        if (routines_.contains(key)) facts.calls.insert(key);
                         if (variable->name == "fib") facts.direct.insert("trap");
                         const auto resolved = result_->resolvedRoutineCalls.find(&node);
                         if (resolved != result_->resolvedRoutineCalls.end() && resolved->second.declaration)
@@ -7881,20 +8302,15 @@ namespace pcn {
                 }, expr->node);
         }
 
-        void analyzeOwnership(const Program& program) {
-            for (const auto& routine : program.routines) {
-                ownershipRoutine_ = routine.name;
         void analyzeOwnership() {
             for (const auto* routine : routines_) {
                 if (routine->isForeign) continue;
                 ownershipRoutine_ = routine->name;
                 BorrowState state;
                 state.scopes.emplace_back();
-                for (const auto& p : routine.parameters) {
                 for (const auto& p : routine->parameters) {
                     state.scopes.back()[p.name] = BorrowSymbol{ p.typeName, p.mode == "var" || p.mode == "own", true, p.mode, {} };
                 }
-                analyzeBorrowStatements(routine.body, state, false);
                 analyzeBorrowStatements(routine->body, state, false);
             }
             for (const auto& [name, closure] : closureExpressions_) {
@@ -8147,11 +8563,6 @@ namespace pcn {
                 report(v.location, "E0412 use after move: '" + v.name + "'");
         }
 
-        const Routine* resolveRoutine(const std::string& name, std::size_t arity) const {
-            auto it = routines_.find(routineKey(name, arity));
-            return it == routines_.end() ? nullptr : it->second;
-        }
-
         void analyzeBorrowExpr(const ExprPtr& expr, BorrowState& state) {
             if (!expr) return;
             std::visit([&](const auto& node) {
@@ -8177,7 +8588,6 @@ namespace pcn {
                     analyzeBorrowExpr(node.left, state); analyzeBorrowExpr(node.right, state);
                 }
                 else if constexpr (std::is_same_v<T, CallExpr>) {
-                    if (const auto* member = node.callee ? std::get_if<MemberExpr>(&node.callee->node) : nullptr) {
                     const bool closureCall = result_->resolvedClosureCalls.contains(&node);
                     if (closureCall) analyzeBorrowExpr(node.callee, state);
                     if (const auto* member = node.callee && !closureCall ? std::get_if<MemberExpr>(&node.callee->node) : nullptr) {
@@ -8201,8 +8611,6 @@ namespace pcn {
                         for (const auto& argument : node.arguments) analyzeBorrowExpr(argument, state);
                         return;
                     }
-                    const Routine* callee = nullptr;
-                    if (const auto* v = node.callee ? std::get_if<VariableExpr>(&node.callee->node) : nullptr) callee = resolveRoutine(v->name, node.arguments.size());
                     struct BorrowUse {
                         std::string root;
                         std::vector<std::string> projections;
@@ -8220,7 +8628,6 @@ namespace pcn {
                     };
                     for (std::size_t i = 0; i < node.arguments.size(); ++i) {
                         const auto& arg = node.arguments[i];
-                        const std::string mode = callee && i < callee->parameters.size() ? callee->parameters[i].mode : "shared";
                         const std::string mode = callArgumentMode(*result_, node, i);
                         const auto place = getBorrowPlace(arg, state);
                         if (!place) continue;
@@ -8244,7 +8651,6 @@ namespace pcn {
                     }
                     for (std::size_t i = 0; i < node.arguments.size(); ++i) {
                         const auto& arg = node.arguments[i];
-                        const std::string mode = callee && i < callee->parameters.size() ? callee->parameters[i].mode : "shared";
                         const std::string mode = callArgumentMode(*result_, node, i);
                         const auto* root = placeRoot(arg);
                         if (!root) {
@@ -8521,9 +8927,6 @@ namespace pcn {
         }
 
         SemanticAnalysisResult* result_ = nullptr;
-        std::unordered_map<std::string, const Routine*> routines_;
-        std::unordered_set<std::string> foreign_;
-        std::unordered_map<std::string, EffectFacts> effectFacts_;
         std::vector<const Routine*> routines_;
         std::unordered_map<const Routine*, EffectFacts> effectFacts_;
         std::map<std::string, EffectFacts> closureEffectFacts_;
@@ -9548,6 +9951,7 @@ namespace pcn {
             if (name.rfind("result<", 0) == 0) return { IRValueKind::Result, name };
             if (name.rfind("option<", 0) == 0) return { IRValueKind::Option, name };
             if (name.rfind("closure$", 0) == 0) return { IRValueKind::Closure, name };
+            if (name.rfind("dyn_closure<", 0) == 0) throw std::runtime_error("E0622 dynamic closure types are not implemented");
             if (!name.empty() && (name.front() == '(' || nominalTypeNames_.count(name) || typeIsArray(name) || name.rfind("view<", 0) == 0 || name.rfind("span<", 0) == 0)) return { IRValueKind::Aggregate, name };
             if (name.empty()) return makeIRUnknownType();
             return { IRValueKind::Function, name };
@@ -9861,6 +10265,10 @@ namespace pcn {
                 }
                 else if constexpr (std::is_same_v<T, ContinueStmt>) {
                     lowerContinue(node);
+                }
+                else if constexpr (std::is_same_v<T, CheckpointStmt> || std::is_same_v<T, CommitStmt> ||
+                    std::is_same_v<T, RollbackStmt> || std::is_same_v<T, RevertStmt>) {
+                    throw std::runtime_error("E0623 reversible checkpoint operations are not implemented");
                 }
                 else if constexpr (std::is_same_v<T, BlockStmt>) {
                     lowerStatementList(node.statements);
@@ -10933,7 +11341,6 @@ namespace pcn {
                         if (objectType.kind == IRValueKind::String && m->member == "to_text")return makeIRTextType();
                         if ((objectType.kind == IRValueKind::Text || objectType.kind == IRValueKind::String) && m->member == "count")return makeIRIntType();
                         if (objectType.kind == IRValueKind::Text && (m->member == "equals" || m->member == "starts_with" || m->member == "ends_with" || m->member == "stdout_write" || m->member == "stderr_write" || m->member == "is_ascii" || m->member == "contains" || m->member == "contains_byte"))return makeIRBoolType();
-                        if (objectType.kind == IRValueKind::Text && (m->member == "byte_at" || m->member == "find_byte" || m->member == "find" || m->member == "hash64" || m->member == "codepoint_at" || m->member == "codepoint_count" || m->member == "compare" || m->member == "rfind"))return makeIRIntType();
                         if (objectType.kind == IRValueKind::Text && (m->member == "byte_at" || m->member == "find_byte" || m->member == "find" || m->member == "find_from" || m->member == "hash64" || m->member == "codepoint_at" || m->member == "codepoint_count" || m->member == "compare" || m->member == "rfind"))return makeIRIntType();
                         if (objectType.kind == IRValueKind::Text && m->member == "slice")return makeIRTextType();
                         if ((m->member == "to_int" || m->member == "to_size") && objectType.kind == IRValueKind::Int64)return makeIRIntType();
@@ -11986,7 +12393,6 @@ namespace pcn {
                 auto found = byId.find(id); if (found == byId.end())continue;
                 const auto& b = *found->second;
                 if (b.instructions.empty() || !isTerminator(b.instructions.back().op)) {
-                    if (fn.returnType != "void")errors.push_back(fn.name + ": reachable " + b.labelName + " falls through without returning " + fn.returnType);
                     errors.push_back(fn.name + ": reachable " + b.labelName + " falls through without a terminator");
                     continue;
                 }
@@ -12037,7 +12443,6 @@ namespace pcn {
             std::unordered_map<std::uint32_t, std::set<std::uint32_t>> inDefs, outDefs;
             for (auto id : visited) { inDefs[id] = (id == entry ? params : universe); outDefs[id] = universe; }
             bool changed = true;
-            for (std::size_t iteration = 0; changed && iteration <= fn.blocks.size() * 2 + 4; ++iteration) {
             while (changed) {
                 changed = false;
                 for (const auto& b : fn.blocks) {
@@ -12069,8 +12474,6 @@ namespace pcn {
                 for (const auto& phi : b.phiNodes) {
                     for (const auto& [pred, value] : phi.phiInputs) {
                         const auto predId = static_cast<std::uint32_t>(pred);
-                        if (!preds[id].contains(predId))errors.push_back(fn.name + ": PHI incoming from non-predecessor into " + b.labelName);
-                        if (visited.contains(predId) && !outDefs[predId].contains(static_cast<std::uint32_t>(value)))
                         if (preds[id].contains(predId) && visited.contains(predId) && !outDefs[predId].contains(static_cast<std::uint32_t>(value)))
                             errors.push_back(fn.name + ": PHI reads v" + std::to_string(static_cast<std::uint32_t>(value)) + " without definite definition on incoming edge");
                     }
@@ -13345,6 +13748,7 @@ namespace pcn {
     static std::set<std::string> collectABITypeNames(const IRProgram& program) {
         std::set<std::string> types = { "text", "option<bool>", "option<char>" };
         for (const auto& [name, _] : program.nominalTypes) types.insert(name);
+        for (const auto& [name, nominal] : program.nominalTypes) if (nominal.kind != "protocol") types.insert(name);
         for (const auto& c : program.skm.closures) types.insert("closure$" + std::to_string(c.closureId));
         for (const auto& fn : program.functions) {
             if (!fn.returnType.empty()) types.insert(fn.returnType);
@@ -14320,7 +14724,6 @@ namespace pcn {
             for (const auto& fn : program.functions) {
                 if (!names.insert(fn.name).second)errors.push_back("duplicate PMIR function: " + fn.name); if ((fn.frameSize & 15u) != 0)errors.push_back(fn.name + ": frame is not 16-byte aligned"); if (fn.outgoingArea < 32)errors.push_back(fn.name + ": Microsoft x64 shadow space is missing"); if (fn.richReturn && !fn.sretCellOffset)errors.push_back(fn.name + ": rich return missing hidden sret cell");
                 std::unordered_set<std::uint32_t>blocks; for (const auto& b : fn.blocks)blocks.insert(b.id); auto slotOK = [&](std::uint32_t s) {return s == 0 || (s <= fn.totalSlots && fn.slots.contains(s)); }; for (auto p : fn.parameterSlots)if (!slotOK(p) || p == 0)errors.push_back(fn.name + ": invalid parameter stack slot");
-                const auto usable = fn.frameSize - fn.outgoingArea; for (const auto& [slot, si] : fn.slots) { if (si.cellOffset > usable)errors.push_back(fn.name + ": slot cell overlaps outgoing call area"); if (si.rich && (si.objectOffset > usable || si.objectOffset < si.objectSize))errors.push_back(fn.name + ": rich object storage outside local frame"); (void)slot; }
                 const bool validFrame = fn.outgoingArea <= fn.frameSize && fn.frameSize <= static_cast<std::uint32_t>(std::numeric_limits<std::int32_t>::max());
                 if (!validFrame) errors.push_back(fn.name + ": invalid PMIR frame size or outgoing area");
                 const auto usable = validFrame ? fn.frameSize - fn.outgoingArea : 0u;
@@ -14395,6 +14798,11 @@ namespace pcn {
     }
 
     std::string pmirToString(const PMIRProgram& program) { std::ostringstream oss; for (const auto& fn : program.functions) { oss << "pmir routine " << fn.name << " frame=" << fn.frameSize << " shadow/out=" << fn.outgoingArea; if (fn.richReturn)oss << " sret=" << fn.returnType; oss << "\n"; for (const auto& [s, si] : fn.slots)if (si.rich)oss << "  rich s" << s << " " << irValueTypeName(si.type) << " object@rbp-" << si.objectOffset << " size=" << si.objectSize << "\n"; for (const auto& b : fn.blocks) { oss << "  .L" << b.id << " " << b.label << ":\n"; for (const auto& i : b.instructions) { oss << "    " << pmirOpcodeName(i.op); if (i.destSlot)oss << " s" << i.destSlot; for (auto s : i.srcSlots)oss << " s" << s; if (i.hasImmediate)oss << " " << i.immediate; for (auto t : i.targets)oss << " .L" << t; if (!i.callee.empty())oss << " " << i.callee; if (i.isVariadicCall)oss << " [variadic after " << i.variadicFixedArgs << " fixed args]"; if (!i.valueType.name.empty())oss << " :" << i.valueType.name; oss << "\n"; } }oss << "\n"; }return oss.str(); }
+    std::string pmirToString(const PMIRProgram& program) { std::ostringstream oss;
+        oss << "pmir structural skm capsules=" << program.skm.capsules.size()
+            << " families=" << program.skm.families.size()
+            << " chains=" << program.skm.chains.size() << "\n";
+        for (const auto& fn : program.functions) { oss << "pmir routine " << fn.name << " frame=" << fn.frameSize << " shadow/out=" << fn.outgoingArea; if (fn.richReturn)oss << " sret=" << fn.returnType; oss << "\n"; for (const auto& [s, si] : fn.slots)if (si.rich)oss << "  rich s" << s << " " << irValueTypeName(si.type) << " object@rbp-" << si.objectOffset << " size=" << si.objectSize << "\n"; for (const auto& b : fn.blocks) { oss << "  .L" << b.id << " " << b.label << ":\n"; for (const auto& i : b.instructions) { oss << "    " << pmirOpcodeName(i.op); if (i.destSlot)oss << " s" << i.destSlot; for (auto s : i.srcSlots)oss << " s" << s; if (i.hasImmediate)oss << " " << i.immediate; for (auto t : i.targets)oss << " .L" << t; if (!i.callee.empty())oss << " " << i.callee; if (i.isVariadicCall)oss << " [variadic after " << i.variadicFixedArgs << " fixed args]"; if (!i.valueType.name.empty())oss << " :" << i.valueType.name; oss << "\n"; } }oss << "\n"; }return oss.str(); }
 
     // --- Integrated x86-64 encoder with rich-value legalization ----------------
     struct MachineListingLine { std::size_t offset = 0; std::vector<std::uint8_t>bytes; std::string text; std::vector<SourceSpan> sourceSpans; };
@@ -18143,7 +18551,6 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                   SemanticSpecializer specializer;
                                   Program specializedProgram = specializer.specialize(out.program, out.analysis);
                                   markPhase("specialize");
-                                  if (!out.analysis.succeeded()) return out;
                                   if (!out.analysis.succeeded() || options.semanticOnly) return out;
                                   out.pcir = lowerProgramToIR(specializedProgram, &out.analysis);
                                   markPhase("PCIR lower");
@@ -19160,7 +19567,6 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                       "  paracine check <file.pcn> [--json]\n"
                                       "  paracine tokens <file.pcn>  # lexer / INDENT / DEDENT debugging\n"
                                       "  paracine ast-diagram <file.pcn> [-o file.txt]\n"
-                                      "  paracine sage <file.pcn> [-o file.skm]\n"
                                       "  paracine sage <file.pcn> [--path FROM TO] [-o file.skm]\n"
                                       "  paracine test <file.pcn>\n"
                                       "  paracine emit cpp|obj|exe <file.pcn> [-o file]\n"
@@ -20143,6 +20549,189 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                       if (!rejects(invalid, "invalid slot cell")) throw std::runtime_error("zero-offset cell accepted");
                                       invalid = program; invalid.functions[0].slots.emplace(3, first);
                                       if (!rejects(invalid, "invalid allocated PMIR slot")) throw std::runtime_error("out-of-range allocated slot accepted");
+                                  });
+                                  test("dynamic closures fail closed without shadowing user routines", [&] {
+                                      const std::vector<std::string> unsupported = {
+                                          "routine main() gives int\n    let operation = move routine(value: int) gives int => value\n    let boxed = box_closure(operation)\n    give 0\n",
+                                          "routine main() gives int\n    let boxed = box_closure(42)\n    give 0\n",
+                                          "routine helper(value: dyn_closure<unknown>) gives int\n    give 0\nroutine main() gives int\n    give 0\n",
+                                          "routine helper(value: option<dyn_closure<unknown>>) gives int\n    give 0\nroutine main() gives int\n    give 0\n",
+                                          "routine helper(value: option<dyn_closure<a::Thing>>) gives int\n    give 0\nroutine main() gives int\n    give 0\n",
+                                          "routine main() gives int\n    let action = routine(value: dyn_closure<unknown>) gives int => 0\n    give 0\n",
+                                          "routine main() gives int\n    let action = routine() gives dyn_closure<unknown> => 0\n    give 0\n"
+                                      };
+                                      const auto ordinary = "routine box_closure(value: int) gives int\n    give value + 1\nroutine main() gives int\n    give box_closure(41)\n";
+                                      for (int level : { 0, 3 }) {
+                                          CompilerOptions options; options.optimizationLevel = level;
+                                          for (const auto& source : unsupported) {
+                                              const auto artifacts = compileAll(source, options, false);
+                                              if (!hasDiagnostic(artifacts.analysis, "E0622") || !artifacts.pcir.functions.empty())
+                                                  throw std::runtime_error("unsupported dynamic closure was not rejected before lowering");
+                                          }
+                                          const auto artifacts = compileAll(ordinary, options);
+                                          if (!artifacts.analysis.succeeded() || PCIRInterpreter(artifacts.pcir).run("") != 42)
+                                              throw std::runtime_error("ordinary box_closure routine was shadowed");
+                                          if (artifacts.analysis.resolvedEffects.at("main#0").contains("alloc"))
+                                              throw std::runtime_error("ordinary box_closure routine gained a spurious allocation effect");
+#if defined(_WIN32)
+                                          const auto file = std::filesystem::temp_directory_path() / ("paracine-box-routine-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".exe");
+                                          struct Cleanup { std::filesystem::path path; ~Cleanup() { std::error_code ec; std::filesystem::remove(path, ec); } } cleanup{ file };
+                                          writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(artifacts.pcir, artifacts.pmir, artifacts.machine));
+                                          if (runNativeExecutable(file) != 42) throw std::runtime_error("ordinary box_closure native result differs from PCIR");
+#endif
+                                      }
+                                  });
+                                  test("2027 protocol and extension declarations", [&] {
+                                      const auto src =
+                                          "record AccountError\n"
+                                          "    code: int\n"
+                                          "protocol BalanceQuery\n"
+                                          "    request\n"
+                                          "        account_id: ulong\n"
+                                          "    response\n"
+                                          "        balance: long\n"
+                                          "    error AccountError\n"
+                                          "record BalanceResult\n"
+                                          "    balance: long\n"
+                                          "extension BalanceResult\n"
+                                          "    routine amount(self) gives long\n"
+                                          "        give self.balance\n"
+                                          "routine main() gives int\n"
+                                          "    give 42\n";
+                                      const auto artifacts = compileAll(src, CompilerOptions{}, false);
+                                      if (!artifacts.analysis.succeeded()) throw std::runtime_error("valid 2027 protocol/extension source was rejected");
+                                      bool protocolFact = false;
+                                      for (const auto& fact : artifacts.analysis.skm.structuralFacts)
+                                          protocolFact |= fact.rfind("protocol BalanceQuery ", 0) == 0;
+                                      if (!protocolFact) throw std::runtime_error("protocol SKM fact missing");
+                                      const auto malformed = compileAll("protocol MissingError\n    request\n        id: int\n    response\n        ok: bool\n", CompilerOptions{}, false);
+                                      if (!hasDiagnostic(malformed.analysis, "E0201") ) throw std::runtime_error("protocol without error type was accepted");
+                                  });
+                                  test("protocol schema sections and field validation", [&] {
+                                      const std::string request = "    request\n        value: int\n";
+                                      const std::string response = "    response\n        value: int\n";
+                                      const std::string error = "    error int\n";
+                                      const std::string prefix = "protocol Query\n";
+                                      const std::string main = "routine main() gives int\n    give 42\n";
+                                      for (int level : { 0, 3 }) {
+                                          CompilerOptions options; options.optimizationLevel = level;
+                                          const auto valid = compileAll(prefix + response + error + request + main, options);
+                                          if (!valid.analysis.succeeded() || PCIRInterpreter(valid.pcir).run("") != 42)
+                                              throw std::runtime_error("valid protocol schema was rejected or altered execution");
+                                          const auto* protocol = std::get_if<ProtocolDecl>(&valid.program.declarations.at(0).node);
+                                          if (!protocol || protocol->requestFields.size() != 1 || protocol->responseFields.size() != 1 ||
+                                              protocol->requestFields[0].name != "value" || protocol->responseFields[0].name != "value" || protocol->errorType != "int")
+                                              throw std::runtime_error("protocol schema was not retained");
+                                          if (std::any_of(valid.analysis.skm.layouts.begin(), valid.analysis.skm.layouts.end(), [](const auto& layout) { return layout.typeName == "Query"; }) ||
+                                              collectABITypeNames(valid.pcir).contains("Query"))
+                                              throw std::runtime_error("protocol metadata acquired a runtime layout");
+#if defined(_WIN32)
+                                          const auto file = std::filesystem::temp_directory_path() / ("paracine-protocol-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".exe");
+                                          struct CleanupProtocol { std::filesystem::path path; ~CleanupProtocol() { std::error_code ec; std::filesystem::remove(path, ec); } } cleanup{ file };
+                                          writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(valid.pcir, valid.pmir, valid.machine));
+                                          if (runNativeExecutable(file) != 42) throw std::runtime_error("protocol metadata changed native execution");
+#endif
+                                          for (const auto& sections : { request + response, request + error, response + error,
+                                              request + request + response + error, request + response + response + error, request + response + error + error }) {
+                                              const auto invalid = compileAll(prefix + sections + main, options, false);
+                                              if (!hasDiagnostic(invalid.analysis, "E0201") || !invalid.pcir.functions.empty())
+                                                  throw std::runtime_error("missing or duplicate protocol section was accepted");
+                                          }
+                                          for (const auto& sections : {
+                                              std::string("    request\n        x: int\n        x: int\n") + response + error,
+                                              request + "    response\n        x: int\n        x: int\n" + error }) {
+                                              const auto invalid = compileAll(prefix + sections + main, options, false);
+                                              if (!hasDiagnostic(invalid.analysis, "E0325 duplicate") || !invalid.pcir.functions.empty())
+                                                  throw std::runtime_error("duplicate protocol field was accepted");
+                                          }
+                                          for (const auto& sections : {
+                                              std::string("    request\n        x: void\n") + response + error,
+                                              request + "    response\n        x: never\n" + error }) {
+                                              const auto invalid = compileAll(prefix + sections + main, options, false);
+                                              if (!hasDiagnostic(invalid.analysis, "E0324 protocol field") || !invalid.pcir.functions.empty())
+                                                  throw std::runtime_error("unstorable protocol field was accepted");
+                                          }
+                                          const auto unknown = compileAll(prefix + "    request\n        x: Missing\n" + response + error + main, options, false);
+                                          if (!hasDiagnostic(unknown.analysis, "E0321 unknown type") || !unknown.pcir.functions.empty())
+                                              throw std::runtime_error("unknown protocol field type was accepted");
+                                          for (const auto& use : {
+                                              "routine helper(value: Query) gives int\n    give 0\nroutine main() gives int\n    give 0\n",
+                                              "routine helper(value: option<Query>) gives int\n    give 0\nroutine main() gives int\n    give 0\n",
+                                              "routine main() gives int\n    let value = Query{}\n    give 0\n" }) {
+                                              const auto invalid = compileAll(prefix + request + response + error + use, options, false);
+                                              if (!hasDiagnostic(invalid.analysis, "E0624") || !invalid.pcir.functions.empty())
+                                                  throw std::runtime_error("protocol value was accepted without a runtime representation");
+                                          }
+                                          const auto generic = compileAll(prefix + request + response + error + "routine zero<T>() gives int\n    give 0\nroutine main() gives int\n    give zero<Query>()\n", options, false);
+                                          if (generic.analysis.succeeded() || !generic.pcir.functions.empty())
+                                              throw std::runtime_error("protocol generic value type was accepted");
+                                      }
+                                  });
+                                  test("reversible statements fail closed", [&] {
+                                      const std::vector<std::string> sources = {
+                                          "routine main() gives int\n    var n: int = 40\n    checkpoint @update\n        n = n + 2\n        revert @update\n    give n\n",
+                                          "routine main() gives int\n    commit @update\n    give 0\n",
+                                          "routine main() gives int\n    revert @update\n    give 0\n",
+                                          "routine main() gives int\n    rollback @update\n",
+                                          "routine main() gives int\n    rollback @update fail 7\n",
+                                          "routine main() gives int\n    checkpoint @outer\n        checkpoint @inner\n            rollback @outer\n    give 0\n"
+                                      };
+                                      for (int level : { 0, 3 }) {
+                                          CompilerOptions options; options.optimizationLevel = level;
+                                          for (const auto& source : sources) {
+                                              const auto artifacts = compileAll(source, options, false);
+                                              if (!hasDiagnostic(artifacts.analysis, "E0623") || !artifacts.pcir.functions.empty())
+                                                  throw std::runtime_error("reversible operation was not rejected before lowering");
+                                          }
+                                          for (const auto& source : {
+                                              "routine main() gives int\n    give 0\n    revert @update\n",
+                                              "routine main() gives int\n    let action = routine() gives int\n        checkpoint @update\n            revert @update\n        give 1\n    give action()\n"
+                                              }) {
+                                              const auto artifacts = compileAll(source, options, false);
+                                              if (!hasDiagnostic(artifacts.analysis, "E0623") || !artifacts.pcir.functions.empty())
+                                                  throw std::runtime_error("nested or unreachable reversible operation was not rejected");
+                                          }
+                                      }
+                                      for (const auto& source : sources) {
+                                          const auto program = Parser(Lexer(source).tokenize()).parse();
+                                          try { (void)IRLowerer{}.lower(program); }
+                                          catch (const std::runtime_error& error) {
+                                              if (std::string(error.what()).find("E0623") != std::string::npos) continue;
+                                              throw;
+                                          }
+                                          throw std::runtime_error("direct PCIR lowering accepted a reversible operation");
+                                      }
+                                  });
+                                  test("2027 capsules families chains and globals", [&] {
+                                      const auto src =
+                                          "capsule Account\n"
+                                          "    isolate logical\n"
+                                          "    private var balance: long = 0\n"
+                                          "    public routine balance_of(self) gives long\n"
+                                          "        give 42\n"
+                                          "family AccountFamily\n"
+                                          "    member Account\n"
+                                          "chain Review\n"
+                                          "    stage identify = 1\n"
+                                          "    stage reply after identify = 2\n"
+                                          "var static seed: int = 1\n"
+                                          "thread var static counter: int = 0\n"
+                                          "test smoke\n"
+                                          "    let value: int = 42\n"
+                                          "routine main() gives int\n"
+                                          "    give 42\n";
+                                      const auto artifacts = compileAll(src, CompilerOptions{}, false);
+                                      if (!artifacts.analysis.succeeded()) throw std::runtime_error("2027 declaration smoke source was rejected");
+                                      if (artifacts.analysis.skm.capsules.size() != 1 || artifacts.analysis.skm.families.size() != 1 || artifacts.analysis.skm.chains.size() != 1)
+                                          throw std::runtime_error("2027 structural knowledge facts are incomplete");
+                                      const auto& capsule = artifacts.analysis.skm.capsules.front();
+                                      if (capsule.name != "Account" || capsule.isolateProfile != "logical" || capsule.fields.size() != 1 || capsule.methods.size() != 1)
+                                          throw std::runtime_error("capsule SKM fact lost fields, methods or isolation profile");
+                                      const auto& chain = artifacts.analysis.skm.chains.front();
+                                      if (chain.stages.size() != 2 || chain.stages[1].second.size() != 1 || chain.stages[1].second.front() != "identify")
+                                          throw std::runtime_error("chain stage dependencies were lost");
+                                      const auto deep = compileAll("capsule Secure\n    isolate deep\nroutine main() gives int\n    give 0\n", CompilerOptions{}, false);
+                                      if (!hasDiagnostic(deep.analysis, "E0621")) throw std::runtime_error("deep isolation failed open");
                                   });
                                   test("symbol resolution and stdout PCIR integration", [&] {
                                       const auto src = "module hello\n\nimport std.io\n\n"
@@ -23028,6 +23617,63 @@ class MachineVerifier { public:std::vector<std::string>verify(const MachineProgr
                                           if (ec) std::cerr << "module fixture cleanup failed: " << ec.message() << "\n";
                                       }
                                   };
+                                  test("modules: protocol schema identities and public interfaces", [&] {
+                                      ModuleFixture fixture;
+                                      fixture.write("a.pcn", "module alpha\npublic record Payload\n    value: int\npublic record Failure\n    code: int\npublic protocol Query\n    request\n        input: Payload\n    response\n        output: Payload\n    error Failure\n");
+                                      fixture.write("b.pcn", "module beta\npublic record Payload\n    value: int\npublic record Failure\n    code: int\npublic protocol Query\n    request\n        input: Payload\n    response\n        output: Payload\n    error Failure\n");
+                                      for (int level : { 0, 3 }) {
+                                          const auto result = fixture.compile("import a as A\nimport b as B\nroutine main() gives int\n    give 42\n", level, true);
+                                          if (!result.analysis.succeeded() || PCIRInterpreter(result.pcir).run("") != 42)
+                                              throw std::runtime_error("protocol modules failed to compile");
+                                          for (const std::string module : { "alpha", "beta" }) {
+                                              const auto name = source_modules::symbol(module, "Query");
+                                              const auto payload = source_modules::symbol(module, "Payload");
+                                              const auto failure = source_modules::symbol(module, "Failure");
+                                              const auto found = result.analysis.nominalTypes.find(name);
+                                              if (found == result.analysis.nominalTypes.end() || found->second.kind != "protocol" || found->second.layout != failure ||
+                                                  found->second.fields != std::vector<std::pair<std::string, std::string>>{ { "request.input", payload }, { "response.output", payload } })
+                                                  throw std::runtime_error("protocol schema lost its defining module identities");
+                                          }
+#if defined(_WIN32)
+                                          const auto file = fixture.root / "protocol-result.exe"; fixture.files.insert(file);
+                                          writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(result.pcir, result.pmir, result.machine));
+                                          if (runNativeExecutable(file) != 42) throw std::runtime_error("imported protocol metadata changed native execution");
+#endif
+                                      }
+                                      fixture.write("b.pcn", "module beta\nimport a as A\npublic protocol Forward\n    request\n        input: A::Payload\n    response\n        output: option<A::Payload>\n    error A::Failure\n");
+                                      const auto crossModule = fixture.compile("import b\nroutine main() gives int\n    give 42\n");
+                                      const auto protocol = crossModule.analysis.nominalTypes.find(source_modules::symbol("beta", "Forward"));
+                                      const auto payload = source_modules::symbol("alpha", "Payload");
+                                      if (!crossModule.analysis.succeeded() || protocol == crossModule.analysis.nominalTypes.end() ||
+                                          protocol->second.layout != source_modules::symbol("alpha", "Failure") ||
+                                          protocol->second.fields != std::vector<std::pair<std::string, std::string>>{ { "request.input", payload }, { "response.output", "option<" + payload + ">" } })
+                                          throw std::runtime_error("cross-module protocol schema types were not resolved");
+                                      const std::vector<std::string> schemas = {
+                                          "    request\n        input: Hidden\n    response\n        output: int\n    error int\n",
+                                          "    request\n        input: int\n    response\n        output: option<Hidden>\n    error int\n",
+                                          "    request\n        input: int\n    response\n        output: int\n    error Hidden\n"
+                                      };
+                                      for (const auto& schema : schemas) {
+                                          fixture.write("a.pcn", "module alpha\nrecord Hidden\n    value: int\npublic protocol Query\n" + schema);
+                                          if (!fixture.rejects("import a\nroutine main() gives int\n    give 0\n", "E0534"))
+                                              throw std::runtime_error("public protocol exposed a private schema type");
+                                      }
+                                  });
+                                  test("modules: unsupported reversible and dynamic operations", [&] {
+                                      ModuleFixture fixture;
+                                      fixture.write("a.pcn", "module alpha\npublic routine step() gives int\n    checkpoint @update\n        revert @update\n    give 0\n");
+                                      const auto checkpoint = fixture.compile("import a\nroutine main() gives int\n    give step()\n");
+                                      if (!hasDiagnostic(checkpoint.analysis, "E0623") || !checkpoint.pcir.functions.empty())
+                                          throw std::runtime_error("imported checkpoint was not rejected");
+                                      fixture.write("a.pcn", "module alpha\npublic routine step() gives int\n    let action = routine(value: int) gives int => value\n    let boxed = box_closure(action)\n    give 0\n");
+                                      const auto boxed = fixture.compile("import a\nroutine main() gives int\n    give step()\n");
+                                      if (!hasDiagnostic(boxed.analysis, "E0622") || !boxed.pcir.functions.empty())
+                                          throw std::runtime_error("imported dynamic closure boxing was not rejected");
+                                      fixture.write("a.pcn", "module alpha\npublic routine box_closure(value: int) gives int\n    give value + 1\n");
+                                      const auto ordinary = fixture.compile("import a\nroutine main() gives int\n    give box_closure(41)\n");
+                                      if (!ordinary.analysis.succeeded() || PCIRInterpreter(ordinary.pcir).run("") != 42)
+                                          throw std::runtime_error("imported ordinary box_closure routine was shadowed");
+                                  });
                                   test("modules: cyclic declarations, private identities and lexical shadowing", [&] {
                                       ModuleFixture fixture;
                                       fixture.write("a.pcn", "module alpha\nimport b\nroutine helper() gives int\n    give 1\npublic routine start(n: int) gives int\n    if n == 0\n        give helper()\n    give finish(n - 1) + 1\n");
@@ -25199,7 +25845,6 @@ int main(int argc, char** argv) {
             writeOrPrint(report, outputArg.empty() ? "" : ".abi"); return 0;
         }
         if (command == "ast") { writeOrPrint(pcn::programToString(artifacts.program) + "\n", outputArg.empty() ? "" : ".ast"); return 0; }
-        if (command == "sage") { writeOrPrint(pcn::skmToString(artifacts.analysis), outputArg.empty() ? "" : ".skm"); return 0; }
         if (command == "sage") {
             const auto report = blueprintPath ? pcn::blueprintRouteToString(artifacts.analysis.skm.blueprint, blueprintPath->first, blueprintPath->second) : pcn::skmToString(artifacts.analysis);
             writeOrPrint(report, outputArg.empty() ? "" : ".skm"); return 0;
