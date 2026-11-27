@@ -163,6 +163,9 @@ namespace pcn {
     static const std::unordered_set<std::string> kReservedKeywords = {
         "abi", "alias", "alloc", "and", "as", "break", "capability", "checkpoint", "commit",
         "choose", "const", "continue", "defer", "deny", "else", "export", "extension", "fail",
+        "abi", "alias", "alloc",        "and", "as", "break", "capability", "checkpoint", "commit",
+        "choose", "const", "continue", "defer", "deny", "else", "elif", "export", "extension", "fail", "raise",
+
         "false", "for", "foreign", "from", "give", "gives", "if", "inherit", "import", "in",
         "io", "is", "isolate", "let", "limit", "loop", "module", "move", "not", "nothing",
         "or", "own", "private", "protocol", "public", "pure", "raw", "record", "recover", "respond", "revert", "rollback", "return_",
@@ -1564,7 +1567,6 @@ namespace pcn {
 
     struct Declaration {
         using Node = std::variant<Routine, RecordDecl, EnumDecl, UnionDecl, VariantDecl, ModuleDecl, UseDecl,
-            AliasDecl, ConstDecl, CapabilityDecl, ForeignDecl, StaticDecl, TestDecl, CapsuleDecl, FamilyDecl, ChainDecl,
             AliasDecl, ConstDecl, CapabilityDecl, ForeignDecl, StaticDecl, TestDecl, ChapterDecl, CapsuleDecl, FamilyDecl, ChainDecl,
             ProtocolDecl, ExtensionDecl>;
         Node node;
@@ -2595,7 +2597,6 @@ namespace pcn {
                     }
                     if (peek().kind == TokenKind::Indent)
                         throw std::runtime_error("E0201 unexpected indentation block at " + std::to_string(peek().location.line) + ":" + std::to_string(peek().location.column));
-                    if (checkKeyword("public") || checkKeyword("compile") || checkKeyword("record") || checkKeyword("enum") || checkKeyword("variant") || checkKeyword("union") || checkKeyword("module") || checkKeyword("use") || checkKeyword("import") || checkKeyword("alias") || checkKeyword("const") || checkKeyword("capability") || checkKeyword("foreign") || checkKeyword("protocol") || checkKeyword("extension") || (peek().kind == TokenKind::Identifier && (peek().text == "capsule" || peek().text == "family" || peek().text == "chain")) || checkKeyword("var") || checkKeyword("thread") || checkKeyword("test") || checkKeyword("static")) {
                     if (checkKeyword("public") || checkKeyword("compile") || checkKeyword("record") || checkKeyword("enum") || checkKeyword("variant") || checkKeyword("union") || checkKeyword("module") || checkKeyword("use") || checkKeyword("import") || checkKeyword("alias") || checkKeyword("const") || checkKeyword("capability") || checkKeyword("foreign") || checkKeyword("protocol") || checkKeyword("extension") || (peek().kind == TokenKind::Identifier && (peek().text == "chapter" || peek().text == "capsule" || peek().text == "family" || peek().text == "chain")) || checkKeyword("var") || checkKeyword("thread") || checkKeyword("test") || checkKeyword("static")) {
                         auto declaration = parseDeclaration();
                         if (std::holds_alternative<ModuleDecl>(declaration.node)) {
@@ -2732,7 +2733,6 @@ namespace pcn {
                 checkKeyword("use") || checkKeyword("import") || checkKeyword("alias") || checkKeyword("const") ||
                 checkKeyword("capability") || checkKeyword("foreign") ||
                 checkKeyword("protocol") || checkKeyword("extension") ||
-                (peek().kind == TokenKind::Identifier && (peek().text == "capsule" || peek().text == "family" || peek().text == "chain")) ||
                 (peek().kind == TokenKind::Identifier && (peek().text == "chapter" || peek().text == "capsule" || peek().text == "family" || peek().text == "chain")) ||
                 checkKeyword("var") || checkKeyword("thread") || checkKeyword("test") || checkKeyword("static");
         }
@@ -3394,12 +3394,8 @@ namespace pcn {
             if (matchSymbol("<")) {
                 const bool sizedType = name == "array" || name == "vec";
                 name += "<";
-                bool first = true;
                 std::size_t argument = 0;
                 while (!typeCloseAhead()) {
-                    if (!first) { expectSymbol(","); name += ","; }
-                    name += parseTypeName();
-                    first = false;
                     if (argument) { expectSymbol(","); name += ","; }
                     if (sizedType && argument == 1 && peek().kind == TokenKind::Number) {
                         const auto token = consume();
@@ -3729,6 +3725,7 @@ namespace pcn {
                 }
                 return makeStmt(IfStmt{ condition, std::move(thenBranch), std::move(elseBranch), hasElse,{ start, location }, location }, { start, location }, location);
             }
+            if (matchKeyword("if")) return parseConditionalTail(previous());
 
             if (matchKeyword("while")) {
                 auto location = previous().location;
@@ -3859,6 +3856,7 @@ namespace pcn {
                 expectSymbol("@"); const auto name = expectIdentifier().text;
                 ExprPtr failure;
                 if (matchKeyword("fail")) failure = parseExpression();
+                if (matchKeyword("fail") || matchKeyword("raise")) failure = parseExpression();
                 consumeLineBreak();
                 return makeStmt(RollbackStmt{name,failure,{start,location},location},{start,location},location);
             }
@@ -3876,6 +3874,7 @@ namespace pcn {
             }
 
             if (matchKeyword("fail")) {
+            if (matchKeyword("fail") || matchKeyword("raise")) {
                 auto location = previous().location;
                 auto start = location;
                 auto expression = parseExpression();
@@ -3892,6 +3891,10 @@ namespace pcn {
             }
 
             if (matchKeyword("return")) {
+            if (matchKeyword("return") || matchKeyword("return_")) {
+                // "return_" is the canonical Edition-2027 spelling; "return" remains a
+                // compatibility alias. Both produce an identical ReturnStmt and therefore
+                // share every downstream semantic check, lowering rule, and optimization.
                 auto location = previous().location;
                 auto start = location;
                 if (peek().kind == TokenKind::Newline || peek().kind == TokenKind::Dedent || peek().kind == TokenKind::EndOfFile) {
@@ -3935,6 +3938,34 @@ namespace pcn {
             }
             consumeLineBreak();
             return makeStmt(ExprStmt{ expression,{ start, location }, location }, { start, location }, location);
+        }
+
+        StmtPtr parseConditionalTail(const Token& introducer) {
+            const auto condition = parseExpression();
+            consumeLineBreak();
+            skipNewlines();
+            expectIndent();
+            auto thenBranch = parseBlockStatements();
+            expectDedent();
+
+            std::vector<StmtPtr> elseBranch;
+            bool hasElse = false;
+            skipNewlines();
+            if (matchKeyword("elif")) {
+                elseBranch.push_back(parseConditionalTail(previous()));
+                hasElse = true;
+            }
+            else if (matchKeyword("else")) {
+                consumeLineBreak();
+                skipNewlines();
+                expectIndent();
+                elseBranch = parseBlockStatements();
+                expectDedent();
+                hasElse = true;
+            }
+            const SourceSpan span{ introducer.span.start, previous().span.end };
+            return makeStmt(IfStmt{ condition, std::move(thenBranch), std::move(elseBranch), hasElse,
+                span, introducer.location }, span, introducer.location);
         }
 
         static bool isAssignmentOperator(const std::string& op) {
@@ -4675,7 +4706,6 @@ namespace pcn {
         // with generic specialization, so every declaration and local annotation
         // has the same spelling, nesting, and container-arity rules.
         bool validateTypeReference(const std::string& spelling, SourceLocation loc,
-            const std::unordered_set<std::string>& generics = {}) {
             const std::unordered_set<std::string>& generics = {},
             const std::unordered_set<std::string>& constGenerics = {}) {
             if (spelling.empty()) return true; // inferred annotation
@@ -4748,7 +4778,6 @@ namespace pcn {
                         const auto& size = t.args[i].head;
                         const bool digits = !t.args[i].tuple && t.args[i].args.empty() && !size.empty() &&
                             std::all_of(size.begin(), size.end(), [](unsigned char c) {return std::isdigit(c) != 0; });
-                        if (!digits) { report(loc, "E0323 fixed-array/vector size must be a nonnegative integer constant"); valid = false; }
                         const bool constParameter = !t.args[i].tuple && t.args[i].args.empty() && constGenerics.contains(size);
                         if (!digits && !constParameter) { report(loc, "E0323 fixed-array/vector size must be a nonnegative integer constant"); valid = false; }
                         continue;
@@ -4762,7 +4791,6 @@ namespace pcn {
 
         static std::unordered_set<std::string> genericNamesFor(const Routine& r) {
             std::unordered_set<std::string> generics;
-            for (const auto& parameter : r.genericParameters) generics.insert(parameter.name);
             for (const auto& parameter : r.genericParameters) if (!parameter.isConst) generics.insert(parameter.name);
             return generics;
         }
@@ -4775,11 +4803,9 @@ namespace pcn {
 
         void validateRoutineTypes(const Routine& r) {
             const auto generics = genericNamesFor(r);
-            validateTypeReference(r.returnType, r.location, generics);
             const auto constGenerics = constGenericNamesFor(r);
             validateTypeReference(r.returnType, r.location, generics, constGenerics);
             for (const auto& parameter : r.parameters) {
-                validateTypeReference(parameter.typeName, parameter.location, generics);
                 validateTypeReference(parameter.typeName, parameter.location, generics, constGenerics);
                 if (parameter.typeName == "void" || parameter.typeName == "never")
                     report(parameter.location, "E0324 parameter '" + parameter.name + "' cannot have type " + parameter.typeName);
@@ -5180,9 +5206,6 @@ namespace pcn {
                 }
                 else if constexpr (std::is_same_v<T, CapsuleDecl>) {
                     for (const auto& field : node.fields) validateTypeReference(field.typeName, field.location);
-                    if (node.isolateProfile == "deep") {
-                        result_.skm.structuralFacts.push_back("capsule " + node.name + ": deep isolation requires a target-enforced compartment");
-                        report(node.location, "E0621 capsule '" + node.name + "' requests deep isolation, but no target-enforced compartment is available");
                     if (node.isolateProfile == "deep" || node.isolateProfile == "memory") {
                         result_.skm.structuralFacts.push_back("capsule " + node.name + ": " + node.isolateProfile + " isolation requires an enforced compartment");
                         report(node.location, "E0621 capsule '" + node.name + "' requests " + node.isolateProfile + " isolation, but no target-enforced compartment is available");
@@ -5344,6 +5367,15 @@ namespace pcn {
                 else if constexpr (std::is_same_v<T, CheckpointStmt> || std::is_same_v<T, CommitStmt> ||
                     std::is_same_v<T, RollbackStmt> || std::is_same_v<T, RevertStmt>) {
                     report(node.location, "E0623 reversible checkpoint operations are not implemented");
+                else if constexpr (std::is_same_v<T, CheckpointStmt>) {
+                    analyzeStatementList(node.body, false);
+                    if (!node.recoverBody.empty()) analyzeStatementList(node.recoverBody, false);
+                }
+                else if constexpr (std::is_same_v<T, CommitStmt> || std::is_same_v<T, RevertStmt>) {
+                    // No expression payload to analyze in unreachable checkpoint jumps.
+                }
+                else if constexpr (std::is_same_v<T, RollbackStmt>) {
+                    if (node.failure) analyzeExpr(node.failure);
                 }
                 else if constexpr (std::is_same_v<T, BlockStmt>) {
                     analyzeUnreachableBlock(node);
@@ -5411,26 +5443,50 @@ namespace pcn {
                 }
                 else if constexpr (std::is_same_v<T, CheckpointStmt>) {
                     report(statement.location, "E0623 reversible checkpoint operations are not implemented");
+                    // A checkpoint snapshots every local in scope so a revert/rollback
+                    // naming it can restore them; the recover-binding form remains
+                    // unimplemented and is still rejected explicitly.
+                    if (!statement.recoverBody.empty())
+                        report(statement.location, "E0623 checkpoint recover blocks are not implemented");
+                    if (std::find(checkpointStack_.begin(), checkpointStack_.end(), statement.name) != checkpointStack_.end())
+                        report(statement.location, "E0627 duplicate active checkpoint label @" + statement.name);
+                    checkpointStack_.push_back(statement.name);
                     analyzeStatementList(statement.body);
                     if (!statement.recoverBody.empty()) analyzeStatementList(statement.recoverBody);
+                    checkpointStack_.pop_back();
+                    if (!statement.recoverBody.empty()) analyzeStatementList(statement.recoverBody, false);
                     result_.skm.structuralFacts.push_back("checkpoint " + statement.name + " at " + std::to_string(statement.location.line));
                     return true;
                 }
                 else if constexpr (std::is_same_v<T, CommitStmt>) {
                     report(statement.location, "E0623 reversible checkpoint operations are not implemented");
+                    if (std::find(checkpointStack_.begin(), checkpointStack_.end(), statement.name) == checkpointStack_.end())
+                        report(statement.location, "E0627 commit refers to unknown enclosing checkpoint @" + statement.name);
                     result_.skm.structuralFacts.push_back("commit " + statement.name + " at " + std::to_string(statement.location.line));
                     return true;
                 }
                 else if constexpr (std::is_same_v<T, RollbackStmt>) {
                     report(statement.location, "E0623 reversible checkpoint operations are not implemented");
+                    // Bare rollback (no failure payload) is a fully implemented alias for
+                    // revert; rollback carrying a failure payload still requires routine
+                    // error-type plumbing that is not implemented yet.
+                    if (statement.failure) {
+                        report(statement.location, "E0623 rollback with a failure payload is not implemented");
+                        analyzeExpr(statement.failure);
+                    }
+                    if (std::find(checkpointStack_.begin(), checkpointStack_.end(), statement.name) == checkpointStack_.end())
+                        report(statement.location, "E0627 rollback refers to unknown enclosing checkpoint @" + statement.name);
                     result_.skm.structuralFacts.push_back("rollback " + statement.name + " at " + std::to_string(statement.location.line));
                     if (statement.failure) analyzeExpr(statement.failure);
                     return false;
                 }
                 else if constexpr (std::is_same_v<T, RevertStmt>) {
                     report(statement.location, "E0623 reversible checkpoint operations are not implemented");
+                    if (std::find(checkpointStack_.begin(), checkpointStack_.end(), statement.name) == checkpointStack_.end())
+                        report(statement.location, "E0627 revert refers to unknown enclosing checkpoint @" + statement.name);
                     result_.skm.structuralFacts.push_back("revert " + statement.name + " at " + std::to_string(statement.location.line));
                     return true;
+                    return false;
                 }
                 else if constexpr (std::is_same_v<T, BlockStmt>) {
                     return analyzeBlock(statement);
@@ -5444,7 +5500,6 @@ namespace pcn {
         bool analyzeLet(const LetStmt& node) {
             if (!node.typeName.empty())
                 validateTypeReference(node.typeName, node.location,
-                    currentRoutine_ ? genericNamesFor(*currentRoutine_) : std::unordered_set<std::string>{});
                     currentRoutine_ ? genericNamesFor(*currentRoutine_) : std::unordered_set<std::string>{},
                     currentRoutine_ ? constGenericNamesFor(*currentRoutine_) : std::unordered_set<std::string>{});
             if (!node.initializer) {
@@ -5475,7 +5530,6 @@ namespace pcn {
         bool analyzeVar(const VarStmt& node) {
             if (!node.typeName.empty())
                 validateTypeReference(node.typeName, node.location,
-                    currentRoutine_ ? genericNamesFor(*currentRoutine_) : std::unordered_set<std::string>{});
                     currentRoutine_ ? genericNamesFor(*currentRoutine_) : std::unordered_set<std::string>{},
                     currentRoutine_ ? constGenericNamesFor(*currentRoutine_) : std::unordered_set<std::string>{});
             SemanticType declaredType = semanticTypeFromName(node.typeName);
@@ -5548,23 +5602,16 @@ namespace pcn {
             if (!symbol) { report(node.location, "E0410 indexed assignment to unknown array: " + node.name); analyzeExpr(node.index); analyzeExpr(node.value); return true; }
             if (!symbol->isMutable)report(node.location, "E0415 indexed write requires a mutable array place: " + node.name);
             std::string element; std::size_t count = 0;
-            if (!typeIsArray(symbol->type.name, &element, &count))report(node.location, "indexed assignment requires array<T,N>");
             const bool fixedArray = typeIsArray(symbol->type.name, &element, &count);
             if (!fixedArray) report(node.location, "indexed assignment requires array<T,N>");
             const auto indexType = analyzeExpr(node.index);
-            if (indexType.kind != SemanticTypeKind::Number || indexType.name == "float" || indexType.name == "double")
             const auto* literal = groupedNumberLiteral(node.index);
             if (!isIntegerExpression(node.index, indexType))
                 report(node.location, "E0310 array write index must be integer");
-            if (node.index)if (const auto* lit = std::get_if<NumberExpr>(&node.index->node)) {
-                try {
-                    if (lit->value.find('.') != std::string::npos || std::stoull(lit->value) >= count)
             if (fixedArray && literal && !isFloatingNumericLiteral(literal->value)) try {
                 const auto index = parseParacineInteger(literal->value);
                 if (index < 0 || static_cast<std::uint64_t>(index) >= count)
                     report(node.location, "E0311 array write index out of bounds");
-            }
-                catch (...) { report(node.location, "E0311 invalid array write index"); }
             }
             catch (const std::runtime_error&) { report(node.location, "E0311 invalid array write index"); }
             const auto value = analyzeExpr(node.value);
@@ -5588,6 +5635,8 @@ namespace pcn {
                 }
             }
             else if (currentReturnType_.kind != SemanticTypeKind::Void) {
+            if (node.hasValue) return analyzeReturnedValue(node.value, node.location, "return");
+            if (currentReturnType_.kind != SemanticTypeKind::Void)
                 report(node.location, "routine '" + currentRoutine_->name + "' must return " + semanticTypeName(currentReturnType_));
             }
             return false;
@@ -5596,21 +5645,32 @@ namespace pcn {
         bool analyzeGive(const GiveStmt& node) {
             if (!currentRoutine_) { report(node.location, "give outside of routine"); return true; }
             auto valueType = analyzeExpr(node.value);
+            return analyzeReturnedValue(node.value, node.location, "give");
+        }
+
+        bool analyzeReturnedValue(const ExprPtr& value, SourceLocation location, std::string_view keyword) {
+            const auto valueType = analyzeExpr(value);
+            const std::string verb(keyword);
             if (currentReturnType_.kind == SemanticTypeKind::Void) {
                 report(node.location, "routine '" + currentRoutine_->name + "' returns void, but give provides a value");
+                report(location, "routine '" + currentRoutine_->name + "' returns void, but " + verb + " provides a value");
             }
             else {
                 std::string okType, errType, optionType;
                 if (typeIsResult(currentRoutine_->returnType, &okType, &errType)) {
                     if (valueType.name.rfind("__err<", 0) == 0) report(node.location, "give cannot produce err; use fail for result failure");
+                    if (valueType.name.rfind("__err<", 0) == 0) report(location, verb + " cannot produce err; use fail or raise for result failure");
                     else if (valueType.name.rfind("__ok<", 0) == 0) { /* explicit ok accepted; detailed wrapper checked by result lowering */ }
                     else if (!isAssignableTo(semanticTypeFromName(okType), valueType)) report(node.location, "give value cannot be wrapped as ok<" + okType + ">");
+                    else if (!isAssignableTo(semanticTypeFromName(okType), valueType)) report(location, verb + " value cannot be wrapped as ok<" + okType + ">");
                 }
                 else if (typeIsOption(currentRoutine_->returnType, &optionType)) {
                     if (valueType.name != "__none" && valueType.name.rfind("__some<", 0) != 0 && !isAssignableTo(semanticTypeFromName(optionType), valueType)) report(node.location, "give value cannot be wrapped as some<" + optionType + ">");
+                    if (valueType.name != "__none" && valueType.name.rfind("__some<", 0) != 0 && !isAssignableTo(semanticTypeFromName(optionType), valueType)) report(location, verb + " value cannot be wrapped as some<" + optionType + ">");
                 }
                 else if (!isAssignableTo(currentReturnType_, valueType)) {
                     report(node.location, "give type mismatch in routine '" + currentRoutine_->name + "': expected " + semanticTypeName(currentReturnType_) + ", got " + semanticTypeName(valueType));
+                    report(location, verb + " type mismatch in routine '" + currentRoutine_->name + "': expected " + semanticTypeName(currentReturnType_) + ", got " + semanticTypeName(valueType));
                 }
             }
             return false;
@@ -5723,7 +5783,6 @@ namespace pcn {
                     report(node.location, "from upper bound type mismatch: expected " + semanticTypeName(inductionType) + ", got " + semanticTypeName(lastType));
                 }
             }
-            if (!isIntegerLikeNumericType(inductionType) && inductionType.kind != SemanticTypeKind::Unknown) {
             if ((!isIntegerLikeNumericType(inductionType) && inductionType.kind != SemanticTypeKind::Unknown) ||
                 (firstType.kind != SemanticTypeKind::Unknown && !isIntegerExpression(node.first, firstType)) ||
                 (lastType.kind != SemanticTypeKind::Unknown && !isIntegerExpression(node.last, lastType))) {
@@ -5983,7 +6042,6 @@ namespace pcn {
         SemanticType analyzeUnaryExpr(const UnaryExpr& node) {
             auto operandType = analyzeExpr(node.operand);
             if (node.op == "-" || node.op == "~") {
-                if (node.op == "~" && (operandType.name == "float" || operandType.name == "double"))
                 if (node.op == "~" && isNumericType(operandType) && !isIntegerExpression(node.operand, operandType))
                     report(node.location, "E0346 bitwise complement requires integer type");
                 if (!isNumericType(operandType) && operandType.kind != SemanticTypeKind::Unknown) {
@@ -6050,13 +6108,6 @@ namespace pcn {
                 }
                 else {
                     const auto arg = analyzeExpr(call.arguments[0]);
-                    bool fractionalLiteral = false;
-                    if (const auto* number = std::get_if<NumberExpr>(&call.arguments[0]->node)) {
-                        const auto& literal = number->value;
-                        fractionalLiteral = isFloatingNumericLiteral(literal);
-                    }
-                    if (arg.kind != SemanticTypeKind::Number ||
-                        arg.name == "float" || arg.name == "double" || fractionalLiteral)
                     if (!isIntegerExpression(call.arguments[0], arg))
                         report(call.location, "text." + member.member + " requires an integer argument");
                 }
@@ -6085,7 +6136,6 @@ namespace pcn {
                 else {
                     const auto needle = analyzeExpr(call.arguments[0]);
                     const auto start = analyzeExpr(call.arguments[1]);
-                    if (needle.kind != SemanticTypeKind::Text || !isIntegerLikeNumericType(start))
                     if (needle.kind != SemanticTypeKind::Text || !isIntegerExpression(call.arguments[1], start))
                         report(call.location, "text.find_from expects (text, integer)");
                 }
@@ -6095,10 +6145,6 @@ namespace pcn {
                 if (call.arguments.size() != 1)report(call.location, "text.codepoint_at expects exactly one byte index");
                 else {
                     const auto ty = analyzeExpr(call.arguments[0]);
-                    bool fractional = false;
-                    if (const auto* lit = std::get_if<NumberExpr>(&call.arguments[0]->node))
-                        fractional = isFloatingNumericLiteral(lit->value);
-                    if (ty.kind != SemanticTypeKind::Number || ty.name == "float" || ty.name == "double" || fractional)
                     if (!isIntegerExpression(call.arguments[0], ty))
                         report(call.location, "text.codepoint_at requires an integral byte index");
                 }
@@ -6120,12 +6166,6 @@ namespace pcn {
                 else {
                     for (const auto& argument : call.arguments) {
                         const auto ty = analyzeExpr(argument);
-                        bool decimalFraction = false;
-                        if (const auto* literal = std::get_if<NumberExpr>(&argument->node)) {
-                            decimalFraction = isFloatingNumericLiteral(literal->value);
-                        }
-                        if (ty.kind != SemanticTypeKind::Number || ty.name == "float" ||
-                            ty.name == "double" || decimalFraction)
                         if (!isIntegerExpression(argument, ty))
                             report(call.location, "text.slice requires integer byte offsets");
                     }
@@ -6172,24 +6212,6 @@ namespace pcn {
                     return intrinsic->name == "fib_big" ? makeTextType() : SemanticType{ SemanticTypeKind::Number, "long" };
                 }
                 const auto argument = analyzeExpr(node.arguments.front());
-                const auto isFloatingArgument = [&](const auto& self, const ExprPtr& expression) -> bool {
-                    if (!expression) return false;
-                    return std::visit([&](const auto& value) -> bool {
-                        using T = std::decay_t<decltype(value)>;
-                        if constexpr (std::is_same_v<T, NumberExpr>) return isFloatingNumericLiteral(value.value);
-                        else if constexpr (std::is_same_v<T, VariableExpr>) {
-                            const auto* symbol = lookupSymbol(value.name);
-                            return symbol && (symbol->type.name == "float" || symbol->type.name == "double");
-                        }
-                        else if constexpr (std::is_same_v<T, UnaryExpr>) return self(self, value.operand);
-                        else if constexpr (std::is_same_v<T, GroupExpr>) return self(self, value.expression);
-                        else if constexpr (std::is_same_v<T, BinaryExpr>) return self(self, value.left) || self(self, value.right);
-                        else return false;
-                    }, expression->node);
-                };
-                const bool floatingArgument = argument.name == "float" || argument.name == "double" ||
-                    isFloatingArgument(isFloatingArgument, node.arguments.front());
-                if ((!isIntegerLikeNumericType(argument) || floatingArgument) && argument.kind != SemanticTypeKind::Unknown)
                 if (!isIntegerExpression(node.arguments.front(), argument) && argument.kind != SemanticTypeKind::Unknown)
                     report(node.location, intrinsic->name + " requires an integer index");
                 if (intrinsic->name == "fib_big") {
@@ -6309,8 +6331,6 @@ namespace pcn {
                 report(node.location, "arithmetic operator '" + node.op + "' requires numbers");
             }
             checkNumericCompatibility(node, leftType, rightType);
-            if ((leftType.name == "float" || leftType.name == "double" || rightType.name == "float" || rightType.name == "double") &&
-                (node.op == "%" || node.op == "&" || node.op == "|" || node.op == "^" || node.op == "<<" || node.op == ">>"))
             if ((node.op == "%" || node.op == "&" || node.op == "|" || node.op == "^" || node.op == "<<" || node.op == ">>") &&
                 ((isNumericType(leftType) && !isIntegerExpression(node.left, leftType)) ||
                     (isNumericType(rightType) && !isIntegerExpression(node.right, rightType))))
@@ -6480,15 +6500,12 @@ namespace pcn {
                     const auto startType = node.start ? analyzeExpr(node.start) : makeUnknownType();
                     const auto endType = node.end ? analyzeExpr(node.end) : makeUnknownType();
                     const auto stepType = node.step ? analyzeExpr(node.step) : makeUnknownType();
-                    if (node.start && !isIntegerLikeNumericType(startType) && startType.kind != SemanticTypeKind::Unknown) {
                     if (node.start && !isIntegerExpression(node.start, startType) && startType.kind != SemanticTypeKind::Unknown) {
                         report(node.location, "range start must be an integer-compatible numeric value");
                     }
-                    if (node.end && !isIntegerLikeNumericType(endType) && endType.kind != SemanticTypeKind::Unknown) {
                     if (node.end && !isIntegerExpression(node.end, endType) && endType.kind != SemanticTypeKind::Unknown) {
                         report(node.location, "range end must be an integer-compatible numeric value");
                     }
-                    if (node.step && !isIntegerLikeNumericType(stepType) && stepType.kind != SemanticTypeKind::Unknown) {
                     if (node.step && !isIntegerExpression(node.step, stepType) && stepType.kind != SemanticTypeKind::Unknown) {
                         report(node.location, "range step must be an integer-compatible numeric value");
                     }
@@ -6567,16 +6584,9 @@ namespace pcn {
                     const bool isView = base.name.starts_with("view<") && base.name.ends_with(">");
                     if (isView) element = base.name.substr(5, base.name.size() - 6);
                     if (!isView && !typeIsArray(base.name, &element, &count)) { report(node.location, "indexing requires array<T,N> or view<T>"); return makeUnknownType(); }
-                    if (!isIntegerLikeNumericType(idx) ||
-                        (std::get_if<NumberExpr>(&node.index->node) &&
-                            isFloatingNumericLiteral(std::get<NumberExpr>(node.index->node).value)))
                     const auto* literal = groupedNumberLiteral(node.index);
                     if (!isIntegerExpression(node.index, idx))
                         report(node.location, "E0310 array index must be an integer");
-                    if (!isView) if (auto* lit = std::get_if<NumberExpr>(&node.index->node)) {
-                        if (isFloatingNumericLiteral(lit->value))report(node.location, "array index must be integer");
-                        else try { if (std::stoull(lit->value) >= count)report(node.location, "array index out of bounds"); }
-                        catch (...) { report(node.location, "invalid array index"); }
                     if (!isView && literal && !isFloatingNumericLiteral(literal->value)) try {
                         const auto index = parseParacineInteger(literal->value);
                         if (index < 0 || static_cast<std::uint64_t>(index) >= count)
@@ -6964,16 +6974,12 @@ namespace pcn {
                 const auto parsed = CanonicalTypeParser(typeName).parse();
                 std::unordered_set<std::string> parameters;
                 if (currentRoutine_) for (const auto& parameter : currentRoutine_->genericParameters) parameters.insert(parameter.name);
-                std::function<bool(const CanonicalTypeExpr&)> containsProtocol = [&](const CanonicalTypeExpr& t) {
                 std::function<bool(const CanonicalTypeExpr&)> containsMetadataOnly = [&](const CanonicalTypeExpr& t) {
                     const auto nominal = nominalTypes_.find(t.head);
-                    if (!t.tuple && !parameters.contains(t.head) && nominal != nominalTypes_.end() && nominal->second.info.kind == "protocol") return true;
-                    return std::any_of(t.args.begin(), t.args.end(), containsProtocol);
                     if (!t.tuple && !parameters.contains(t.head) && nominal != nominalTypes_.end() &&
                         isMetadataOnlyNominalKind(nominal->second.info.kind)) return true;
                     return std::any_of(t.args.begin(), t.args.end(), containsMetadataOnly);
                 };
-                return !containsProtocol(parsed) && canonicalKnownConcrete(parsed, nominalTypes_, closureSignatures_, parameters);
                 return !containsMetadataOnly(parsed) && canonicalKnownConcrete(parsed, nominalTypes_, closureSignatures_, parameters);
             }
             catch (...) {
@@ -7062,6 +7068,7 @@ namespace pcn {
         SemanticType currentReturnType_ = makeVoidType();
         std::size_t currentLoopDepth_ = 0;
         std::vector<std::string> loopLabels_;
+        std::vector<std::string> checkpointStack_;
     };
 
 
@@ -7234,7 +7241,6 @@ namespace pcn {
 
         void buildLayouts() {
             for (const auto& [name, n] : result_->nominalTypes) {
-                if (n.kind == "protocol") continue;
                 if (isMetadataOnlyNominalKind(n.kind)) continue;
                 auto [size, align] = layoutOf(name); SKMLayoutFact f; f.typeName = name; f.size = size; f.alignment = align;
                 if (n.kind == "record") { std::size_t off = 0; for (const auto& field : n.fields) { auto l = layoutOf(field.second); off = alignUpSize(off, l.second); f.fieldOffsets.push_back({ field.first,off }); off += l.first; } }
@@ -7374,7 +7380,6 @@ namespace pcn {
         std::string inferExprType(const ExprPtr& e) {
             if (!e)return "unknown";
             return std::visit([&](const auto& n)->std::string {using T = std::decay_t<decltype(n)>;
-            if constexpr (std::is_same_v<T, NumberExpr>)return "int";
             if constexpr (std::is_same_v<T, NumberExpr>)return isFloatingNumericLiteral(n.value) ? "double" : "int";
             else if constexpr (std::is_same_v<T, CharExpr>)return "char";
             else if constexpr (std::is_same_v<T, StringExpr>)return "text";
@@ -7382,7 +7387,6 @@ namespace pcn {
             else if constexpr (std::is_same_v<T, NullExpr>)return "null";
             else if constexpr (std::is_same_v<T, VariableExpr>) { if (auto* s = lookup(n.name))return s->typeName; return "unknown"; }
             else if constexpr (std::is_same_v<T, UnaryExpr>)return inferExprType(n.operand);
-            else if constexpr (std::is_same_v<T, BinaryExpr>) { if (n.op == "==" || n.op == "!=" || n.op == "<" || n.op == "<=" || n.op == ">" || n.op == ">=" || n.op == "and" || n.op == "or" || n.op == "&&" || n.op == "||")return "bool"; return inferExprType(n.left); }
             else if constexpr (std::is_same_v<T, BinaryExpr>) { if (n.op == "==" || n.op == "!=" || n.op == "<" || n.op == "<=" || n.op == ">" || n.op == ">=" || n.op == "and" || n.op == "or" || n.op == "&&" || n.op == "||")return "bool"; const auto left = inferExprType(n.left), right = inferExprType(n.right); return left == "float" || left == "double" ? left : right == "float" || right == "double" ? right : left; }
             else if constexpr (std::is_same_v<T, GroupExpr>)return inferExprType(n.expression);
             else if constexpr (std::is_same_v<T, ConstructExpr>)return n.typeName;
@@ -8364,9 +8368,6 @@ namespace pcn {
                 }, expr->node);
         }
 
-        void analyzeOwnership(const Program& program) {
-            for (const auto& routine : program.routines) {
-                ownershipRoutine_ = routine.name;
         void analyzeOwnership(const Program&) {
             for (const auto* routine : routines_) {
                 if (routine->isForeign) continue;
@@ -8384,8 +8385,6 @@ namespace pcn {
                 ownershipRoutine_ = closureName;
                 BorrowState state;
                 state.scopes.emplace_back();
-                for (const auto& p : routine->parameters) {
-                    state.scopes.back()[p.name] = BorrowSymbol{ p.typeName, p.mode == "var" || p.mode == "own", true, p.mode, {} };
                 for (const auto& capture : result_->skm.closureCaptures) {
                     if (capture.closureId != closure->closureId) continue;
                     const std::string mode = capture.kind == BorrowKind::Owned ? "own" :
@@ -8393,7 +8392,6 @@ namespace pcn {
                     state.scopes.back()[capture.name] = BorrowSymbol{
                         capture.typeName, capture.kind != BorrowKind::Shared, true, mode, {} };
                 }
-                analyzeBorrowStatements(routine->body, state, false);
                 for (const auto& parameter : closure->parameters)
                     state.scopes.back()[parameter.name] = BorrowSymbol{
                         parameter.typeName, parameter.mode == "var" || parameter.mode == "own", true, parameter.mode, {} };
@@ -8694,33 +8692,23 @@ namespace pcn {
                         return;
                     }
                     struct BorrowUse {
-                        bool shared = false;
-                        bool exclusive = false;
-                        bool owned = false;
-                        SourceLocation firstLocation{};
                         std::string root;
                         std::vector<std::string> projections;
                         std::string mode;
                         SourceLocation location;
                     };
-                    std::unordered_map<std::string, BorrowUse> borrowUses;
                     std::vector<BorrowUse> borrowUses;
                     for (std::size_t i = 0; i < node.arguments.size(); ++i) {
                         const auto& arg = node.arguments[i];
-                        const std::string mode = callee && i < callee->parameters.size() ? callee->parameters[i].mode : "shared";
                         const std::string mode = callArgumentMode(*result_, node, i);
                         const auto place = getBorrowPlace(arg, state);
                         if (!place) continue;
                         BorrowUse current{ place->rootName, place->projections, mode, arg->location };
                         for (const auto& previous : borrowUses) {
                             if (previous.root != current.root) continue;
-                            const bool mayAlias = pathsOverlap(previous.projections, current.projections);
-                            const bool checkedMayAlias = independentlyMayAlias(previous.projections, current.projections);
                             const bool mayAlias = true;
                             const bool checkedMayAlias = true;
                             const bool verified = mayAlias == checkedMayAlias;
-                            const auto leftName = placeName(previous);
-                            const auto rightName = placeName(current);
                             const auto leftName = placeName(previous.root, previous.projections);
                             const auto rightName = placeName(current.root, current.projections);
                             result_->skm.aliases.push_back({ ownershipRoutine_, leftName, rightName, mayAlias, current.location });
@@ -8731,9 +8719,6 @@ namespace pcn {
                             if (mayAlias && borrowModesConflict(previous.mode, current.mode))
                                 report(current.location, "E0434 conflicting borrows in call for value '" + current.root + "' (overlapping exclusive/owned access)");
                         }
-                        if (mode == "own") use.owned = true;
-                        else if (mode == "var") use.exclusive = true;
-                        else if (isSharedBorrowMode(mode)) use.shared = true;
                         borrowUses.push_back(std::move(current));
                     }
                     for (std::size_t i = 0; i < node.arguments.size(); ++i) {
@@ -8963,11 +8948,6 @@ namespace pcn {
         }
 
         SemanticAnalysisResult* result_ = nullptr;
-        std::unordered_map<std::string, const Routine*> routines_;
-        std::unordered_set<std::string> foreign_;
-        std::unordered_map<std::string, EffectFacts> effectFacts_;
-        std::vector<BorrowLoopFlow> loopFlows_;
-        std::vector<BorrowDeferredScope> deferredScopes_;
         std::vector<const Routine*> routines_;
         std::unordered_map<const Routine*, EffectFacts> effectFacts_;
         std::unordered_map<std::string, EffectFacts> closureEffectFacts_;
@@ -9884,6 +9864,7 @@ namespace pcn {
             loopContinueTargets_.clear();
             loopScopeDepths_.clear();
             loopLabels_.clear();
+            checkpointFrames_.clear();
             deferScopes_.clear();
             textViewOwners_.clear();
             ownedScopes_.clear();
@@ -9961,6 +9942,7 @@ namespace pcn {
         IRValueType irValueTypeFromName(const std::string& name) const {
             if (name == "void") return makeIRVoidType();
             if (name == "bool") return makeIRBoolType();
+            if (name == "char") return makeIRIntType();
             if (name == "float" || name == "double") return makeIRFloatType(name);
             if (isNumericTypeName(name)) return makeIRIntType();
             if (name == "text") return makeIRTextType();
@@ -10287,6 +10269,17 @@ namespace pcn {
                 else if constexpr (std::is_same_v<T, CheckpointStmt> || std::is_same_v<T, CommitStmt> ||
                     std::is_same_v<T, RollbackStmt> || std::is_same_v<T, RevertStmt>) {
                     throw std::runtime_error("E0623 reversible checkpoint operations are not implemented");
+                else if constexpr (std::is_same_v<T, CheckpointStmt>) {
+                    lowerCheckpoint(node);
+                }
+                else if constexpr (std::is_same_v<T, CommitStmt>) {
+                    lowerCommit(node);
+                }
+                else if constexpr (std::is_same_v<T, RollbackStmt>) {
+                    lowerRollback(node);
+                }
+                else if constexpr (std::is_same_v<T, RevertStmt>) {
+                    lowerRevert(node);
                 }
                 else if constexpr (std::is_same_v<T, BlockStmt>) {
                     lowerStatementList(node.statements);
@@ -10533,32 +10526,50 @@ namespace pcn {
                     IRInstruction save; save.op = IROpcode::Copy;
                     save.dest = allocateVReg(); save.args = { value }; save.valueType = lastValueType_;
                     value = save.dest; emit(std::move(save));
-                }
-                inst.args.push_back(value);
+                lowerReturnedValue(node.value);
+                return;
             }
+                inst.args.push_back(value);
+            IRInstruction inst; inst.op = IROpcode::Return; inst.valueType = makeIRVoidType();
+            emitPendingDefers(0);
+            emit(std::move(inst)); currentTerminated_ = true;
+        }
             else {
                 inst.valueType = makeIRVoidType();
             }
             emitPendingDefers(0, inst.valueType.kind == IRValueKind::String ? inst.args.front() : VReg::None);
             emit(std::move(inst));
             currentTerminated_ = true;
+
+        void lowerGive(const GiveStmt& node) {
+            lowerReturnedValue(node.value);
         }
 
         void lowerGive(const GiveStmt& node) {
             const auto inferred = lowerExprType(node.value);
+        void lowerReturnedValue(const ExprPtr& expression) {
+            const auto inferred = lowerExprType(expression);
             auto value = isOwnedStorageType(inferred.name)
                 ? lowerOwnedExpr(node.value, irValueTypeFromName(currentReturnType_))
                 : lowerExprWithExpected(node.value, irValueTypeFromName(currentReturnType_));
+                ? lowerOwnedExpr(expression, irValueTypeFromName(currentReturnType_))
+                : lowerExprWithExpected(expression, irValueTypeFromName(currentReturnType_));
             verifyBorrowDoesNotEscape(value, lastValueType_);
             if (currentReturnType_.rfind("result<", 0) == 0 && lastValueType_.kind != IRValueKind::Result) value = emitTagged(IROpcode::ResultOk, value, { IRValueKind::Result, currentReturnType_ });
             else if (currentReturnType_.rfind("option<", 0) == 0 && lastValueType_.kind != IRValueKind::Option) value = emitTagged(IROpcode::OptionSome, value, { IRValueKind::Option, currentReturnType_ });
             // Preserve the returned object/value before deferred cleanup runs.
+            if (currentReturnType_.rfind("result<", 0) == 0 && lastValueType_.kind != IRValueKind::Result)
+                value = emitTagged(IROpcode::ResultOk, value, { IRValueKind::Result, currentReturnType_ });
+            else if (currentReturnType_.rfind("option<", 0) == 0 && lastValueType_.kind != IRValueKind::Option)
+                value = emitTagged(IROpcode::OptionSome, value, { IRValueKind::Option, currentReturnType_ });
             if (!isOwnedStorageType(currentReturnType_)) {
                 IRInstruction save; save.op = IROpcode::Copy;
                 save.dest = allocateVReg(); save.args = { value }; save.valueType = irValueTypeFromName(currentReturnType_);
                 value = save.dest; emit(std::move(save));
             }
             IRInstruction inst; inst.op = IROpcode::Return; inst.args.push_back(value); inst.valueType = irValueTypeFromName(currentReturnType_);
+            IRInstruction inst; inst.op = IROpcode::Return; inst.args.push_back(value);
+            inst.valueType = irValueTypeFromName(currentReturnType_);
             emitPendingDefers(0, inst.valueType.kind == IRValueKind::String ? inst.args.front() : VReg::None);
             emit(std::move(inst)); currentTerminated_ = true;
         }
@@ -10948,6 +10959,88 @@ namespace pcn {
             const auto index = resolveLoopJumpTarget(node.label);
             emitPendingDefers(loopScopeDepths_.at(index));
             emitBranch(loopContinueTargets_.at(index));
+        }
+
+        // A checkpoint snapshots the current value of every local visible at its
+        // entry into fresh vregs; locals already have a single stable "home" vreg
+        // for their whole lifetime (lowerAssign/lowerLet always write through it),
+        // so restoring a snapshot is just copying the saved value back into that
+        // same home vreg. This costs nothing unless a checkpoint is actually used.
+        struct CheckpointFrame {
+            std::string name;
+            std::vector<std::pair<std::string, VReg>> snapshot;
+            BlockID afterBlock = BlockID::None;
+            std::size_t scopeDepth = 0;
+        };
+
+        void lowerCheckpoint(const CheckpointStmt& node) {
+            if (!node.recoverBody.empty())
+                throw std::runtime_error("E0623 checkpoint recover blocks are not implemented");
+            CheckpointFrame frame;
+            frame.name = node.name;
+            frame.scopeDepth = deferScopes_.size();
+            frame.snapshot.reserve(locals_.size());
+            for (const auto& [name, vreg] : locals_) {
+                const auto typeIt = localValueTypes_.find(name);
+                if (typeIt == localValueTypes_.end()) continue;
+                IRInstruction snapshot;
+                snapshot.op = IROpcode::Copy;
+                snapshot.dest = allocateVReg();
+                snapshot.args = { vreg };
+                snapshot.valueType = typeIt->second;
+                emit(snapshot);
+                frame.snapshot.push_back({ name, snapshot.dest });
+            }
+            BlockID afterBlock = createBlock("checkpoint.after");
+            frame.afterBlock = afterBlock;
+            checkpointFrames_.push_back(std::move(frame));
+            lowerStatementList(node.body);
+            checkpointFrames_.pop_back();
+            if (!currentTerminated_) emitBranch(afterBlock);
+            currentBlock_ = afterBlock;
+            currentTerminated_ = false;
+        }
+
+        void lowerCommit(const CommitStmt&) {
+            // Commit is a semantic affirmation that the active checkpoint's current
+            // values are intentional; it requires no lowering because a checkpoint's
+            // snapshot is only ever consulted by a later revert/rollback of that
+            // same checkpoint, not by simply falling off the end of its body.
+        }
+
+        void lowerCheckpointUnwind(const std::string& name) {
+            std::size_t targetIndex = checkpointFrames_.size();
+            for (std::size_t i = checkpointFrames_.size(); i != 0; --i) {
+                if (checkpointFrames_[i - 1].name == name) { targetIndex = i - 1; break; }
+            }
+            if (targetIndex == checkpointFrames_.size())
+                throw std::runtime_error("PCIR unresolved checkpoint target @" + name);
+            // Pending defers observe the live (pre-restore) values, exactly like a
+            // break/continue crossing out of nested scopes.
+            emitPendingDefers(checkpointFrames_[targetIndex].scopeDepth);
+            for (std::size_t i = checkpointFrames_.size(); i-- > targetIndex; ) {
+                for (const auto& [varName, snapVreg] : checkpointFrames_[i].snapshot) {
+                    auto it = locals_.find(varName);
+                    if (it == locals_.end()) continue;
+                    IRInstruction restore;
+                    restore.op = IROpcode::Copy;
+                    restore.dest = it->second;
+                    restore.args = { snapVreg };
+                    restore.valueType = localValueTypes_.at(varName);
+                    emit(restore);
+                }
+            }
+            emitBranch(checkpointFrames_[targetIndex].afterBlock);
+        }
+
+        void lowerRevert(const RevertStmt& node) {
+            lowerCheckpointUnwind(node.name);
+        }
+
+        void lowerRollback(const RollbackStmt& node) {
+            if (node.failure)
+                throw std::runtime_error("E0623 rollback with a failure payload is not implemented");
+            lowerCheckpointUnwind(node.name);
         }
 
         void lowerUnsafe(const UnsafeStmt& node) {
@@ -12120,6 +12213,7 @@ namespace pcn {
         std::vector<BlockID> loopContinueTargets_;
         std::vector<std::size_t> loopScopeDepths_;
         std::vector<std::string> loopLabels_;
+        std::vector<CheckpointFrame> checkpointFrames_;
         std::optional<SourceSpan> activeSourceSpan_;
         std::vector<std::vector<ExprPtr>> deferScopes_;
         std::vector<std::vector<VReg>> ownedScopes_;
@@ -12231,6 +12325,23 @@ namespace pcn {
             return op == IROpcode::Branch || op == IROpcode::BranchIf || op == IROpcode::Return;
         }
 
+        static bool compatibleValueTypes(const IRValueType& left, const IRValueType& right) {
+            if (left.kind == IRValueKind::Unknown || right.kind == IRValueKind::Unknown) return true;
+            if (left.kind != right.kind) return false;
+            switch (left.kind) {
+            case IRValueKind::Aggregate: case IRValueKind::Result: case IRValueKind::Option:
+            case IRValueKind::Closure: case IRValueKind::Function:
+                return left.name == right.name;
+            default:
+                return true;
+            }
+        }
+
+        static bool isNumericValueType(const IRValueType& type) {
+            return type.kind == IRValueKind::Int64 || type.kind == IRValueKind::Float32 ||
+                type.kind == IRValueKind::Float64;
+        }
+
         void verifyFunction(const IRFunction& fn, std::vector<std::string>& errors) const {
             if (fn.blocks.empty()) { errors.push_back(fn.name + ": has no basic blocks"); return; }
             std::unordered_set<std::uint32_t> blockIds;
@@ -12245,6 +12356,25 @@ namespace pcn {
                 return r != VReg::None && v <= fn.totalVregs;
                 };
             for (const auto& p : fn.parameterVregs) if (!validReg(p)) errors.push_back(fn.name + ": invalid parameter vreg");
+            std::unordered_map<std::uint32_t, IRValueType> registerTypes;
+            std::unordered_set<std::uint32_t> conflictingTypes;
+            auto recordType = [&](VReg reg, const IRValueType& type) {
+                if (!validReg(reg) || type.kind == IRValueKind::Unknown) return;
+                const auto id = static_cast<std::uint32_t>(reg);
+                const auto [it, inserted] = registerTypes.emplace(id, type);
+                if (!inserted && !compatibleValueTypes(it->second, type) && conflictingTypes.insert(id).second)
+                    errors.push_back(fn.name + ": inconsistent PCIR register type for v" + std::to_string(id));
+            };
+            for (std::size_t i = 0; i < fn.parameterVregs.size() && i < fn.parameterValueTypes.size(); ++i)
+                recordType(fn.parameterVregs[i], fn.parameterValueTypes[i]);
+            for (const auto& block : fn.blocks) {
+                for (const auto& phi : block.phiNodes) recordType(phi.dest, phi.valueType);
+                for (const auto& inst : block.instructions) recordType(inst.dest, inst.valueType);
+            }
+            auto typeOf = [&](VReg reg) {
+                const auto it = registerTypes.find(static_cast<std::uint32_t>(reg));
+                return it == registerTypes.end() ? makeIRUnknownType() : it->second;
+            };
             // A valid vreg number does not establish that any instruction produced
             // its contents. Check the complete function def-use universe; branch-
             // specific initialization is handled separately by semantic dataflow.
@@ -12301,6 +12431,11 @@ namespace pcn {
                     if (!phi && !inst.phiInputs.empty()) errors.push_back(fn.name + ": PHI inputs on ordinary instruction");
                     if (phi && (inst.dest == VReg::None || !inst.args.empty() || !inst.targetBlocks.empty()))
                         errors.push_back(fn.name + ": malformed PHI in " + block.labelName);
+                    if (phi) for (const auto& [predecessor, value] : inst.phiInputs) {
+                        (void)predecessor;
+                        if (!compatibleValueTypes(inst.valueType, typeOf(value)))
+                            errors.push_back(fn.name + ": PHI input type differs from destination in " + block.labelName);
+                    }
                     };
                 for (const auto& phi : block.phiNodes) checkInst(phi, true);
                 for (std::size_t i = 0; i < block.instructions.size(); ++i) {
@@ -12312,6 +12447,30 @@ namespace pcn {
                     auto requireValueShape = [&](std::size_t arity) {
                         if (inst.dest == VReg::None || inst.args.size() != arity)
                             errors.push_back(fn.name + ": malformed scalar opcode #" + std::to_string(static_cast<int>(inst.op)) + " in " + block.labelName);
+                    };
+                    auto requireResultKind = [&](IRValueKind expected) {
+                        if (inst.valueType.kind != expected)
+                            errors.push_back(fn.name + ": scalar opcode has incompatible result type in " + block.labelName);
+                    };
+                    auto requireOperandTypes = [&](bool sameAsResult) {
+                        if (inst.args.size() != 2) return;
+                        const auto left = typeOf(inst.args[0]);
+                        const auto right = typeOf(inst.args[1]);
+                        const bool integerMaskMultiply = sameAsResult && inst.op == IROpcode::Mul &&
+                            inst.valueType.kind == IRValueKind::Int64 &&
+                            (left.kind == IRValueKind::Int64 || left.kind == IRValueKind::Bool) &&
+                            (right.kind == IRValueKind::Int64 || right.kind == IRValueKind::Bool);
+                        const bool resultCompatible = compatibleValueTypes(left, inst.valueType) ||
+                            (integerMaskMultiply && (left.kind == IRValueKind::Int64 || left.kind == IRValueKind::Bool));
+                        if ((!compatibleValueTypes(left, right) && !integerMaskMultiply) ||
+                            (sameAsResult && !resultCompatible))
+                            errors.push_back(fn.name + ": scalar opcode has incompatible operand types in " + block.labelName);
+                    };
+                    auto requireUnaryType = [&](bool sameAsResult) {
+                        if (inst.args.size() != 1) return;
+                        const auto operand = typeOf(inst.args.front());
+                        if (sameAsResult && !compatibleValueTypes(operand, inst.valueType))
+                            errors.push_back(fn.name + ": scalar opcode has incompatible operand type in " + block.labelName);
                     };
                     switch (inst.op) {
                     case IROpcode::ConstInt: case IROpcode::ConstFloat: case IROpcode::ConstText:
@@ -12327,6 +12486,59 @@ namespace pcn {
                         requireValueShape(2); break;
                     default: break;
                     }
+                    switch (inst.op) {
+                    case IROpcode::Copy:
+                        requireUnaryType(true);
+                        break;
+                    case IROpcode::Neg: {
+                        requireUnaryType(true);
+                        if (!isNumericValueType(inst.valueType))
+                            errors.push_back(fn.name + ": negation requires a numeric result type in " + block.labelName);
+                        break;
+                    }
+                    case IROpcode::BitNot:
+                        requireUnaryType(true);
+                        if (inst.valueType.kind != IRValueKind::Int64)
+                            errors.push_back(fn.name + ": bitwise complement requires an integer result type in " + block.labelName);
+                        break;
+                    case IROpcode::Not:
+                        requireUnaryType(true);
+                        requireResultKind(IRValueKind::Bool);
+                        break;
+                    case IROpcode::Add: case IROpcode::Sub: case IROpcode::Mul: case IROpcode::Div:
+                        requireOperandTypes(true);
+                        if (!isNumericValueType(inst.valueType))
+                            errors.push_back(fn.name + ": arithmetic opcode requires a numeric result type in " + block.labelName);
+                        break;
+                    case IROpcode::Mod: case IROpcode::BitAnd: case IROpcode::BitOr:
+                    case IROpcode::BitXor: case IROpcode::Shl: case IROpcode::Shr:
+                        requireOperandTypes(true);
+                        if (inst.valueType.kind != IRValueKind::Int64)
+                            errors.push_back(fn.name + ": integer opcode requires an integer result type in " + block.labelName);
+                        break;
+                    case IROpcode::Eq: case IROpcode::Ne:
+                        requireOperandTypes(false);
+                        requireResultKind(IRValueKind::Bool);
+                        break;
+                    case IROpcode::Lt: case IROpcode::Le: case IROpcode::Gt: case IROpcode::Ge:
+                        requireOperandTypes(false);
+                        if (!isNumericValueType(typeOf(inst.args.empty() ? VReg::None : inst.args.front())) ||
+                            !compatibleValueTypes(typeOf(inst.args.empty() ? VReg::None : inst.args.front()), typeOf(inst.args.size() < 2 ? VReg::None : inst.args.back())))
+                            errors.push_back(fn.name + ": ordered comparison requires matching numeric operands in " + block.labelName);
+                        requireResultKind(IRValueKind::Bool);
+                        break;
+                    case IROpcode::And: case IROpcode::Or: {
+                        const auto left = inst.args.empty() ? makeIRUnknownType() : typeOf(inst.args.front());
+                        const auto right = inst.args.size() < 2 ? makeIRUnknownType() : typeOf(inst.args.back());
+                        if ((left.kind != IRValueKind::Unknown && left.kind != IRValueKind::Bool) ||
+                            (right.kind != IRValueKind::Unknown && right.kind != IRValueKind::Bool) ||
+                            inst.valueType.kind != IRValueKind::Bool)
+                            errors.push_back(fn.name + ": logical opcode requires Boolean operands and result in " + block.labelName);
+                        break;
+                    }
+                    default:
+                        break;
+                    }
                     const auto kind = inst.valueType.kind;
                     if ((inst.op == IROpcode::ConstInt && kind != IRValueKind::Int64) ||
                         (inst.op == IROpcode::ConstFloat && kind != IRValueKind::Float32 && kind != IRValueKind::Float64) ||
@@ -12340,8 +12552,14 @@ namespace pcn {
                         errors.push_back(fn.name + ": control-flow instruction has a destination in " + block.labelName);
                     if (inst.op == IROpcode::Branch && !inst.args.empty())
                         errors.push_back(fn.name + ": unconditional branch has operands in " + block.labelName);
+                    if (inst.op == IROpcode::BranchIf && inst.args.size() == 1 && typeOf(inst.args.front()).kind != IRValueKind::Unknown &&
+                        typeOf(inst.args.front()).kind != IRValueKind::Bool)
+                        errors.push_back(fn.name + ": conditional branch requires a Boolean condition in " + block.labelName);
                     if (inst.op == IROpcode::Return && inst.args.size() != (fn.returnType == "void" ? 0u : 1u))
                         errors.push_back(fn.name + ": return operand count does not match function return in " + block.labelName);
+                    if (inst.op == IROpcode::Return && inst.args.size() == 1 && fn.valueType.kind != IRValueKind::Void &&
+                        fn.valueType.kind != IRValueKind::Unknown && !compatibleValueTypes(typeOf(inst.args.front()), fn.valueType))
+                        errors.push_back(fn.name + ": return operand type does not match function result in " + block.labelName);
                     if (inst.isVariadicCall && (inst.op != IROpcode::Call || inst.variadicFixedArgs == 0 ||
                         inst.variadicFixedArgs > inst.args.size()))
                         errors.push_back(fn.name + ": malformed foreign variadic call metadata");
@@ -12378,7 +12596,6 @@ namespace pcn {
                         inst.valueType.kind != IRValueKind::Text || inst.dest == VReg::None))
                         errors.push_back(fn.name + ": malformed checked UTF-8 text slice");
                     if (inst.op == IROpcode::TextEndsWith && (inst.args.size() != 2 ||
-                        inst.valueType.kind != IRValueKind::Bool))
                         inst.dest == VReg::None || inst.valueType.kind != IRValueKind::Bool))
                         errors.push_back(fn.name + ": malformed text suffix comparison");
                     if (inst.op == IROpcode::ProcessRun && (inst.args.size() != 1 ||
@@ -13766,7 +13983,6 @@ namespace pcn {
 
     static std::set<std::string> collectABITypeNames(const IRProgram& program) {
         std::set<std::string> types = { "text", "option<bool>", "option<char>" };
-        for (const auto& [name, nominal] : program.nominalTypes) if (nominal.kind != "protocol") types.insert(name);
         for (const auto& [name, nominal] : program.nominalTypes)
             if (!isMetadataOnlyNominalKind(nominal.kind)) types.insert(name);
         for (const auto& c : program.skm.closures) types.insert("closure$" + std::to_string(c.closureId));
@@ -14759,7 +14975,6 @@ namespace pcn {
             std::vector<std::string> errors; std::unordered_set<std::string> names; RichABIResolver abi(program.skm, program.nominalTypes);
             for (const auto& fn : program.functions) {
                 if (!names.insert(fn.name).second)errors.push_back("duplicate PMIR function: " + fn.name); if ((fn.frameSize & 15u) != 0)errors.push_back(fn.name + ": frame is not 16-byte aligned"); if (fn.outgoingArea < 32)errors.push_back(fn.name + ": Microsoft x64 shadow space is missing"); if (fn.richReturn && !fn.sretCellOffset)errors.push_back(fn.name + ": rich return missing hidden sret cell");
-                std::unordered_set<std::uint32_t>blocks; for (const auto& b : fn.blocks)blocks.insert(b.id); auto slotOK = [&](std::uint32_t s) {return s == 0 || (s <= fn.totalSlots && fn.slots.contains(s)); }; for (auto p : fn.parameterSlots)if (!slotOK(p) || p == 0)errors.push_back(fn.name + ": invalid parameter stack slot");
                 std::unordered_set<std::uint32_t> blocks;
                 std::unordered_map<std::uint32_t, const PMIRBlock*> byId;
                 if (fn.blocks.empty()) errors.push_back(fn.name + ": PMIR function has no basic blocks");
@@ -14823,8 +15038,6 @@ namespace pcn {
                         requireScalar(2); break;
                     default: break;
                     }
-                for (const auto& b : fn.blocks)for (const auto& i : b.instructions) {
-                    if (!slotOK(i.destSlot))errors.push_back(fn.name + ": invalid PMIR destination slot"); for (auto x : i.srcSlots)if (!slotOK(x) || x == 0)errors.push_back(fn.name + ": invalid PMIR source slot"); for (auto t : i.targets)if (!blocks.contains(t))errors.push_back(fn.name + ": invalid PMIR branch target"); if (i.op == PMIROpcode::Branch && i.targets.size() != 1)errors.push_back(fn.name + ": PMIR branch requires one target"); if (i.op == PMIROpcode::BranchIf && (i.targets.size() != 2 || i.srcSlots.size() != 1))errors.push_back(fn.name + ": PMIR conditional branch shape invalid");
                     if (i.isVariadicCall && (i.op != PMIROpcode::Call || i.variadicFixedArgs == 0 ||
                         i.variadicFixedArgs > i.srcSlots.size()))
                         errors.push_back(fn.name + ": malformed foreign variadic call metadata");
@@ -14899,7 +15112,6 @@ namespace pcn {
     struct MachineListingLine { std::size_t offset = 0; std::vector<std::uint8_t>bytes; std::string text; std::vector<SourceSpan> sourceSpans; };
     struct MachineProgram { struct ImportCall { std::size_t dispPos; std::string symbol; }; struct ExternalCall { std::size_t dispPos; std::string symbol; }; std::vector<ImportCall> imports; std::vector<ExternalCall> externalCalls; std::vector<std::uint8_t>text; std::unordered_map<std::string, std::uint32_t>functionOffsets; std::unordered_map<std::string, std::uint32_t>functionSizes; std::vector<MachineListingLine>listing; std::uint32_t entryOffset = 0; std::string entryName; bool systemV = false; };
 
-class MachineVerifier { public:std::vector<std::string>verify(const MachineProgram& machine)const { std::vector<std::string>errors; if (machine.text.empty())errors.push_back("machine text section is empty"); if (!machine.entryName.empty()) { auto it = machine.functionOffsets.find(machine.entryName); if (it == machine.functionOffsets.end() || it->second != machine.entryOffset)errors.push_back("entry point does not match selected function"); }std::vector<std::pair<std::uint32_t, std::uint32_t>>ranges; for (const auto& [name, off] : machine.functionOffsets) { auto sz = machine.functionSizes.find(name); if (sz == machine.functionSizes.end()) { errors.push_back("missing machine function size: " + name); continue; }if (static_cast<std::uint64_t>(off) + sz->second > machine.text.size())errors.push_back("machine function outside .text: " + name); ranges.emplace_back(off, off + sz->second); }std::sort(ranges.begin(), ranges.end()); for (std::size_t i = 1; i < ranges.size(); ++i)if (ranges[i].first < ranges[i - 1].second)errors.push_back("machine function ranges overlap"); for (const auto& line : machine.listing) { if (line.offset + line.bytes.size() > machine.text.size()) { errors.push_back("machine listing outside .text"); continue; }if (!std::equal(line.bytes.begin(), line.bytes.end(), machine.text.begin() + static_cast<std::ptrdiff_t>(line.offset)))errors.push_back("decoded listing does not match final encoded bytes"); }return errors; } };
 class MachineVerifier {
 public:
     std::vector<std::string> verify(const MachineProgram& machine) const {
@@ -20038,8 +20250,10 @@ public:
                                   });
                                   test("PCIR cyclic phis are parallel across oracle and native lowering", [&] {
                                       IRProgram program; IRFunction function; function.name = "main"; function.returnType = "int"; function.valueType = makeIRIntType(); function.totalVregs = 12;
+                                      IRProgram program; IRFunction function; function.name = "main"; function.returnType = "int"; function.valueType = makeIRIntType(); function.totalVregs = 14;
                                       IRBasicBlock entry; entry.id = static_cast<BlockID>(1);
                                       for (const auto& [reg, number] : std::vector<std::pair<unsigned,int>>{ {1,1},{2,2},{3,1},{6,1},{8,10} }) {
+                                      for (const auto& [reg, number] : std::vector<std::pair<unsigned,int>>{ {1,1},{2,2},{3,1},{6,1},{8,10},{13,0} }) {
                                           IRInstruction constant; constant.op = IROpcode::ConstInt; constant.dest = static_cast<VReg>(reg); constant.valueType = makeIRIntType(); constant.literalText = std::to_string(number); entry.instructions.push_back(constant);
                                       }
                                       IRInstruction branch; branch.op = IROpcode::Branch; branch.targetBlocks = { static_cast<BlockID>(2) }; entry.instructions.push_back(branch);
@@ -20049,6 +20263,8 @@ public:
                                       }
                                       IRInstruction decrement; decrement.op = IROpcode::Sub; decrement.dest = static_cast<VReg>(10); decrement.valueType = makeIRIntType(); decrement.args = { static_cast<VReg>(9),static_cast<VReg>(6) }; loop.instructions.push_back(decrement);
                                       branch.op = IROpcode::BranchIf; branch.args = { static_cast<VReg>(9) }; branch.targetBlocks = { loop.id,static_cast<BlockID>(3) }; loop.instructions.push_back(branch);
+                                      IRInstruction condition; condition.op = IROpcode::Ne; condition.dest = static_cast<VReg>(14); condition.valueType = makeIRBoolType(); condition.args = { static_cast<VReg>(9),static_cast<VReg>(13) }; loop.instructions.push_back(condition);
+                                      branch.op = IROpcode::BranchIf; branch.args = { static_cast<VReg>(14) }; branch.targetBlocks = { loop.id,static_cast<BlockID>(3) }; loop.instructions.push_back(branch);
                                       IRBasicBlock exit; exit.id = static_cast<BlockID>(3);
                                       IRInstruction result; result.op = IROpcode::Mul; result.dest = static_cast<VReg>(11); result.valueType = makeIRIntType(); result.args = { static_cast<VReg>(4),static_cast<VReg>(8) }; exit.instructions.push_back(result);
                                       result.op = IROpcode::Add; result.dest = static_cast<VReg>(12); result.args = { static_cast<VReg>(11),static_cast<VReg>(5) }; exit.instructions.push_back(result);
@@ -20086,6 +20302,17 @@ public:
                                       };
                                       if (!PCIRVerifier{}.verify(program).empty()) throw std::runtime_error("valid diamond PHI rejected");
                                       auto invalid = program; invalid.functions[0].blocks[3].phiNodes[0].phiInputs.pop_back();
+                                      auto invalid = program;
+                                      invalid.functions[0].blocks[2].instructions[0].op = IROpcode::ConstBool;
+                                      invalid.functions[0].blocks[2].instructions[0].valueType = makeIRBoolType();
+                                      invalid.functions[0].blocks[2].instructions[0].immediate = 1;
+                                      if (!rejects(invalid, "PHI input type differs from destination")) throw std::runtime_error("PHI with a mismatched input type accepted");
+                                      invalid = program;
+                                      invalid.functions[0].blocks[0].instructions[0].op = IROpcode::ConstInt;
+                                      invalid.functions[0].blocks[0].instructions[0].valueType = makeIRIntType();
+                                      invalid.functions[0].blocks[0].instructions[0].literalText = "1";
+                                      if (!rejects(invalid, "conditional branch requires a Boolean condition")) throw std::runtime_error("integer branch condition accepted");
+                                      invalid = program; invalid.functions[0].blocks[3].phiNodes[0].phiInputs.pop_back();
                                       if (!rejects(invalid, "PHI missing incoming predecessor bb_3")) throw std::runtime_error("missing PHI edge accepted");
                                       invalid = program; invalid.functions[0].blocks[3].phiNodes[0].phiInputs.push_back({ left.id,static_cast<VReg>(2) });
                                       if (!rejects(invalid, "duplicate PHI predecessor")) throw std::runtime_error("duplicate PHI edge accepted");
@@ -20625,6 +20852,7 @@ public:
                                       });
                                   test("PCIR checks scalar opcode and control-flow shapes", [&] {
                                       IRProgram program; IRFunction fn; fn.name = "main"; fn.returnType = "int"; fn.totalVregs = 3;
+                                      IRProgram program; IRFunction fn; fn.name = "main"; fn.returnType = "int"; fn.valueType = makeIRIntType(); fn.totalVregs = 3;
                                       IRBasicBlock block; block.id = static_cast<BlockID>(1); block.labelName = "entry";
                                       IRInstruction constant; constant.op = IROpcode::ConstInt; constant.valueType = makeIRIntType(); constant.literalText = "1";
                                       constant.dest = static_cast<VReg>(1); block.instructions.push_back(constant);
@@ -20652,6 +20880,20 @@ public:
                                       }
                                       auto invalid = program; invalid.functions[0].blocks[0].instructions[0].valueType = makeIRTextType();
                                       if (!rejects(invalid, "constant opcode has incompatible result type")) throw std::runtime_error("constant accepted wrong type");
+                                      invalid = program;
+                                      auto& mixedOperand = invalid.functions[0].blocks[0].instructions[1];
+                                      mixedOperand.op = IROpcode::ConstFloat; mixedOperand.valueType = makeIRFloatType("double"); mixedOperand.literalText = "1.0";
+                                      if (!rejects(invalid, "scalar opcode has incompatible operand types")) throw std::runtime_error("mixed integer/floating arithmetic accepted");
+                                      invalid = program; invalid.functions[0].blocks[0].instructions[2].valueType = makeIRBoolType();
+                                      if (!rejects(invalid, "arithmetic opcode requires a numeric result type")) throw std::runtime_error("integer arithmetic with Boolean result accepted");
+                                      invalid = program; invalid.functions[0].valueType = makeIRFloatType("double");
+                                      if (!rejects(invalid, "return operand type does not match function result")) throw std::runtime_error("integer return from floating function accepted");
+                                      invalid = program; invalid.functions[0].blocks[0].instructions[0].valueType = makeIRBoolType();
+                                      invalid.functions[0].blocks[0].instructions[0].op = IROpcode::ConstBool;
+                                      invalid.functions[0].blocks[0].instructions[0].immediate = 1;
+                                      invalid.functions[0].blocks[0].instructions[2].op = IROpcode::And;
+                                      invalid.functions[0].blocks[0].instructions[2].valueType = makeIRBoolType();
+                                      if (!rejects(invalid, "logical opcode requires Boolean operands")) throw std::runtime_error("logical operation accepted an integer operand");
                                       invalid = program; invalid.functions[0].blocks[0].instructions[0].targetBlocks = { block.id };
                                       if (!rejects(invalid, "branch targets on non-branch")) throw std::runtime_error("non-branch accepted target");
                                       invalid = program; invalid.functions[0].blocks[0].instructions.back().args.clear();
@@ -20666,7 +20908,6 @@ public:
                                       PMIRProgram program; PMIRFunction fn; fn.name = "frame"; fn.frameSize = 96; fn.outgoingArea = 32; fn.totalSlots = 2;
                                       PMIRSlotInfo first; first.cellOffset = 8; first.type = makeIRIntType();
                                       PMIRSlotInfo second; second.cellOffset = 16; second.rich = true; second.type = makeIRTextType(); second.objectOffset = 40; second.objectSize = 16; second.objectAlignment = 8;
-                                      fn.slots.emplace(1, first); fn.slots.emplace(2, second); fn.richReturn = true; fn.sretCellOffset = 48; program.functions.push_back(fn);
                                       fn.slots.emplace(1, first); fn.slots.emplace(2, second); fn.richReturn = true; fn.sretCellOffset = 48;
                                       fn.returnType = "void"; PMIRBlock entry; entry.id = 1; entry.label = "entry";
                                       PMIRInstruction ret; ret.op = PMIROpcode::Return; entry.instructions.push_back(ret); fn.blocks.push_back(entry); program.functions.push_back(fn);
@@ -20868,6 +21109,24 @@ public:
                                           "routine main() gives int\n    rollback @update\n",
                                           "routine main() gives int\n    rollback @update fail 7\n",
                                           "routine main() gives int\n    checkpoint @outer\n        checkpoint @inner\n            rollback @outer\n    give 0\n"
+                                  test("checkpoint revert rollback and commit execute reversible state", [&] {
+                                      // revert restores every local mutated since the checkpoint's entry
+                                      // and resumes execution immediately after the checkpoint statement.
+                                      const std::string revertSource =
+                                          "routine main() gives int\n    var n: int = 40\n    checkpoint @update\n        n = n + 2\n        revert @update\n    give n\n";
+                                      // rollback (without a failure payload) is an exact alias for revert and
+                                      // can cascade outward past an arbitrary number of nested checkpoints.
+                                      const std::string nestedRollbackSource =
+                                          "routine main() gives int\n    var n: int = 1\n    checkpoint @outer\n        n = 9\n        checkpoint @inner\n            n = 99\n            rollback @outer\n        n = 999\n    give n\n";
+                                      // commit is a no-op affirmation: without a later revert/rollback, mutations
+                                      // made inside the checkpoint body simply stick.
+                                      const std::string commitSource =
+                                          "routine main() gives int\n    var n: int = 1\n    checkpoint @c\n        n = n + 1\n        commit @c\n    give n\n";
+                                      // revert works identically inside a nested closure routine.
+                                      const std::string closureSource =
+                                          "routine main() gives int\n    let action = routine() gives int\n        checkpoint @update\n            revert @update\n        give 1\n    give action()\n";
+                                      const std::vector<std::pair<std::string, int>> cases = {
+                                          { revertSource, 40 }, { nestedRollbackSource, 1 }, { commitSource, 2 }, { closureSource, 1 }
                                       };
                                       for (int level : { 0, 3 }) {
                                           CompilerOptions options; options.optimizationLevel = level;
@@ -20875,26 +21134,82 @@ public:
                                               const auto artifacts = compileAll(source, options, false);
                                               if (!hasDiagnostic(artifacts.analysis, "E0623") || !artifacts.pcir.functions.empty())
                                                   throw std::runtime_error("reversible operation was not rejected before lowering");
+                                          for (const auto& [source, expected] : cases) {
+                                              const auto artifacts = compileAll(source, options);
+                                              if (!artifacts.analysis.succeeded())
+                                                  throw std::runtime_error("reversible checkpoint program failed to compile");
+                                              if (PCIRInterpreter(artifacts.pcir).run("") != expected)
+                                                  throw std::runtime_error("reversible checkpoint program produced an incorrect interpreted result");
+#if defined(_WIN32)
+                                              const auto file = std::filesystem::temp_directory_path() / ("paracine-checkpoint-" + std::to_string(std::uint64_t(std::chrono::steady_clock::now().time_since_epoch().count())) + ".exe");
+                                              struct CleanupCheckpoint { std::filesystem::path path; ~CleanupCheckpoint() { std::error_code ec; std::filesystem::remove(path, ec); } } cleanup{ file };
+                                              writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(artifacts.pcir, artifacts.pmir, artifacts.machine));
+                                              if (runNativeExecutable(file) != expected)
+                                                  throw std::runtime_error("reversible checkpoint program produced an incorrect native result");
+#elif defined(__linux__) && defined(__x86_64__)
+                                              if (executeEmittedMachineTextIsolated(artifacts.machine) != expected)
+                                                  throw std::runtime_error("reversible checkpoint program produced an incorrect native result");
+#endif
                                           }
-                                          for (const auto& source : {
+                                      }
+                                      // Unreachable checkpoint operations are ordinary dead code (a warning),
+                                      // not a hard rejection, now that the statements have real semantics.
+                                      {
+                                          CompilerOptions options;
+                                          const auto artifacts = compileAll("routine main() gives int\n    give 0\n    revert @update\n", options, false);
+                                          if (!artifacts.analysis.succeeded() || artifacts.pcir.functions.empty())
+                                              throw std::runtime_error("unreachable revert should compile as dead code, not fail closed");
+                                      }
+                                      // A revert/rollback/commit naming a checkpoint that is not lexically
+                                      // enclosing is rejected with E0627, independent of E0623.
+                                      for (const auto& source : {
                                               "routine main() gives int\n    give 0\n    revert @update\n",
                                               "routine main() gives int\n    let action = routine() gives int\n        checkpoint @update\n            revert @update\n        give 1\n    give action()\n"
                                               }) {
                                               const auto artifacts = compileAll(source, options, false);
-                                              if (!hasDiagnostic(artifacts.analysis, "E0623") || !artifacts.pcir.functions.empty())
+                                          "routine main() gives int\n    commit @update\n    give 0\n",
+                                          "routine main() gives int\n    revert @update\n    give 0\n",
+                                          "routine main() gives int\n    rollback @update\n" }) {
+                                          const auto artifacts = compileAll(source, CompilerOptions{}, false);
+                                          if (!hasDiagnostic(artifacts.analysis, "E0627") || !artifacts.pcir.functions.empty())
+                                              throw std::runtime_error("checkpoint operation naming an unknown label was accepted");
+                                      }
+                                      // The failure-payload and recover-binding forms remain explicitly
+                                      // unimplemented and fail closed with E0623.
+                                      for (const auto& source : {
+                                          "routine main() gives int\n    var n: int = 0\n    checkpoint @c\n        rollback @c fail 7\n    give n\n",
+                                          "routine main() gives int\n    checkpoint @c\n        var n: int = 0\n    recover err\n        give 0\n    give 1\n" }) {
+                                          const auto artifacts = compileAll(source, CompilerOptions{}, false);
+                                          if (!hasDiagnostic(artifacts.analysis, "E0623") || !artifacts.pcir.functions.empty())
                                                   throw std::runtime_error("nested or unreachable reversible operation was not rejected");
-                                          }
+                                              throw std::runtime_error("unimplemented checkpoint recover/failure form was accepted");
+                                      }
+                                      // Direct PCIR lowering (bypassing semantic analysis) matches: bare
+                                      // checkpoint/revert/rollback/commit lower successfully, while the
+                                      // recover and failure-payload forms still throw E0623. Closure
+                                      // conversion is a separate pass, so the closure case is exercised
+                                      // only through the full compileAll pipeline above.
+                                      for (const auto& source : { revertSource, nestedRollbackSource, commitSource }) {
+                                          const auto program = Parser(Lexer(source).tokenize()).parse();
+                                          (void)IRLowerer{}.lower(program);
                                       }
                                       for (const auto& source : sources) {
+                                      for (const auto& source : {
+                                          "routine main() gives int\n    var n: int = 0\n    checkpoint @c\n        rollback @c fail 7\n    give n\n",
+                                          "routine main() gives int\n    checkpoint @c\n        var n: int = 0\n    recover err\n        give 0\n    give 1\n" }) {
                                           const auto program = Parser(Lexer(source).tokenize()).parse();
+                                          bool rejected = false;
                                           try { (void)IRLowerer{}.lower(program); }
                                           catch (const std::runtime_error& error) {
                                               if (std::string(error.what()).find("E0623") != std::string::npos) continue;
                                               throw;
+                                              rejected = std::string(error.what()).find("E0623") != std::string::npos;
                                           }
                                           throw std::runtime_error("direct PCIR lowering accepted a reversible operation");
+                                          if (!rejected) throw std::runtime_error("direct PCIR lowering accepted an unimplemented checkpoint form");
                                       }
                                   });
+
                                   test("2027 capsules families chains and globals", [&] {
                                       const auto src =
                                           "capsule Account\n"
@@ -21256,10 +21571,56 @@ public:
                                               throw std::runtime_error("compatibility keyword category overlaps or was lost: " + keyword);
                                       }
                                       const auto tokens = Lexer("return_ yield_ each otherwise case enum union use compile layout packed align null return returns\n").tokenize();
+                                      const auto tokens = Lexer("return_ yield_ each otherwise case enum union use compile layout packed align null return elif raise returns\n").tokenize();
                                       for (std::size_t i = 0; i < tokens.size() - 2; ++i) {
                                           const auto expected = tokens[i].text == "returns" ? TokenKind::Identifier : TokenKind::Keyword;
                                           if (tokens[i].kind != expected) throw std::runtime_error("keyword changed category: " + tokens[i].text);
                                       }
+                                  });
+                                  test("raise rejects a non-result return context", [&] {
+                                      const auto artifacts = compileAll("routine main() gives int\n    raise \"failure\"\n", CompilerOptions{}, false);
+                                      if (!hasDiagnostic(artifacts.analysis, "E0502 fail requires a result<T,E> return type"))
+                                          throw std::runtime_error("raise did not enforce the typed-result context");
+                                  });
+                                  test("elif chains parse and execute through native lowering", [&] {
+                                      const std::string source =
+                                          "routine classify(value: int) gives int\n"
+                                          "    if value < 0\n        give 10\n"
+                                          "    elif value == 0\n        give 20\n"
+                                          "    elif value < 5\n        give 30\n"
+                                          "    else\n        give 42\n"
+                                          "routine main() gives int\n"
+                                          "    if classify(-1) != 10\n        give 1\n"
+                                          "    elif classify(0) != 20\n        give 2\n"
+                                          "    elif classify(4) != 30\n        give 3\n"
+                                          "    elif classify(5) != 42\n        give 4\n"
+                                          "    give 42\n";
+                                      for (int level : { 0, 3 }) {
+                                          CompilerOptions options; options.optimizationLevel = level;
+                                          const auto compiled = compileAll(source, options);
+                                          if (!compiled.analysis.succeeded()) {
+                                              std::string diagnostics;
+                                              for (const auto& diagnostic : compiled.analysis.diagnostics)
+                                                  diagnostics += " [" + diagnostic.message + "]";
+                                              throw std::runtime_error("elif chain semantic diagnostics:" + diagnostics);
+                                          }
+                                          const auto interpreted = PCIRInterpreter(compiled.pcir).run("");
+                                          if (interpreted != 42)
+                                              throw std::runtime_error("elif chain produced PCIR result " + std::to_string(interpreted));
+#if defined(_WIN32)
+                                          const auto file = std::filesystem::temp_directory_path() / ("paracine-elif-" + std::to_string(std::uint64_t(std::chrono::steady_clock::now().time_since_epoch().count())) + ".exe");
+                                          struct CleanupElif { std::filesystem::path path; ~CleanupElif() { std::error_code ec; std::filesystem::remove(path, ec); } } cleanup{ file };
+                                          writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(compiled.pcir, compiled.pmir, compiled.machine));
+                                          if (runNativeExecutable(file) != 42) throw std::runtime_error("elif chain produced an incorrect native result");
+#elif defined(__linux__) && defined(__x86_64__)
+                                          if (executeEmittedMachineTextIsolated(compiled.machine) != 42)
+                                              throw std::runtime_error("elif chain produced an incorrect native result");
+#endif
+                                      }
+                                      bool rejected = false;
+                                      try { (void)Parser(Lexer("routine main() gives int\n    elif true\n        give 1\n").tokenize()).parse(); }
+                                      catch (const std::runtime_error&) { rejected = true; }
+                                      if (!rejected) throw std::runtime_error("elif without a preceding if was accepted");
                                   });
                                   test("blank and comment-only lines do not insert leading NEWLINE", [&] {
                                       const auto ts = Lexer("\n# comment\n\nroutine main() gives int\n\n    # body comment\n    give 0\n").tokenize();
@@ -22152,13 +22513,113 @@ public:
                                       });
                                   test("SAGE fail contributes trap effect", [&] {
                                       const auto artifacts = compileAll(
+                                  test("return and give share successful Result and Option construction", [&] {
+                                      const std::string source =
+                                          "routine via_give_result() gives result<int, text>\n    give 41\n"
+                                          "routine via_return_result() gives result<int, text>\n    return 41\n"
+                                          "routine via_give_option() gives option<int>\n    give 40\n"
+                                          "routine via_return_option() gives option<int>\n    return 40\n"
+                                          "routine main() gives int\n"
+                                          "    let a = via_give_result()\n    let b = via_return_result()\n"
+                                          "    let c = via_give_option()\n    let d = via_return_option()\n    give 42\n";
+                                      for (int level : { 0, 3 }) {
+                                          CompilerOptions options; options.optimizationLevel = level;
+                                          const auto artifacts = compileAll(source, options);
+                                          if (!artifacts.analysis.succeeded() || PCIRInterpreter(artifacts.pcir).run("") != 42)
+                                              throw std::runtime_error("return/give Result or Option construction failed");
+                                          const auto countOpcode = [&](const std::string& name, IROpcode opcode) {
+                                              const auto function = std::find_if(artifacts.pcir.functions.begin(), artifacts.pcir.functions.end(),
+                                                  [&](const auto& candidate) { return candidate.name == name; });
+                                              if (function == artifacts.pcir.functions.end()) return std::size_t{ 0 };
+                                              std::size_t count = 0;
+                                              for (const auto& block : function->blocks) for (const auto& instruction : block.instructions)
+                                                  if (instruction.op == opcode) ++count;
+                                              return count;
+                                          };
+                                          if (countOpcode("via_give_result", IROpcode::ResultOk) != 1 ||
+                                              countOpcode("via_return_result", IROpcode::ResultOk) != 1 ||
+                                              countOpcode("via_give_option", IROpcode::OptionSome) != 1 ||
+                                              countOpcode("via_return_option", IROpcode::OptionSome) != 1)
+                                              throw std::runtime_error("return and give did not emit matching success wrappers");
+#if defined(_WIN32)
+                                          const auto file = std::filesystem::temp_directory_path() / ("paracine-return-wrapping-" + std::to_string(std::uint64_t(std::chrono::steady_clock::now().time_since_epoch().count())) + ".exe");
+                                          struct CleanupReturnWrapping { std::filesystem::path path; ~CleanupReturnWrapping() { std::error_code ec; std::filesystem::remove(path, ec); } } cleanup{ file };
+                                          writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(artifacts.pcir, artifacts.pmir, artifacts.machine));
+                                          if (runNativeExecutable(file) != 42) throw std::runtime_error("native return/give wrapper result mismatch");
+#elif defined(__linux__) && defined(__x86_64__)
+                                          if (executeEmittedMachineTextIsolated(artifacts.machine) != 42)
+                                              throw std::runtime_error("native return/give wrapper result mismatch");
+#endif
+                                      }
+                                  });
+                                  test("return_ is the canonical spelling of return and shares identical lowering", [&] {
+                                      const std::string source =
+                                          "routine via_return_() gives result<int, text>\n    return_ 19\n"
+                                          "routine via_return() gives result<int, text>\n    return 19\n"
+                                          "routine bare_void()\n    return_\n"
+                                          "routine main() gives int\n"
+                                          "    let a = via_return_()\n    let b = via_return()\n    bare_void()\n    return_ 42\n";
+                                      for (int level : { 0, 3 }) {
+                                          CompilerOptions options; options.optimizationLevel = level;
+                                          const auto artifacts = compileAll(source, options);
+                                          if (!artifacts.analysis.succeeded() || PCIRInterpreter(artifacts.pcir).run("") != 42)
+                                              throw std::runtime_error("return_ did not behave identically to return");
+                                          const auto countOpcode = [&](const std::string& name, IROpcode opcode) {
+                                              const auto function = std::find_if(artifacts.pcir.functions.begin(), artifacts.pcir.functions.end(),
+                                                  [&](const auto& candidate) { return candidate.name == name; });
+                                              if (function == artifacts.pcir.functions.end()) return std::size_t{ 0 };
+                                              std::size_t count = 0;
+                                              for (const auto& block : function->blocks) for (const auto& instruction : block.instructions)
+                                                  if (instruction.op == opcode) ++count;
+                                              return count;
+                                          };
+                                          if (countOpcode("via_return_", IROpcode::ResultOk) != countOpcode("via_return", IROpcode::ResultOk))
+                                              throw std::runtime_error("return_ emitted different success wrapping than return");
+#if defined(_WIN32)
+                                          const auto file = std::filesystem::temp_directory_path() / ("paracine-return-underscore-" + std::to_string(std::uint64_t(std::chrono::steady_clock::now().time_since_epoch().count())) + ".exe");
+                                          struct CleanupReturnUnderscore { std::filesystem::path path; ~CleanupReturnUnderscore() { std::error_code ec; std::filesystem::remove(path, ec); } } cleanup{ file };
+                                          writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(artifacts.pcir, artifacts.pmir, artifacts.machine));
+                                          if (runNativeExecutable(file) != 42) throw std::runtime_error("native return_ result mismatch");
+#elif defined(__linux__) && defined(__x86_64__)
+                                          if (executeEmittedMachineTextIsolated(artifacts.machine) != 42)
+                                              throw std::runtime_error("native return_ result mismatch");
+#endif
+                                      }
+                                  });
+                                  test("fail and raise produce typed recoverable results without trap effects", [&] {
+                                      const std::string prefix =
+                                          "routine fail_form() gives result<int, text>\n"
+                                          "    fail \"boom\"\n"
+                                          "routine raise_form() gives result<int, text>\n"
+                                          "    raise \"boom\"\n"
                                           "routine main() gives int\n"
                                           "    fail \"boom\"\n",
                                           CompilerOptions{}, false);
                                       auto it = artifacts.analysis.resolvedEffects.find("main#0");
                                       if (it == artifacts.analysis.resolvedEffects.end() || !it->second.contains("trap"))
                                           throw std::runtime_error("missing trap effect inference");
-                                      });
+                                          "    give 42\n";
+                                      auto artifacts = compileAll(prefix, CompilerOptions{}, false);
+                                      if (!artifacts.analysis.succeeded()) throw std::runtime_error("typed error forms failed semantic analysis");
+                                      for (const auto& name : { "fail_form", "raise_form" }) {
+                                          const auto effects = artifacts.analysis.resolvedEffects.find(std::string(name) + "#0");
+                                          if (effects == artifacts.analysis.resolvedEffects.end() || effects->second.contains("trap"))
+                                              throw std::runtime_error(std::string(name) + " incorrectly contributes terminal trap effect");
+                                          const auto function = std::find_if(artifacts.pcir.functions.begin(), artifacts.pcir.functions.end(),
+                                              [&](const auto& candidate) { return candidate.name == name; });
+                                          if (function == artifacts.pcir.functions.end() || std::none_of(function->blocks.begin(), function->blocks.end(),
+                                              [](const auto& block) { return std::any_of(block.instructions.begin(), block.instructions.end(),
+                                                  [](const auto& instruction) { return instruction.op == IROpcode::ResultErr; }); }))
+                                              throw std::runtime_error(std::string(name) + " did not lower to a typed error result");
+                                      }
+                                      auto badErrorType = compileAll(
+                                          "routine main() gives result<int, text>\n    raise 42\n", CompilerOptions{}, false);
+                                      if (!hasDiagnostic(badErrorType.analysis, "fail error type mismatch"))
+                                          throw std::runtime_error("raise did not validate the declared error type");
+                                      const auto tokens = Lexer("raise fail\n").tokenize();
+                                      if (tokens[0].kind != TokenKind::Keyword || tokens[1].kind != TokenKind::Keyword)
+                                          throw std::runtime_error("recoverable-error keywords were not reserved");
+                                  });
                                   test("SAGE effects follow selected overloads and variadic foreign calls", [&] {
                                       auto analyze = [](const std::string& source) {
                                           auto program = Parser(Lexer(source).tokenize()).parse();
@@ -23859,9 +24320,11 @@ public:
                                   test("modules: unsupported reversible and dynamic operations", [&] {
                                       ModuleFixture fixture;
                                       fixture.write("a.pcn", "module alpha\npublic routine step() gives int\n    checkpoint @update\n        revert @update\n    give 0\n");
+                                      fixture.write("a.pcn", "module alpha\npublic routine step() gives int\n    var n: int = 0\n    checkpoint @update\n        rollback @update fail 7\n    give n\n");
                                       const auto checkpoint = fixture.compile("import a\nroutine main() gives int\n    give step()\n");
                                       if (!hasDiagnostic(checkpoint.analysis, "E0623") || !checkpoint.pcir.functions.empty())
                                           throw std::runtime_error("imported checkpoint was not rejected");
+                                          throw std::runtime_error("imported rollback-with-failure-payload was not rejected");
                                       fixture.write("a.pcn", "module alpha\npublic routine step() gives int\n    let action = routine(value: int) gives int => value\n    let boxed = box_closure(action)\n    give 0\n");
                                       const auto boxed = fixture.compile("import a\nroutine main() gives int\n    give step()\n");
                                       if (!hasDiagnostic(boxed.analysis, "E0622") || !boxed.pcir.functions.empty())
