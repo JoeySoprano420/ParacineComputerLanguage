@@ -43,6 +43,8 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
+#include <sys/prctl.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <unistd.h>
 #endif
@@ -2182,6 +2184,7 @@ namespace pcn {
         Shl,
         Shr,
         Neg,
+        Sqrt,
         BitNot,
         Not,
         Eq,
@@ -2521,6 +2524,15 @@ namespace pcn {
     }
     static bool typeIsOption(const std::string& typeName, std::string* valueType = nullptr) {
         try { auto t = CanonicalTypeParser(typeName).parse(); if (t.head != "option" || t.args.size() != 1)return false; if (valueType)*valueType = canonicalTypeText(t.args[0]); return true; }
+        catch (...) { return false; }
+    }
+    static bool typeIsComplex(const std::string& typeName, std::string* componentType = nullptr) {
+        try {
+            const auto t = CanonicalTypeParser(typeName).parse();
+            if (t.head != "complex" || t.args.size() != 1) return false;
+            if (componentType) *componentType = canonicalTypeText(t.args.front());
+            return true;
+        }
         catch (...) { return false; }
     }
 
@@ -4253,6 +4265,19 @@ namespace pcn {
             return false;
         }
 
+        bool genericConstructionAhead() const {
+            if (!checkSymbol("<")) return false;
+            std::size_t depth = 0;
+            for (std::size_t i = index_; i < tokens_.size(); ++i) {
+                const auto& t = tokens_[i];
+                if (t.kind == TokenKind::Newline || t.kind == TokenKind::EndOfFile) return false;
+                if (t.kind == TokenKind::Symbol && t.text == "<") ++depth;
+                else if (t.kind == TokenKind::Symbol && t.text == ">") { if (--depth == 0) return i + 1 < tokens_.size() && tokens_[i + 1].kind == TokenKind::Symbol && tokens_[i + 1].text == "{"; }
+                else if (t.kind == TokenKind::Symbol && t.text == ">>") { if (depth <= 2) return i + 1 < tokens_.size() && tokens_[i + 1].kind == TokenKind::Symbol && tokens_[i + 1].text == "{"; depth -= 2; }
+            }
+            return false;
+        }
+
         std::vector<std::string> parseCallGenericArguments() {
             std::vector<std::string> args;
             expectSymbol("<");
@@ -4390,6 +4415,16 @@ namespace pcn {
                     auto span = SourceSpan{ expr ? expr->span.start : token.location, memberToken.span.end };
                     expr = makeExpr(MemberExpr{ expr, memberToken.text, span, memberToken.location }, span, memberToken.location);
                 }
+                std::string typeName = token.text;
+                if (std::holds_alternative<VariableExpr>(expr->node) && genericConstructionAhead()) {
+                    const auto genericArguments = parseCallGenericArguments();
+                    typeName += "<";
+                    for (std::size_t i = 0; i < genericArguments.size(); ++i) {
+                        if (i) typeName += ",";
+                        typeName += genericArguments[i];
+                    }
+                    typeName += ">";
+                }
                 if (matchSymbol("{")) {
                     std::vector<ConstructField> fields;
                     if (!checkSymbol("}")) {
@@ -4407,6 +4442,9 @@ namespace pcn {
                     std::string typeName = token.text;
                     auto span = SourceSpan{ token.location, close.span.end };
                     expr = makeExpr(ConstructExpr{ typeName, std::move(fields), span, close.location }, span, close.location);
+                }
+                else if (typeName != token.text) {
+                    throw std::runtime_error("generic type arguments in a construction must be followed by a field initializer");
                 }
                 return expr;
             }
@@ -4758,6 +4796,7 @@ namespace pcn {
                 }
                 const std::unordered_map<std::string, std::size_t> genericArity = {
                     { "result",2 },{ "option",1 },{ "array",2 },{ "span",1 },
+                    { "result",2 },{ "option",1 },{ "array",2 },{ "span",1 },{ "complex",1 },
                     { "ref",1 },{ "mut",1 },{ "buffer",1 },{ "atomic",1 },
                     { "vec",2 },{ "map",2 },{ "set",1 }
                 };
@@ -4773,6 +4812,13 @@ namespace pcn {
                     return false;
                 }
                 bool valid = true;
+                if (t.head == "complex" && t.args.size() == 1) {
+                    const auto component = canonicalTypeText(t.args.front());
+                    if (component != "float" && component != "double") {
+                        report(loc, "E0628 complex<T> currently requires T to be float or double; decimal and posit components are not implemented");
+                        return false;
+                    }
+                }
                 for (std::size_t i = 0; i < t.args.size(); ++i) {
                     if ((t.head == "array" || t.head == "vec") && i == 1) {
                         const auto& size = t.args[i].head;
@@ -6206,6 +6252,20 @@ namespace pcn {
 
         SemanticType analyzeCallExpr(const CallExpr& node) {
             if (const auto* intrinsic = node.callee ? std::get_if<VariableExpr>(&node.callee->node) : nullptr;
+                intrinsic && intrinsic->name == "sqrt") {
+                if (node.arguments.size() != 1) {
+                    report(node.location, "sqrt requires exactly one float or double argument");
+                    for (const auto& argument : node.arguments) analyzeExpr(argument);
+                    return makeUnknownType();
+                }
+                const auto argument = analyzeExpr(node.arguments.front());
+                const bool floatingExpression = containsFloatingNumericExpression(node.arguments.front());
+                if (argument.kind != SemanticTypeKind::Unknown && argument.name != "float" &&
+                    argument.name != "double" && !(argument.kind == SemanticTypeKind::Number && floatingExpression))
+                    report(node.location, "sqrt requires a float or double argument, got " + semanticTypeName(argument));
+                return argument.name == "float" ? semanticTypeFromName("float") : semanticTypeFromName("double");
+            }
+            if (const auto* intrinsic = node.callee ? std::get_if<VariableExpr>(&node.callee->node) : nullptr;
                 intrinsic && (intrinsic->name == "fib" || intrinsic->name == "fib_big")) {
                 if (node.arguments.size() != 1) {
                     report(node.location, intrinsic->name + " requires exactly one integer argument");
@@ -6327,6 +6387,16 @@ namespace pcn {
         }
 
         SemanticType analyzeArithmeticBinary(const BinaryExpr& node, const SemanticType& leftType, const SemanticType& rightType) {
+            std::string leftComponent, rightComponent;
+            const bool leftComplex = typeIsComplex(leftType.name, &leftComponent);
+            const bool rightComplex = typeIsComplex(rightType.name, &rightComponent);
+            if (leftComplex || rightComplex) {
+                if (!leftComplex || !rightComplex || leftType.name != rightType.name)
+                    report(node.location, "E0345 complex arithmetic requires matching component types; explicit conversion is required");
+                else if (node.op != "+" && node.op != "-" && node.op != "*" && node.op != "/")
+                    report(node.location, "complex arithmetic supports only +, -, *, and /; ordering and integer operators are not defined");
+                return leftComplex ? leftType : makeUnknownType();
+            }
             if ((!isNumericType(leftType) || !isNumericType(rightType)) && leftType.kind != SemanticTypeKind::Unknown && rightType.kind != SemanticTypeKind::Unknown) {
                 report(node.location, "arithmetic operator '" + node.op + "' requires numbers");
             }
@@ -6353,13 +6423,22 @@ namespace pcn {
         }
 
         SemanticType analyzeComparisonBinary(const BinaryExpr& node, const SemanticType& leftType, const SemanticType& rightType) {
+            std::string leftComponent, rightComponent;
+            const bool matchingComplex = typeIsComplex(leftType.name, &leftComponent) &&
+                typeIsComplex(rightType.name, &rightComponent) && leftType.name == rightType.name;
             const bool numericCompare = isNumericType(leftType) && isNumericType(rightType);
             const bool charCompare = leftType.name == "char" && rightType.name == "char";
             const bool textCompare = isTextLikeType(leftType) && isTextLikeType(rightType);
             if (!numericCompare && !charCompare && !textCompare && leftType.kind != SemanticTypeKind::Unknown && rightType.kind != SemanticTypeKind::Unknown) {
                 report(node.location, "comparison operator '" + node.op + "' requires numbers or text/string operands");
+            if (!numericCompare && !charCompare && !textCompare && !matchingComplex && leftType.kind != SemanticTypeKind::Unknown && rightType.kind != SemanticTypeKind::Unknown) {
+                report(node.location, "comparison operator '" + node.op + "' requires compatible numbers, complex values, or text/string operands");
             }
             if (numericCompare) checkNumericCompatibility(node, leftType, rightType);
+            if (typeIsComplex(leftType.name) && !matchingComplex)
+                report(node.location, "E0345 complex comparison requires identical component types");
+            if (matchingComplex && node.op != "==" && node.op != "!=")
+                report(node.location, "complex values do not have an ordering relation");
             return makeBoolType();
         }
 
@@ -6615,6 +6694,12 @@ namespace pcn {
 
         SemanticType analyzeMemberExpr(const MemberExpr& node) {
             auto objectType = analyzeExpr(node.object);
+            std::string complexComponent;
+            if (typeIsComplex(objectType.name, &complexComponent)) {
+                if (node.member == "real" || node.member == "imag") return semanticTypeFromName(complexComponent);
+                report(node.location, "unknown complex member: " + node.member);
+                return makeUnknownType();
+            }
             if (objectType.kind == SemanticTypeKind::Custom) {
                 if ((objectType.name.starts_with("view<") || objectType.name.starts_with("span<")) && node.member == "count")
                     return semanticTypeFromName("size");
@@ -6641,6 +6726,24 @@ namespace pcn {
         }
 
         SemanticType analyzeConstructExpr(const ConstructExpr& node) {
+            std::string complexComponent;
+            if (typeIsComplex(node.typeName, &complexComponent)) {
+                std::unordered_set<std::string> supplied;
+                for (const auto& field : node.fields) {
+                    if (!supplied.insert(field.name).second) report(field.location, "duplicate complex component '" + field.name + "'");
+                    if (field.name != "real" && field.name != "imag") {
+                        report(field.location, "complex construction accepts only real and imag components");
+                        if (field.value) analyzeExpr(field.value);
+                        continue;
+                    }
+                    const auto valueType = field.value ? analyzeExpr(field.value) : makeUnknownType();
+                    if (!isAssignableTo(semanticTypeFromName(complexComponent), valueType))
+                        report(field.location, "complex component type mismatch: expected " + complexComponent + ", got " + semanticTypeName(valueType));
+                }
+                for (const auto* required : { "real", "imag" })
+                    if (!supplied.contains(required)) report(node.location, "missing complex component '" + std::string(required) + "'");
+                return makeCustomType(node.typeName);
+            }
             const auto* nominal = findNominalType(node.typeName);
             for (const auto& field : node.fields) {
                 if (field.value) {
@@ -9948,6 +10051,7 @@ namespace pcn {
             if (name == "text") return makeIRTextType();
             if (name == "string") return makeIRStringType();
             if (name == "null") return makeIRNullType();
+            if (typeIsComplex(name)) return { IRValueKind::Aggregate, name };
             if (name.rfind("result<", 0) == 0) return { IRValueKind::Result, name };
             if (name.rfind("option<", 0) == 0) return { IRValueKind::Option, name };
             if (name.rfind("closure$", 0) == 0) return { IRValueKind::Closure, name };
@@ -10540,13 +10644,13 @@ namespace pcn {
             emitPendingDefers(0, inst.valueType.kind == IRValueKind::String ? inst.args.front() : VReg::None);
             emit(std::move(inst));
             currentTerminated_ = true;
-
-        void lowerGive(const GiveStmt& node) {
-            lowerReturnedValue(node.value);
         }
 
         void lowerGive(const GiveStmt& node) {
             const auto inferred = lowerExprType(node.value);
+            lowerReturnedValue(node.value);
+        }
+
         void lowerReturnedValue(const ExprPtr& expression) {
             const auto inferred = lowerExprType(expression);
             auto value = isOwnedStorageType(inferred.name)
@@ -11301,6 +11405,15 @@ namespace pcn {
                     IRInstruction inst; inst.op = IROpcode::MakeAggregate;
                     inst.dest = allocateVReg(); inst.typeName = node.typeName;
                     inst.valueType = { IRValueKind::Aggregate, node.typeName };
+                    std::string complexComponent;
+                    if (typeIsComplex(node.typeName, &complexComponent)) {
+                        for (const auto& field : node.fields) {
+                            const auto value = lowerExprWithExpected(field.value, irValueTypeFromName(complexComponent));
+                            inst.args.push_back(value); inst.argumentTypes.push_back(field.name);
+                            inst.argumentValueTypes.push_back(irValueTypeFromName(complexComponent));
+                        }
+                    }
+                    else {
                     const auto enumType = nominalEnumTagIndex_.find(node.typeName);
                     const auto variant = nominalVariantTagIndex_.find(node.typeName);
                     if (enumType != nominalEnumTagIndex_.end()) {
@@ -11348,6 +11461,7 @@ namespace pcn {
                             inst.argumentValueTypes.push_back(lastValueType_);
                         }
                     }
+                    }
                     const auto dest = inst.dest;
                     emit(std::move(inst));
                     lastValueType_ = { IRValueKind::Aggregate, node.typeName };
@@ -11356,6 +11470,9 @@ namespace pcn {
                 else if constexpr (std::is_same_v<T, MemberExpr>) {
                     auto objectType = lowerExprType(node.object);
                     IRValueType fieldType = makeIRUnknownType();
+                    std::string complexComponent;
+                    if (typeIsComplex(objectType.name, &complexComponent) && (node.member == "real" || node.member == "imag"))
+                        fieldType = irValueTypeFromName(complexComponent);
                     if ((objectType.name.starts_with("view<") || objectType.name.starts_with("span<")) && node.member == "count") fieldType = irValueTypeFromName("size");
                     if (auto nt = nominalFieldTypes_.find(objectType.name); nt != nominalFieldTypes_.end()) {
                         if (auto ft = nt->second.find(node.member); ft != nt->second.end()) fieldType = irValueTypeFromName(ft->second);
@@ -11427,6 +11544,8 @@ namespace pcn {
                 }
                 else if constexpr (std::is_same_v<T, BinaryExpr>) {
                     auto a = lowerExprType(node.left), b = lowerExprType(node.right);
+                    if (typeIsComplex(a.name) && a.name == b.name)
+                        return node.op == "==" || node.op == "!=" ? makeIRBoolType() : a;
                     if (a.kind == IRValueKind::Float32 || a.kind == IRValueKind::Float64) {
                         auto result = binaryValueType(node.op);
                         return result.kind == IRValueKind::Bool ? result : a;
@@ -11504,6 +11623,8 @@ namespace pcn {
                 }
                 else if constexpr (std::is_same_v<T, MemberExpr>) {
                     auto objectType = lowerExprType(node.object);
+                    std::string complexComponent;
+                    if (typeIsComplex(objectType.name, &complexComponent) && (node.member == "real" || node.member == "imag")) return irValueTypeFromName(complexComponent);
                     if ((objectType.name.starts_with("view<") || objectType.name.starts_with("span<")) && node.member == "count") return irValueTypeFromName("size");
                     if (auto nt = nominalFieldTypes_.find(objectType.name); nt != nominalFieldTypes_.end()) if (auto ft = nt->second.find(node.member); ft != nt->second.end()) return irValueTypeFromName(ft->second);
                     return makeIRUnknownType();
@@ -11563,7 +11684,77 @@ namespace pcn {
             return dest;
         }
 
+        VReg lowerComplexBinary(const BinaryExpr& node, const IRValueType& complexType) {
+            std::string componentType;
+            if (!typeIsComplex(complexType.name, &componentType))
+                throw std::runtime_error("invalid built-in complex type " + complexType.name);
+            const auto left = lowerExpr(node.left);
+            const auto right = lowerExpr(node.right);
+            auto extract = [&](VReg aggregate, const char* field) {
+                IRInstruction instruction; instruction.op = IROpcode::ExtractField;
+                instruction.dest = allocateVReg(); instruction.args = { aggregate };
+                instruction.typeName = complexType.name; instruction.literalText = field;
+                instruction.valueType = irValueTypeFromName(componentType);
+                const auto result = instruction.dest; emit(std::move(instruction)); return result;
+            };
+            const auto realLeft = extract(left, "real"), imagLeft = extract(left, "imag");
+            const auto realRight = extract(right, "real"), imagRight = extract(right, "imag");
+            auto scalar = [&](IROpcode opcode, VReg a, VReg b, const IRValueType& resultType) {
+                IRInstruction instruction; instruction.op = opcode; instruction.dest = allocateVReg();
+                const auto operandType = opcode == IROpcode::And || opcode == IROpcode::Or
+                    ? makeIRBoolType() : irValueTypeFromName(componentType);
+                instruction.args = { a,b }; instruction.argumentValueTypes = { operandType, operandType };
+                instruction.valueType = resultType;
+                const auto result = instruction.dest; emit(std::move(instruction)); return result;
+            };
+            if (node.op == "==" || node.op == "!=") {
+                const auto equalReal = scalar(IROpcode::Eq, realLeft, realRight, makeIRBoolType());
+                const auto equalImag = scalar(IROpcode::Eq, imagLeft, imagRight, makeIRBoolType());
+                const auto equalBoth = scalar(IROpcode::And, equalReal, equalImag, makeIRBoolType());
+                if (node.op == "==") { lastValueType_ = makeIRBoolType(); return equalBoth; }
+                IRInstruction negate; negate.op = IROpcode::Not; negate.dest = allocateVReg();
+                negate.args = { equalBoth }; negate.valueType = makeIRBoolType();
+                const auto result = negate.dest; emit(std::move(negate)); lastValueType_ = makeIRBoolType(); return result;
+            }
+            VReg realResult = VReg::None, imagResult = VReg::None;
+            if (node.op == "+" || node.op == "-") {
+                const auto opcode = node.op == "+" ? IROpcode::Add : IROpcode::Sub;
+                realResult = scalar(opcode, realLeft, realRight, irValueTypeFromName(componentType));
+                imagResult = scalar(opcode, imagLeft, imagRight, irValueTypeFromName(componentType));
+            }
+            else if (node.op == "*") {
+                const auto ac = scalar(IROpcode::Mul, realLeft, realRight, irValueTypeFromName(componentType));
+                const auto bd = scalar(IROpcode::Mul, imagLeft, imagRight, irValueTypeFromName(componentType));
+                const auto ad = scalar(IROpcode::Mul, realLeft, imagRight, irValueTypeFromName(componentType));
+                const auto bc = scalar(IROpcode::Mul, imagLeft, realRight, irValueTypeFromName(componentType));
+                realResult = scalar(IROpcode::Sub, ac, bd, irValueTypeFromName(componentType));
+                imagResult = scalar(IROpcode::Add, ad, bc, irValueTypeFromName(componentType));
+            }
+            else if (node.op == "/") {
+                const auto cc = scalar(IROpcode::Mul, realRight, realRight, irValueTypeFromName(componentType));
+                const auto dd = scalar(IROpcode::Mul, imagRight, imagRight, irValueTypeFromName(componentType));
+                const auto denominator = scalar(IROpcode::Add, cc, dd, irValueTypeFromName(componentType));
+                const auto ac = scalar(IROpcode::Mul, realLeft, realRight, irValueTypeFromName(componentType));
+                const auto bd = scalar(IROpcode::Mul, imagLeft, imagRight, irValueTypeFromName(componentType));
+                const auto bc = scalar(IROpcode::Mul, imagLeft, realRight, irValueTypeFromName(componentType));
+                const auto ad = scalar(IROpcode::Mul, realLeft, imagRight, irValueTypeFromName(componentType));
+                const auto realNumerator = scalar(IROpcode::Add, ac, bd, irValueTypeFromName(componentType));
+                const auto imagNumerator = scalar(IROpcode::Sub, bc, ad, irValueTypeFromName(componentType));
+                realResult = scalar(IROpcode::Div, realNumerator, denominator, irValueTypeFromName(componentType));
+                imagResult = scalar(IROpcode::Div, imagNumerator, denominator, irValueTypeFromName(componentType));
+            }
+            else throw std::runtime_error("unsupported complex operator " + node.op);
+            IRInstruction aggregate; aggregate.op = IROpcode::MakeAggregate;
+            aggregate.dest = allocateVReg(); aggregate.typeName = complexType.name; aggregate.valueType = complexType;
+            aggregate.args = { realResult, imagResult }; aggregate.argumentTypes = { "real", "imag" };
+            aggregate.argumentValueTypes = { irValueTypeFromName(componentType), irValueTypeFromName(componentType) };
+            const auto result = aggregate.dest; emit(std::move(aggregate));
+            lastValueType_ = complexType; return result;
+        }
+
         VReg lowerBinary(const BinaryExpr& node) {
+            const auto leftType = lowerExprType(node.left);
+            if (typeIsComplex(leftType.name)) return lowerComplexBinary(node, leftType);
             // Source-level logical operators short-circuit.  Use an explicit CFG
             // and a shared destination slot rather than eagerly evaluating RHS.
             // The same branch semantics are used by PCIR, PMIR and native x64.
@@ -11679,6 +11870,19 @@ namespace pcn {
         }
 
         VReg lowerCall(const CallExpr& node) {
+            if (const auto* intrinsic = node.callee ? std::get_if<VariableExpr>(&node.callee->node) : nullptr;
+                intrinsic && intrinsic->name == "sqrt") {
+                if (node.arguments.size() != 1) throw std::runtime_error("sqrt requires exactly one float or double argument");
+                const auto valueType = lowerExprType(node.arguments.front());
+                if (valueType.kind != IRValueKind::Float32 && valueType.kind != IRValueKind::Float64)
+                    throw std::runtime_error("sqrt requires a float or double argument");
+                IRInstruction instruction; instruction.op = IROpcode::Sqrt;
+                instruction.dest = allocateVReg(); instruction.valueType = valueType;
+                instruction.args = { lowerExprWithExpected(node.arguments.front(), valueType) };
+                instruction.argumentValueTypes = { valueType };
+                const auto destination = instruction.dest; emit(std::move(instruction));
+                lastValueType_ = valueType; return destination;
+            }
             if (const auto* intrinsic = node.callee ? std::get_if<VariableExpr>(&node.callee->node) : nullptr;
                 intrinsic && intrinsic->name == "fib") {
                 if (node.arguments.size() != 1) throw std::runtime_error("fib requires exactly one integer argument");
@@ -12477,7 +12681,8 @@ namespace pcn {
                     case IROpcode::ConstBool: case IROpcode::ConstNull:
                         requireValueShape(0); break;
                     case IROpcode::Copy: case IROpcode::Neg: case IROpcode::BitNot: case IROpcode::Not:
-                        requireValueShape(1); break;
+                    case IROpcode::Copy: case IROpcode::Neg: case IROpcode::Sqrt: case IROpcode::BitNot: case IROpcode::Not:
+                                requireValueShape(1); break;
                     case IROpcode::Add: case IROpcode::Sub: case IROpcode::Mul: case IROpcode::Div:
                     case IROpcode::Mod: case IROpcode::BitAnd: case IROpcode::BitOr: case IROpcode::BitXor:
                     case IROpcode::Shl: case IROpcode::Shr: case IROpcode::Eq: case IROpcode::Ne:
@@ -12494,6 +12699,12 @@ namespace pcn {
                         requireUnaryType(true);
                         if (!isNumericValueType(inst.valueType))
                             errors.push_back(fn.name + ": negation requires a numeric result type in " + block.labelName);
+                        break;
+                    }
+                    case IROpcode::Sqrt: {
+                        requireUnaryType(true);
+                        if (inst.valueType.kind != IRValueKind::Float32 && inst.valueType.kind != IRValueKind::Float64)
+                            errors.push_back(fn.name + ": square root requires a float or double result type in " + block.labelName);
                         break;
                     }
                     case IROpcode::BitNot:
@@ -12801,6 +13012,7 @@ namespace pcn {
             case IROpcode::Ne: case IROpcode::Lt: case IROpcode::Le:
             case IROpcode::Gt: case IROpcode::Ge: case IROpcode::And:
             case IROpcode::Or: case IROpcode::Nop:
+            case IROpcode::Or: case IROpcode::Sqrt: case IROpcode::Nop:
                 return EffectClass::PureTotal;
             case IROpcode::Div: case IROpcode::Mod: case IROpcode::Fibonacci:
             case IROpcode::ByteCount: case IROpcode::TextEquals:
@@ -13180,6 +13392,7 @@ namespace pcn {
             case IROpcode::Div: case IROpcode::Mod: case IROpcode::BitAnd:
             case IROpcode::BitOr: case IROpcode::BitXor: case IROpcode::Shl:
             case IROpcode::Shr: case IROpcode::Neg: case IROpcode::BitNot:
+            case IROpcode::Shr: case IROpcode::Neg: case IROpcode::Sqrt: case IROpcode::BitNot:
             case IROpcode::Not: case IROpcode::Eq: case IROpcode::Ne:
             case IROpcode::Lt: case IROpcode::Le: case IROpcode::Gt:
             case IROpcode::Ge: case IROpcode::And: case IROpcode::Or: return true;
@@ -13906,6 +14119,13 @@ namespace pcn {
             if (name == "ulong" || name == "size" || name == "raw" || name.rfind("raw<", 0) == 0) return scalarLayout(name, 8, 8, false);
             if (name == "float") return scalarLayout(name, 4, 4, true);
             if (name == "double") return scalarLayout(name, 8, 8, true);
+            if (std::string component; typeIsComplex(name, &component)) {
+                const auto part = layout(component);
+                ABITypeLayout x; x.kind = ABIRepresentationKind::Aggregate; x.typeName = name; x.rich = true;
+                x.alignment = part.alignment; x.size = 2 * part.size;
+                x.fields = { { "real",component,0,false },{ "imag",component,part.size,false } };
+                return x;
+            }
             if (name == "text") { ABITypeLayout x; x.kind = ABIRepresentationKind::Text; x.typeName = name; x.size = 16; x.alignment = 8; x.rich = true; x.fields = { { "ptr","raw<ubyte>",0,false },{ "count","size",8,false } }; return x; }
             if (name == "string") { ABITypeLayout x; x.kind = ABIRepresentationKind::String; x.typeName = name; x.size = 24; x.alignment = 8; x.rich = true; x.fields = { { "ptr","raw<ubyte>",0,false },{ "count","size",8,false },{ "capacity","size",16,false } }; return x; }
             if (name.rfind("closure$", 0) == 0) {
@@ -14207,6 +14427,25 @@ namespace pcn {
                         else v = 0u - v;
                         set(scalar(static_cast<std::int64_t>(v))); break;
                     }case IROpcode::BitNot:set(scalar(~asInt(get(0)))); break; case IROpcode::Not:set(scalar(asInt(get(0)) == 0)); break;
+                    }
+                    case IROpcode::Sqrt: {
+                        const auto bits = static_cast<std::uint64_t>(asInt(get(0)));
+                        if (inst.valueType.kind == IRValueKind::Float32) {
+                            const auto narrow = static_cast<std::uint32_t>(bits);
+                            float value; std::memcpy(&value, &narrow, sizeof(value));
+                            const float result = std::sqrt(value);
+                            std::uint32_t resultBits; std::memcpy(&resultBits, &result, sizeof(resultBits));
+                            set(scalar(resultBits));
+                        }
+                        else {
+                            double value; std::memcpy(&value, &bits, sizeof(value));
+                            const double result = std::sqrt(value);
+                            std::uint64_t resultBits; std::memcpy(&resultBits, &result, sizeof(resultBits));
+                            set(scalar(static_cast<std::int64_t>(resultBits)));
+                        }
+                        break;
+                    }
+                    case IROpcode::BitNot:set(scalar(~asInt(get(0)))); break; case IROpcode::Not:set(scalar(asInt(get(0)) == 0)); break;
                     case IROpcode::Add:case IROpcode::Sub:case IROpcode::Mul:case IROpcode::Div:case IROpcode::Mod:case IROpcode::BitAnd:case IROpcode::BitOr:case IROpcode::BitXor:case IROpcode::Shl:case IROpcode::Shr:case IROpcode::Eq:case IROpcode::Ne:case IROpcode::Lt:case IROpcode::Le:case IROpcode::Gt:case IROpcode::Ge:case IROpcode::And:case IROpcode::Or: {
                         if (!inst.argumentValueTypes.empty() &&
                             (inst.argumentValueTypes[0].kind == IRValueKind::Float32 || inst.argumentValueTypes[0].kind == IRValueKind::Float64))
@@ -14489,6 +14728,7 @@ namespace pcn {
     enum class PMIROpcode {
         ConstInt, ConstFloat, ConstBool, ConstNull, ConstText, Copy, Add, Sub, Mul, Div, Mod, BitAnd, BitOr, BitXor,
         Shl, Shr, Neg, BitNot, Not, Eq, Ne, Lt, Le, Gt, Ge, And, Or, Fibonacci, Branch, BranchIf, Call, CallClosure,
+        Shl, Shr, Neg, Sqrt, BitNot, Not, Eq, Ne, Lt, Le, Gt, Ge, And, Or, Fibonacci, Branch, BranchIf, Call, CallClosure,
         TextToString, StringToText, StringClear, StringDispose, StringMove, StringAppend, ByteCount, TextEquals, TextByteAt, TextFindByte, TextStartsWith, TextEndsWith, TextSlice, TextHash64, TextCodepointAt, TextCodepointCount, TextIsAscii, TextFindText, TextCompare, TextRFindText, TextStreamWrite, TextStreamRead, FsReadText, FsExists, FsWriteText, ProcessRun, NumericCheckedCast, MakeAggregate, ExtractField, StoreField, ArrayIndex, ArrayStore, ResultOk, ResultErr, ResultIsErr, ResultTry, OptionSome, OptionNone, MakeClosure, ClosureMove, Return, Nop,
         // Target-specific 64-bit immediate operations. These are introduced
         // after semantic verification, never in source PCIR.
@@ -14630,6 +14870,7 @@ namespace pcn {
             case IROpcode::Div:return PMIROpcode::Div; case IROpcode::Mod:return PMIROpcode::Mod; case IROpcode::BitAnd:return PMIROpcode::BitAnd; case IROpcode::BitOr:return PMIROpcode::BitOr;
             case IROpcode::BitXor:return PMIROpcode::BitXor; case IROpcode::Shl:return PMIROpcode::Shl; case IROpcode::Shr:return PMIROpcode::Shr; case IROpcode::Neg:return PMIROpcode::Neg;
             case IROpcode::BitNot:return PMIROpcode::BitNot; case IROpcode::Not:return PMIROpcode::Not; case IROpcode::Eq:return PMIROpcode::Eq; case IROpcode::Ne:return PMIROpcode::Ne;
+            case IROpcode::Sqrt:return PMIROpcode::Sqrt; case IROpcode::BitNot:return PMIROpcode::BitNot; case IROpcode::Not:return PMIROpcode::Not; case IROpcode::Eq:return PMIROpcode::Eq; case IROpcode::Ne:return PMIROpcode::Ne;
             case IROpcode::Lt:return PMIROpcode::Lt; case IROpcode::Le:return PMIROpcode::Le; case IROpcode::Gt:return PMIROpcode::Gt; case IROpcode::Ge:return PMIROpcode::Ge;
             case IROpcode::And:return PMIROpcode::And; case IROpcode::Or:return PMIROpcode::Or; case IROpcode::Fibonacci:return PMIROpcode::Fibonacci; case IROpcode::Branch:return PMIROpcode::Branch; case IROpcode::BranchIf:return PMIROpcode::BranchIf;
             case IROpcode::Call:return PMIROpcode::Call; case IROpcode::CallClosure:return PMIROpcode::CallClosure; case IROpcode::TextToString:return PMIROpcode::TextToString; case IROpcode::StringToText:return PMIROpcode::StringToText; case IROpcode::StringClear:return PMIROpcode::StringClear; case IROpcode::StringDispose:return PMIROpcode::StringDispose; case IROpcode::StringMove:return PMIROpcode::StringMove; case IROpcode::StringAppend:return PMIROpcode::StringAppend; case IROpcode::ByteCount:return PMIROpcode::ByteCount; case IROpcode::TextEquals:return PMIROpcode::TextEquals; case IROpcode::TextByteAt:return PMIROpcode::TextByteAt; case IROpcode::TextFindByte:return PMIROpcode::TextFindByte; case IROpcode::TextStartsWith:return PMIROpcode::TextStartsWith; case IROpcode::TextEndsWith:return PMIROpcode::TextEndsWith; case IROpcode::TextSlice:return PMIROpcode::TextSlice; case IROpcode::TextHash64:return PMIROpcode::TextHash64; case IROpcode::TextCodepointAt:return PMIROpcode::TextCodepointAt; case IROpcode::TextCodepointCount:return PMIROpcode::TextCodepointCount; case IROpcode::TextIsAscii:return PMIROpcode::TextIsAscii; case IROpcode::TextFindText:return PMIROpcode::TextFindText; case IROpcode::TextCompare:return PMIROpcode::TextCompare; case IROpcode::TextRFindText:return PMIROpcode::TextRFindText; case IROpcode::TextStreamWrite:return PMIROpcode::TextStreamWrite; case IROpcode::TextStreamRead:return PMIROpcode::TextStreamRead; case IROpcode::FsReadText:return PMIROpcode::FsReadText; case IROpcode::FsExists:return PMIROpcode::FsExists; case IROpcode::FsWriteText:return PMIROpcode::FsWriteText; case IROpcode::ProcessRun:return PMIROpcode::ProcessRun; case IROpcode::NumericCheckedCast:return PMIROpcode::NumericCheckedCast; case IROpcode::MakeAggregate:return PMIROpcode::MakeAggregate;
@@ -15029,6 +15270,7 @@ namespace pcn {
                         break;
                     case PMIROpcode::ConstText: requireScalar(0); break;
                     case PMIROpcode::Copy: case PMIROpcode::Neg: case PMIROpcode::BitNot: case PMIROpcode::Not:
+                    case PMIROpcode::Copy: case PMIROpcode::Neg: case PMIROpcode::Sqrt: case PMIROpcode::BitNot: case PMIROpcode::Not:
                         requireScalar(1); break;
                     case PMIROpcode::Add: case PMIROpcode::Sub: case PMIROpcode::Mul: case PMIROpcode::Div:
                     case PMIROpcode::Mod: case PMIROpcode::BitAnd: case PMIROpcode::BitOr: case PMIROpcode::BitXor:
@@ -15043,6 +15285,12 @@ namespace pcn {
                         errors.push_back(fn.name + ": malformed foreign variadic call metadata");
                     if (i.op != PMIROpcode::Call && (i.isVariadicCall || i.variadicFixedArgs != 0))
                         errors.push_back(fn.name + ": variadic call metadata on non-call instruction");
+                    if (i.op == PMIROpcode::Sqrt && (!i.destSlot || i.srcSlots.size() != 1 ||
+                        !fn.slots.contains(i.destSlot) || !fn.slots.contains(i.srcSlots.front()) ||
+                        fn.slots.at(i.destSlot).rich || fn.slots.at(i.srcSlots.front()).rich ||
+                        (fn.slots.at(i.destSlot).type.kind != IRValueKind::Float32 && fn.slots.at(i.destSlot).type.kind != IRValueKind::Float64) ||
+                        fn.slots.at(i.destSlot).type.kind != fn.slots.at(i.srcSlots.front()).type.kind))
+                        errors.push_back(fn.name + ": malformed IEEE square-root operation");
                     if (i.op == PMIROpcode::Fibonacci && (!i.destSlot || i.srcSlots.size() != 1 ||
                         i.argumentValueTypes.size() != 1 || i.argumentValueTypes.front().kind != IRValueKind::Int64 ||
                         i.valueType.kind != IRValueKind::Int64 || !fn.slots.contains(i.destSlot) ||
@@ -15090,6 +15338,7 @@ namespace pcn {
         switch (op) {
         case PMIROpcode::ConstInt:return"mov.imm"; case PMIROpcode::ConstFloat:return"mov.fp.bits"; case PMIROpcode::ConstBool:return"mov.bool"; case PMIROpcode::ConstNull:return"mov.null"; case PMIROpcode::ConstText:return"text.literal"; case PMIROpcode::Copy:return"copy";
         case PMIROpcode::Add:return"add"; case PMIROpcode::Sub:return"sub"; case PMIROpcode::Mul:return"imul"; case PMIROpcode::Div:return"idiv.defined"; case PMIROpcode::Mod:return"imod.defined"; case PMIROpcode::BitAnd:return"and"; case PMIROpcode::BitOr:return"or"; case PMIROpcode::BitXor:return"xor"; case PMIROpcode::Shl:return"shl"; case PMIROpcode::Shr:return"sar"; case PMIROpcode::Neg:return"neg"; case PMIROpcode::BitNot:return"not"; case PMIROpcode::Not:return"logical.not"; case PMIROpcode::Eq:return"cmp.eq"; case PMIROpcode::Ne:return"cmp.ne"; case PMIROpcode::Lt:return"cmp.lt"; case PMIROpcode::Le:return"cmp.le"; case PMIROpcode::Gt:return"cmp.gt"; case PMIROpcode::Ge:return"cmp.ge"; case PMIROpcode::And:return"logical.and"; case PMIROpcode::Or:return"logical.or"; case PMIROpcode::Branch:return"jmp"; case PMIROpcode::BranchIf:return"br.if"; case PMIROpcode::Call:return"call"; case PMIROpcode::CallClosure:return"call.closure"; case PMIROpcode::TextToString:return"text.to_string"; case PMIROpcode::StringToText:return"string.to_text"; case PMIROpcode::StringClear:return"string.clear"; case PMIROpcode::StringDispose:return"string.dispose"; case PMIROpcode::StringMove:return"string.move"; case PMIROpcode::StringAppend:return"string.append"; case PMIROpcode::ByteCount:return"text.count"; case PMIROpcode::TextEquals:return"text.equals"; case PMIROpcode::TextByteAt:return"text.byte_at.checked"; case PMIROpcode::TextFindByte:return"text.find_byte"; case PMIROpcode::TextStartsWith:return"text.starts_with"; case PMIROpcode::TextEndsWith:return"text.ends_with"; case PMIROpcode::TextSlice:return"text.slice.utf8_checked"; case PMIROpcode::TextHash64:return"text.hash64.fnv1a"; case PMIROpcode::TextCodepointAt:return"text.codepoint_at.utf8_checked"; case PMIROpcode::TextCodepointCount:return"text.codepoint_count"; case PMIROpcode::TextIsAscii:return"text.is_ascii"; case PMIROpcode::TextFindText:return"text.find.bytewise"; case PMIROpcode::TextCompare:return"text.compare.unsigned_lexicographic"; case PMIROpcode::TextRFindText:return"text.rfind.bytewise"; case PMIROpcode::TextStreamWrite:return"text.stream_write"; case PMIROpcode::TextStreamRead:return"text.stream_read_all"; case PMIROpcode::FsReadText:return"fs.read_text"; case PMIROpcode::FsExists:return"fs.exists"; case PMIROpcode::FsWriteText:return"fs.write_text"; case PMIROpcode::ProcessRun:return"process.run"; case PMIROpcode::NumericCheckedCast:return"numeric.checked_cast"; case PMIROpcode::MakeAggregate:return"aggregate.make"; case PMIROpcode::ExtractField:return"aggregate.field"; case PMIROpcode::StoreField:return"aggregate.store.field"; case PMIROpcode::ArrayIndex:return"array.index.checked"; case PMIROpcode::ArrayStore:return"array.store.checked"; case PMIROpcode::ResultOk:return"result.ok"; case PMIROpcode::ResultErr:return"result.err"; case PMIROpcode::ResultIsErr:return"result.is_err"; case PMIROpcode::ResultTry:return"result.try"; case PMIROpcode::OptionSome:return"option.some"; case PMIROpcode::OptionNone:return"option.none"; case PMIROpcode::MakeClosure:return"closure.make"; case PMIROpcode::ClosureMove:return"closure.move"; case PMIROpcode::Return:return"ret"; case PMIROpcode::Nop:return"nop";
+        case PMIROpcode::Add:return"add"; case PMIROpcode::Sub:return"sub"; case PMIROpcode::Mul:return"imul"; case PMIROpcode::Div:return"idiv.defined"; case PMIROpcode::Mod:return"imod.defined"; case PMIROpcode::BitAnd:return"and"; case PMIROpcode::BitOr:return"or"; case PMIROpcode::BitXor:return"xor"; case PMIROpcode::Shl:return"shl";        case PMIROpcode::Shr:return"sar"; case PMIROpcode::Neg:return"neg"; case PMIROpcode::Sqrt:return"sqrt.ieee"; case PMIROpcode::BitNot:return"not"; case PMIROpcode::Not:return"logical.not"; case PMIROpcode::Eq:return"cmp.eq"; case PMIROpcode::Ne:return"cmp.ne"; case PMIROpcode::Lt:return"cmp.lt"; case PMIROpcode::Le:return"cmp.le"; case PMIROpcode::Gt:return"cmp.gt"; case PMIROpcode::Ge:return"cmp.ge"; case PMIROpcode::And:return"logical.and"; case PMIROpcode::Or:return"logical.or"; case PMIROpcode::Branch:return"jmp"; case PMIROpcode::BranchIf:return"br.if"; case PMIROpcode::Call:return"call"; case PMIROpcode::CallClosure:return"call.closure"; case PMIROpcode::TextToString:return"text.to_string"; case PMIROpcode::StringToText:return"string.to_text"; case PMIROpcode::StringClear:return"string.clear"; case PMIROpcode::StringDispose:return"string.dispose"; case PMIROpcode::StringMove:return"string.move"; case PMIROpcode::StringAppend:return"string.append"; case PMIROpcode::ByteCount:return"text.count"; case PMIROpcode::TextEquals:return"text.equals"; case PMIROpcode::TextByteAt:return"text.byte_at.checked"; case PMIROpcode::TextFindByte:return"text.find_byte"; case PMIROpcode::TextStartsWith:return"text.starts_with"; case PMIROpcode::TextEndsWith:return"text.ends_with"; case PMIROpcode::TextSlice:return"text.slice.utf8_checked"; case PMIROpcode::TextHash64:return"text.hash64.fnv1a"; case PMIROpcode::TextCodepointAt:return"text.codepoint_at.utf8_checked"; case PMIROpcode::TextCodepointCount:return"text.codepoint_count"; case PMIROpcode::TextIsAscii:return"text.is_ascii"; case PMIROpcode::TextFindText:return"text.find.bytewise"; case PMIROpcode::TextCompare:return"text.compare.unsigned_lexicographic"; case PMIROpcode::TextRFindText:return"text.rfind.bytewise"; case PMIROpcode::TextStreamWrite:return"text.stream_write"; case PMIROpcode::TextStreamRead:return"text.stream_read_all"; case PMIROpcode::FsReadText:return"fs.read_text"; case PMIROpcode::FsExists:return"fs.exists"; case PMIROpcode::FsWriteText:return"fs.write_text"; case PMIROpcode::ProcessRun:return"process.run"; case PMIROpcode::NumericCheckedCast:return"numeric.checked_cast"; case PMIROpcode::MakeAggregate:return"aggregate.make"; case PMIROpcode::ExtractField:return"aggregate.field"; case PMIROpcode::StoreField:return"aggregate.store.field"; case PMIROpcode::ArrayIndex:return"array.index.checked"; case PMIROpcode::ArrayStore:return"array.store.checked"; case PMIROpcode::ResultOk:return"result.ok"; case PMIROpcode::ResultErr:return"result.err"; case PMIROpcode::ResultIsErr:return"result.is_err"; case PMIROpcode::ResultTry:return"result.try"; case PMIROpcode::OptionSome:return"option.some"; case PMIROpcode::OptionNone:return"option.none"; case PMIROpcode::MakeClosure:return"closure.make"; case PMIROpcode::ClosureMove:return"closure.move"; case PMIROpcode::Return:return"ret"; case PMIROpcode::Nop:return"nop";
         case PMIROpcode::Fibonacci:return"fib.checked.i64";
         case PMIROpcode::ArraySumSIMD:return"array.sum.simd.unrolled";
         case PMIROpcode::AddImm:return"add.imm"; case PMIROpcode::SubImm:return"sub.imm";
@@ -15336,6 +15585,16 @@ public:
                                   static void xmmCompare(std::vector<std::uint8_t>& b, bool single) {
                                       if (!single)b.push_back(0x66);
                                       b.insert(b.end(), { 0x0F,0x2E,0xC1 });
+                                  }
+                                  static void floatSqrt(const PMIRFunction& fn, const PMIRInstruction& i, std::vector<std::uint8_t>& b) {
+                                      if (i.srcSlots.size() != 1 || !fpType(i.valueType.kind) ||
+                                          fn.slots.at(i.srcSlots[0]).type.kind != i.valueType.kind)
+                                          throw std::runtime_error("malformed x64 floating-point square root");
+                                      const bool single = i.valueType.kind == IRValueKind::Float32;
+                                      xmmSlotLoad(b, fn, i.srcSlots[0], 1);
+                                      b.push_back(single ? 0xF3 : 0xF2);
+                                      b.insert(b.end(), { 0x0F,0x51,0xC1 });
+                                      xmmSlotStore(b, fn, i.destSlot, 0);
                                   }
                                   static void floatOp(const PMIRFunction& fn, const PMIRInstruction& i, std::vector<std::uint8_t>& b) {
                                       const bool single = fn.slots.at(i.srcSlots.at(0)).type.kind == IRValueKind::Float32;
@@ -15713,6 +15972,9 @@ public:
 
                                   void encodeInstruction(const PMIRFunction& fn, const PMIRInstruction& i, const RichABIResolver& abi, std::vector<std::uint8_t>& b, std::vector<BranchFix>& branches, std::vector<EncodedFunction::Call>& calls, std::vector<EncodedFunction::Literal>& literals, std::vector<EncodedFunction::Import>& imports, std::uint32_t residentRax)const {
                                       auto unaryLoad = [&]() {if (i.srcSlots.empty())throw std::runtime_error("PMIR unary missing source"); if (i.srcSlots[0] != residentRax) loadSlot(b, 0, fn, i.srcSlots[0]); }; auto binaryLoad = [&]() {if (i.srcSlots.size() < 2)throw std::runtime_error("PMIR binary missing source"); if (i.srcSlots[0] != residentRax) loadSlot(b, 0, fn, i.srcSlots[0]); loadSlot(b, 10, fn, i.srcSlots[1]); }; auto save = [&]() {if (i.destSlot)storeSlot(b, 0, fn, i.destSlot); };
+                                      if (i.op == PMIROpcode::Sqrt) {
+                                          floatSqrt(fn, i, b); return;
+                                      }
                                       if (i.srcSlots.size() >= 2 && fpType(fn.slots.at(i.srcSlots[0]).type.kind)) {
                                           switch (i.op) {
                                           case PMIROpcode::Add:case PMIROpcode::Sub:case PMIROpcode::Mul:case PMIROpcode::Div:
@@ -17162,6 +17424,8 @@ public:
                                   void emitInstruction(std::ostringstream& oss, const IRInstruction& inst) const {
                                       switch (inst.op) {
                                       case IROpcode::ConstFloat: throw std::runtime_error("C++20 backend does not support IEEE-754 PCIR yet");
+                                      case IROpcode::ConstFloat: case IROpcode::Sqrt:
+                                          throw std::runtime_error("C++20 backend does not support IEEE-754 PCIR yet");
                                       case IROpcode::ArrayIndex:case IROpcode::ArrayStore:case IROpcode::StoreField:throw std::runtime_error("C++20 backend cannot lower native aggregate mutation");
                                       case IROpcode::ConstInt: oss << "    v" << reg(inst.dest) << " = " << sanitizedIntegerLiteral(inst) << ";\n"; break;
                                       case IROpcode::ConstText: throw std::runtime_error("C++20 exporter: text literal requires implemented text ABI");
@@ -17935,6 +18199,7 @@ public:
                                   case IROpcode::Mul: return "mul"; case IROpcode::Div: return "div"; case IROpcode::Mod: return "mod";
                                   case IROpcode::BitAnd: return "bit.and"; case IROpcode::BitOr: return "bit.or"; case IROpcode::BitXor: return "bit.xor";
                                   case IROpcode::Shl: return "shl"; case IROpcode::Shr: return "shr"; case IROpcode::Neg: return "neg";
+                                  case IROpcode::Shl: return "shl"; case IROpcode::Shr: return "shr"; case IROpcode::Neg: return "neg"; case IROpcode::Sqrt: return "sqrt.ieee";
                                   case IROpcode::BitNot: return "bit.not"; case IROpcode::Not: return "not"; case IROpcode::Fibonacci:return "fib.checked.i64"; case IROpcode::Eq: return "eq";
                                   case IROpcode::Ne: return "ne"; case IROpcode::Lt: return "lt"; case IROpcode::Le: return "le";
                                   case IROpcode::Gt: return "gt"; case IROpcode::Ge: return "ge"; case IROpcode::And: return "and";
@@ -17994,12 +18259,13 @@ public:
                                   for (const auto& e : analysis.skm.effectEdges) { oss << "  " << e.caller << " -> " << e.callee << " ["; if (e.effects.empty())oss << "pure"; else { bool first = true; for (const auto& x : e.effects) { if (!first)oss << ','; first = false; oss << x; } } oss << "]\n"; }
                                   oss << "layouts: " << analysis.skm.layouts.size() << "\n";
                                   for (const auto& l : analysis.skm.layouts) { oss << "  " << l.typeName << " size=" << l.size << " align=" << l.alignment << (l.nicheOptimized ? " niche" : "") << "\n"; for (const auto& f : l.fieldOffsets)oss << "    +" << f.second << " " << f.first << "\n"; for (const auto& tag : l.tagConstants) oss << "    tag " << tag.first << "=" << tag.second << " storage=" << l.tagStorageType << " offset=" << l.tagOffset << " bytes=" << l.tagSize << "\n"; if (l.tagSize && l.payloadSize) oss << "    payload offset=" << l.payloadOffset << " size=" << l.payloadSize << "\n"; for (const auto& cf : l.caseFields)oss << "    case " << cf.caseName << "." << cf.fieldName << " +" << cf.offset << " : " << cf.typeName << "\n"; }
-                                  oss << "structural facts: " << analysis.skm.structuralFacts.size() << "\n";
-                                  for (const auto& f : analysis.skm.structuralFacts) oss << "  " << f << "\n";
-                                  return oss.str();
-                              }
+                                      oss << "structural facts: " << analysis.skm.structuralFacts.size() << "\n";
+                                      for (const auto& f : analysis.skm.structuralFacts) oss << "  " << f << "\n";
+                                      oss << '\n' << blueprintToString(analysis.skm.blueprint);
+                                      return oss.str();
+                                  }
 
-                              // --- Compiler pipeline + command interface ----------------------------------
+                                  // --- Compiler pipeline + command interface ----------------------------------
                               static constexpr const char* kCompilerBuild = "Paracine 2026 native-backend-optimized-20261110.1 (development; non-1.0)";
                               static constexpr const char* kNativeABIContract = native_abi::windowsContract;
                               static constexpr const char* kNativeFeatureContract = "edition-2026;unicode-nfc;scoped-modules-v1;ownership-conservative;pcir-mutable-cell;coff-pe-v1;scripts-disabled-v1";
@@ -19305,10 +19571,19 @@ public:
                               }
                               // Never execute untrusted generated machine code in the compiler process.
                               // A signal, recursion overflow, or infinite loop must not kill the compiler.
+                              // Run generated test code outside the compiler with bounded resources and
+                              // descendant cleanup; this test containment is not Capsule isolation.
                               static std::int64_t executeEmittedMachineTextIsolated(const MachineProgram& machine,
                                   std::chrono::milliseconds timeout = std::chrono::seconds(5)) {
                                   int channel[2];
                                   if (pipe(channel) != 0) throw std::runtime_error("native test: pipe failed");
+                                  for (int fd : channel) {
+                                      const int flags = fcntl(fd, F_GETFD);
+                                      if (flags < 0 || fcntl(fd, F_SETFD, flags | FD_CLOEXEC) < 0) {
+                                          close(channel[0]); close(channel[1]);
+                                          throw std::runtime_error("native test: cannot make result pipe close-on-exec");
+                                      }
+                                  }
                                   pid_t pid = fork();
                                   if (pid < 0) { close(channel[0]); close(channel[1]); throw std::runtime_error("native test: fork failed"); }
                                   if (pid == 0) {
@@ -19317,6 +19592,19 @@ public:
                                       (void)setrlimit(RLIMIT_CORE, &core);
                                       struct rlimit mem = { 512ull * 1024 * 1024, 512ull * 1024 * 1024 };
                                       (void)setrlimit(RLIMIT_AS, &mem);
+                                      if (setpgid(0, 0) != 0 || prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0) _exit(126);
+                                      auto applyLimit = [](int resource, rlim_t maximum) {
+                                          struct rlimit inherited{};
+                                          if (getrlimit(resource, &inherited) != 0) return false;
+                                          const auto bounded = std::min(maximum, inherited.rlim_max);
+                                          const struct rlimit requested{ bounded, bounded };
+                                          return setrlimit(resource, &requested) == 0;
+                                      };
+                                      const struct rlimit noCore{ 0, 0 };
+                                      if (setrlimit(RLIMIT_CORE, &noCore) != 0 ||
+                                          !applyLimit(RLIMIT_AS, 512ull * 1024 * 1024) ||
+                                          !applyLimit(RLIMIT_CPU, 10) ||
+                                          !applyLimit(RLIMIT_FSIZE, 64ull * 1024 * 1024)) _exit(126);
                                       try {
                                           auto result = executeEmittedMachineText(machine);
                                           const auto* data = reinterpret_cast<const char*>(&result);
@@ -19337,15 +19625,20 @@ public:
                                   for (;;) {
                                       const auto done = waitpid(pid, &status, WNOHANG);
                                       if (done == pid) break;
+                                      if (done < 0 && errno == EINTR) continue;
                                       if (done < 0) { close(channel[0]); throw std::runtime_error("native test: waitpid failed"); }
                                       if (std::chrono::steady_clock::now() >= deadline) {
                                           kill(pid, SIGKILL);
                                           (void)waitpid(pid, &status, 0);
+                                          (void)kill(-pid, SIGKILL);
+                                          (void)kill(pid, SIGKILL);
+                                          while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
                                           close(channel[0]);
                                           throw std::runtime_error("native test: generated program exceeded execution deadline");
                                       }
                                       usleep(10000);
                                   }
+                                  (void)kill(-pid, SIGKILL);
                                   if (WIFSIGNALED(status)) {
                                       close(channel[0]);
                                       throw std::runtime_error("native test: generated machine code terminated by signal " +
@@ -19353,6 +19646,8 @@ public:
                                   }
                                   if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
                                       close(channel[0]);
+                                      if (WIFEXITED(status) && WEXITSTATUS(status) == 126)
+                                          throw std::runtime_error("native test: required process isolation setup failed");
                                       throw std::runtime_error("native test: generated machine code did not return successfully");
                                   }
                                   std::int64_t value = 0;
@@ -19914,6 +20209,8 @@ public:
                                       "  paracine tokens <file.pcn>  # lexer / INDENT / DEDENT debugging\n"
                                       "  paracine ast-diagram <file.pcn> [-o file.txt]\n"
                                       "  paracine sage <file.pcn> [-o file.skm]\n"
+                                      "  paracine polr <file.pcn> --from ROUTINE --to ROUTINE [-o route.txt]\n"
+                                      "    ROUTINE may be an unambiguous name or a #ID from the sage blueprint.\n"
                                       "  paracine test <file.pcn>\n"
                                       "  paracine emit cpp|obj|exe <file.pcn> [-o file]\n"
                                       "  paracine ir <file.pcn> [-o file.pcir]\n"
@@ -21163,10 +21460,6 @@ public:
                                       // A revert/rollback/commit naming a checkpoint that is not lexically
                                       // enclosing is rejected with E0627, independent of E0623.
                                       for (const auto& source : {
-                                              "routine main() gives int\n    give 0\n    revert @update\n",
-                                              "routine main() gives int\n    let action = routine() gives int\n        checkpoint @update\n            revert @update\n        give 1\n    give action()\n"
-                                              }) {
-                                              const auto artifacts = compileAll(source, options, false);
                                           "routine main() gives int\n    commit @update\n    give 0\n",
                                           "routine main() gives int\n    revert @update\n    give 0\n",
                                           "routine main() gives int\n    rollback @update\n" }) {
@@ -21177,6 +21470,10 @@ public:
                                       // The failure-payload and recover-binding forms remain explicitly
                                       // unimplemented and fail closed with E0623.
                                       for (const auto& source : {
+                                              "routine main() gives int\n    give 0\n    revert @update\n",
+                                              "routine main() gives int\n    let action = routine() gives int\n        checkpoint @update\n            revert @update\n        give 1\n    give action()\n"
+                                              }) {
+                                              const auto artifacts = compileAll(source, options, false);
                                           "routine main() gives int\n    var n: int = 0\n    checkpoint @c\n        rollback @c fail 7\n    give n\n",
                                           "routine main() gives int\n    checkpoint @c\n        var n: int = 0\n    recover err\n        give 0\n    give 1\n" }) {
                                           const auto artifacts = compileAll(source, CompilerOptions{}, false);
@@ -21929,8 +22226,128 @@ public:
                                           if (!rejected) throw std::runtime_error("out-of-range negative literal accepted");
                                       }
                                   });
-                                  test("foreign variadic declarations and calls", [&] {
+                                  test("numeric: IEEE square root preserves width and special values", [&] {
                                       const std::string source =
+                                          "routine root32(value: float) gives float\n    give sqrt(value)\n"
+                                          "routine main() gives int\n"
+                                          "    let single: float = root32(81.0)\n"
+                                          "    let root_two: double = sqrt(2.0)\n"
+                                          "    let nan_value: double = sqrt(-1.0)\n"
+                                          "    let positive_infinity: double = sqrt(1.0 / 0.0)\n"
+                                          "    let negative_zero_root: double = sqrt(-0.0)\n"
+                                          "    if single != 9.0\n        give 1\n"
+                                          "    if root_two <= 1.414 or root_two >= 1.415\n        give 2\n"
+                                          "    if nan_value == nan_value\n        give 3\n"
+                                          "    if positive_infinity <= 0.0\n        give 4\n"
+                                          "    if 1.0 / negative_zero_root >= 0.0\n        give 5\n"
+                                          "    give 42\n";
+                                      for (int level : { 0, 3 }) {
+                                          CompilerOptions options; options.optimizationLevel = level;
+                                          const auto artifacts = compileAll(source, options);
+                                          if (!artifacts.analysis.succeeded()) {
+                                              std::string diagnostics;
+                                              for (const auto& diagnostic : artifacts.analysis.diagnostics) diagnostics += " " + diagnostic.message;
+                                              throw std::runtime_error("sqrt source failed analysis:" + diagnostics);
+                                          }
+                                          const auto interpreted = PCIRInterpreter(artifacts.pcir).run("");
+                                          if (interpreted != 42)
+                                              throw std::runtime_error("sqrt interpreter returned " + std::to_string(interpreted));
+                                          bool sawFloatSqrt = false, sawDoubleSqrt = false;
+                                          for (const auto& function : artifacts.pcir.functions)
+                                              for (const auto& block : function.blocks)
+                                                  for (const auto& instruction : block.instructions)
+                                                      if (instruction.op == IROpcode::Sqrt) {
+                                                          if (instruction.args.size() != 1 || instruction.argumentValueTypes.size() != 1 ||
+                                                              instruction.argumentValueTypes.front().kind != instruction.valueType.kind)
+                                                              throw std::runtime_error("sqrt PCIR omitted its typed unary operand");
+                                                          sawFloatSqrt |= instruction.valueType.kind == IRValueKind::Float32;
+                                                          sawDoubleSqrt |= instruction.valueType.kind == IRValueKind::Float64;
+                                                      }
+                                          if (!sawFloatSqrt || !sawDoubleSqrt)
+                                              throw std::runtime_error("sqrt did not retain float32 and float64 widths");
+#if defined(_WIN32)
+                                          const auto file = std::filesystem::temp_directory_path() / ("paracine-sqrt-" + std::to_string(std::uint64_t(std::chrono::steady_clock::now().time_since_epoch().count())) + ".exe");
+                                          struct CleanupSqrt { std::filesystem::path path; ~CleanupSqrt() { std::error_code ec; std::filesystem::remove(path, ec); } } cleanup{ file };
+                                          writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(artifacts.pcir, artifacts.pmir, artifacts.machine));
+                                          if (runNativeExecutable(file) != 42) throw std::runtime_error("native sqrt result differs from the IEEE interpreter");
+#elif defined(__linux__) && defined(__x86_64__)
+                                          if (executeEmittedMachineTextIsolated(artifacts.machine) != 42)
+                                              throw std::runtime_error("native sqrt result differs from the IEEE interpreter");
+#endif
+                                      }
+                                      for (const auto& invalidSource : {
+                                          "routine main() gives int\n    give sqrt(4)\n",
+                                          "routine main() gives int\n    give sqrt(1.0, 2.0)\n",
+                                          "routine main() gives int\n    give sqrt()\n" }) {
+                                          const auto invalid = compileAll(invalidSource, CompilerOptions{}, false);
+                                          if (invalid.analysis.succeeded() || !invalid.pcir.functions.empty())
+                                              throw std::runtime_error("sqrt accepted an integer operand or invalid arity");
+                                      }
+                                      IRProgram malformed;
+                                      IRFunction function; function.name = "bad_sqrt"; function.returnType = "int"; function.valueType = makeIRIntType();
+                                      function.totalVregs = 2; function.parameterVregs = { static_cast<VReg>(1) };
+                                      function.parameterNames = { "value" }; function.parameterTypes = { "int" };
+                                      IRBasicBlock block; block.id = static_cast<BlockID>(1); block.labelName = "entry";
+                                      IRInstruction sqrt; sqrt.op = IROpcode::Sqrt; sqrt.dest = static_cast<VReg>(2); sqrt.args = { static_cast<VReg>(1) };
+                                      sqrt.argumentValueTypes = { makeIRIntType() }; sqrt.valueType = makeIRIntType(); block.instructions.push_back(sqrt);
+                                      IRInstruction ret; ret.op = IROpcode::Return; ret.args = { static_cast<VReg>(2) }; block.instructions.push_back(ret);
+                                      function.blocks.push_back(block); malformed.functions.push_back(function);
+                                      if (PCIRVerifier{}.verify(malformed).empty())
+                                          throw std::runtime_error("PCIR verifier accepted integer sqrt");
+                                  });
+                                                                                                        test("numeric: complex float and double arithmetic across compiler stages", [&] {
+                                                                                                            const std::string source =
+                                                                                                                "routine main() gives int\n"
+                                                                                                                "    let a: complex<double> = complex<double> { real: 3.0, imag: 2.0 }\n"
+                                                                                                                "    let b: complex<double> = complex<double> { real: 1.0, imag: 4.0 }\n"
+                                                                                                                "    let sum = a + b\n"
+                                                                                                                "    let difference = a - b\n"
+                                                                                                                "    let product = a * b\n"
+                                                                                                                "    let quotient = a / b\n"
+                                                                                                                "    if sum.real != 4.0 or sum.imag != 6.0\n        give 1\n"
+                                                                                                                "    if difference.real != 2.0 or difference.imag != -2.0\n        give 2\n"
+                                                                                                                "    if product.real != -5.0 or product.imag != 14.0\n        give 3\n"
+                                                                                                                "    if quotient.real < 0.647 or quotient.real > 0.648\n        give 4\n"
+                                                                                                                "    if quotient.imag > -0.588 or quotient.imag < -0.589\n        give 5\n"
+                                                                                                                "    if a != a\n        give 6\n"
+                                                                                                                "    if a == b\n        give 7\n"
+                                                                                                                "    let single: complex<float> = complex<float> { real: 3.0, imag: 2.0 }\n"
+                                                                                                                "    let single_sum = single + single\n"
+                                                                                                                "    if single_sum.real != 6.0 or single_sum.imag != 4.0\n        give 8\n"
+                                                                                                                "    give 42\n";
+                                                                                                            for (int level : { 0, 3 }) {
+                                                                                                                CompilerOptions options; options.optimizationLevel = level;
+                                                                                                                const auto artifacts = compileAll(source, options);
+                                                                                                                if (!artifacts.analysis.succeeded()) {
+                                                                                                                    std::string diagnostics;
+                                                                                                                    for (const auto& diagnostic : artifacts.analysis.diagnostics) diagnostics += " " + diagnostic.message;
+                                                                                                                    throw std::runtime_error("complex source failed analysis:" + diagnostics);
+                                                                                                                }
+                                                                                                                const auto interpreted = PCIRInterpreter(artifacts.pcir).run("");
+                                                                                                                if (interpreted != 42)
+                                                                                                                    throw std::runtime_error("complex interpreter result mismatch: " + std::to_string(interpreted));
+                                                                     #if defined(_WIN32)
+                                                                                                                const auto file = std::filesystem::temp_directory_path() / ("paracine-complex-" + std::to_string(std::uint64_t(std::chrono::steady_clock::now().time_since_epoch().count())) + ".exe");
+                                                                                                                struct CleanupComplex { std::filesystem::path path; ~CleanupComplex() { std::error_code ec; std::filesystem::remove(path, ec); } } cleanup{ file };
+                                                                                                                writeBinaryFile(file, PECOFFGenerator{}.emitExecutable(artifacts.pcir, artifacts.pmir, artifacts.machine));
+                                                                                                                if (runNativeExecutable(file) != 42) throw std::runtime_error("native complex result differs from the interpreter");
+                                                                     #elif defined(__linux__) && defined(__x86_64__)
+                                                                                                                if (executeEmittedMachineTextIsolated(artifacts.machine) != 42)
+                                                                                                                    throw std::runtime_error("native complex result differs from the interpreter");
+                                                                     #endif
+                                                                                                            }
+                                                                                                            for (const auto& invalidSource : {
+                                                                                                                "routine main() gives int\n    let bad: complex<int> = complex<int> { real: 1, imag: 2 }\n    give 0\n",
+                                                                                                                "routine main() gives int\n    let bad: complex<double> = complex<double> { real: 1.0 }\n    give 0\n",
+                                                                                                                "routine main() gives int\n    let a: complex<double> = complex<double> { real: 1.0, imag: 2.0 }\n    let b: complex<float> = complex<float> { real: 1.0, imag: 2.0 }\n    let c = a + b\n    give 0\n",
+                                                                                                                "routine main() gives int\n    let a: complex<double> = complex<double> { real: 1.0, imag: 2.0 }\n    if a < a\n        give 1\n    give 0\n" }) {
+                                                                                                                const auto invalid = compileAll(invalidSource, CompilerOptions{}, false);
+                                                                                                                if (invalid.analysis.succeeded() || !invalid.pcir.functions.empty())
+                                                                                                                    throw std::runtime_error("complex accepted an unsupported type, malformed construction, or invalid operation");
+                                                                                                            }
+                                                                                                        });
+                                                                                                        test("foreign variadic declarations and calls", [&] {
+                                                                         const std::string source =
                                           "foreign c routine sum(count: int, ...) gives int\n"
                                           "routine main() gives int\n"
                                           "    give sum(3, 10, 20, 30)\n";
@@ -22558,6 +22975,11 @@ public:
                                           "routine via_return() gives result<int, text>\n    return 19\n"
                                           "routine bare_void()\n    return_\n"
                                           "routine main() gives int\n"
+                                          "    fail \"boom\"\n",
+                                          CompilerOptions{}, false);
+                                      auto it = artifacts.analysis.resolvedEffects.find("main#0");
+                                      if (it == artifacts.analysis.resolvedEffects.end() || !it->second.contains("trap"))
+                                          throw std::runtime_error("missing trap effect inference");
                                           "    let a = via_return_()\n    let b = via_return()\n    bare_void()\n    return_ 42\n";
                                       for (int level : { 0, 3 }) {
                                           CompilerOptions options; options.optimizationLevel = level;
@@ -22593,11 +23015,6 @@ public:
                                           "routine raise_form() gives result<int, text>\n"
                                           "    raise \"boom\"\n"
                                           "routine main() gives int\n"
-                                          "    fail \"boom\"\n",
-                                          CompilerOptions{}, false);
-                                      auto it = artifacts.analysis.resolvedEffects.find("main#0");
-                                      if (it == artifacts.analysis.resolvedEffects.end() || !it->second.contains("trap"))
-                                          throw std::runtime_error("missing trap effect inference");
                                           "    give 42\n";
                                       auto artifacts = compileAll(prefix, CompilerOptions{}, false);
                                       if (!artifacts.analysis.succeeded()) throw std::runtime_error("typed error forms failed semantic analysis");
@@ -22619,6 +23036,34 @@ public:
                                       const auto tokens = Lexer("raise fail\n").tokenize();
                                       if (tokens[0].kind != TokenKind::Keyword || tokens[1].kind != TokenKind::Keyword)
                                           throw std::runtime_error("recoverable-error keywords were not reserved");
+                                  });
+                                  test("SAGE blueprint exposes deterministic direct-call routes", [&] {
+                                      const std::string source =
+                                          "routine leaf() gives int\n    give 1\n"
+                                          "routine middle() gives int\n    give leaf()\n"
+                                          "routine main() gives int\n    give middle()\n"
+                                          "routine isolated() gives int\n    give 2\n";
+                                      auto program = Parser(Lexer(source).tokenize()).parse();
+                                      auto analysis = SemanticAnalyzer{}.analyze(program);
+                                      SAGEEngine{}.analyze(program, analysis);
+                                      if (!analysis.succeeded()) throw std::runtime_error("route fixture failed semantic analysis");
+                                      const auto& graph = analysis.skm.blueprint;
+                                      const auto start = blueprintSelect(graph, "main"), target = blueprintSelect(graph, "leaf");
+                                      const auto path = blueprintShortestPath(graph, start, target);
+                                      if (!path || path->size() != 2) throw std::runtime_error("POLR did not find the minimum direct-call route");
+                                      auto importedGraph = graph;
+                                      importedGraph.routines.front().name = "__pcn_module_v1_666f6f_add_mod";
+                                      importedGraph.routines.front().owner = "foo";
+                                      if (blueprintSelect(importedGraph, "add_mod") != 0)
+                                          throw std::runtime_error("POLR did not resolve a unique source-name suffix for a module routine");
+                                      const auto report = blueprintRouteToString(graph, "main", "leaf");
+                                      if (report.find("edges=2") == std::string::npos ||
+                                          report.find("not a runtime reachability or performance proof") == std::string::npos)
+                                          throw std::runtime_error("POLR route report omitted route cost or scope warning");
+                                      if (blueprintShortestPath(graph, blueprintSelect(graph, "isolated"), target))
+                                          throw std::runtime_error("POLR reported a nonexistent direct-call route");
+                                      if (skmToString(analysis).find("source blueprint:") == std::string::npos)
+                                          throw std::runtime_error("SAGE report omitted its blueprint");
                                   });
                                   test("SAGE effects follow selected overloads and variadic foreign calls", [&] {
                                       auto analyze = [](const std::string& source) {
@@ -25512,15 +25957,32 @@ public:
                                               throw std::runtime_error("invalid native PE import for process.run");
                                       }
                                       });
-                                  test("stage0 process: reject non-text process command", [&] {
-                                      const std::string source =
-                                          "module bad_process\nimport std.process\n"
-                                          "routine main() gives int with io, alloc, trap\n"
-                                          "    let code: int = std.process.run(42)\n    give code\n";
-                                      auto analyzed = compileAll(source, CompilerOptions{});
+                                                                                                        test("stage0 process: reject non-text process command", [&] {
+                                                                                                            const std::string source =
+                                                                                                                "module bad_process\nimport std.process\n"
+                                                                                                                "routine main() gives int with io, alloc, trap\n"
+                                                                                                                "    let code: int = std.process.run(42)\n    give code\n";
+                                                                                                            auto analyzed = compileAll(source, CompilerOptions{});
                                       if (analyzed.analysis.succeeded())throw std::runtime_error("process.run accepted integer command");
-                                      });
-                                  test("backend: power-of-two multiply strength reduction", [&] {
+                                                                                                            if (analyzed.analysis.succeeded()) throw std::runtime_error("process.run accepted integer command");
+                                                                                                        });
+                                                                     #if defined(__linux__) && defined(__x86_64__)
+                                                                                                        test("native test isolation kills generated-code subprocess groups on timeout", [&] {
+                                                                                                            const std::string source =
+                                                                                                                "module isolated_timeout\nimport std.process\n"
+                                                                                                                "routine main() gives int with io, alloc, trap\n"
+                                                                                                                "    give std.process.run(\"sh -c 'sleep 30'\")\n";
+                                                                                                            const auto compiled = compileAll(source, CompilerOptions{});
+                                                                                                            if (!compiled.analysis.succeeded()) throw std::runtime_error("timeout probe failed compilation");
+                                                                                                            bool deadline = false;
+                                                                                                            try { (void)executeEmittedMachineTextIsolated(compiled.machine, std::chrono::milliseconds(200)); }
+                                                                                                            catch (const std::runtime_error& error) {
+                                                                                                                deadline = std::string_view(error.what()).find("execution deadline") != std::string_view::npos;
+                                                                                                            }
+                                                                                                            if (!deadline) throw std::runtime_error("isolated generated-code subprocess escaped the timeout boundary");
+                                                                                                        });
+                                                                     #endif
+                                                                                                        test("backend: power-of-two multiply strength reduction", [&] {
                                       const std::string src =
                                           "routine scale(x: int) gives int\n    if x == 0\n        give 0\n    give x * 1024\n"
                                           "routine commuted(x: int) gives int\n    if x == 0\n        give 0\n    give 2 * x\n"
@@ -26081,6 +26543,7 @@ int main(int argc, char** argv) {
         }
         auto isSource = [](const std::string& s) { return std::filesystem::path(s).extension() == ".pcn"; };
         std::string command, emitKind, sourceArg, outputArg, legacyMode;
+        std::string polrFrom, polrTo;
         bool formatCheck = false, formatWrite = false;
         bool useCache = false, metricsJson = false;
         std::string cacheDir, optimizerProfilePath, optimizerProfileHash;
@@ -26164,6 +26627,12 @@ int main(int argc, char** argv) {
                 const auto& a = args[i];
                 if (command == "ast-diagram" && a != "-o" && a != "--out") throw std::runtime_error("unknown option: " + a);
                 if ((a == "-o" || a == "--out") && i + 1 < args.size())outputArg = args[++i];
+                else if ((a == "--from" || a == "--to") && command == "polr") {
+                    auto& selector = a == "--from" ? polrFrom : polrTo;
+                    if (!selector.empty() || i + 1 >= args.size() || args[i + 1].empty())
+                        throw std::runtime_error("polr requires exactly one non-empty --from and --to selector");
+                    selector = args[++i];
+                }
                 else if (a.rfind("-O", 0) == 0 && a.size() == 3 && a[2] >= '0' && a[2] <= '3')options.optimizationLevel = a[2] - '0';
                 else if (a == "--entry" && i + 1 < args.size())options.entry = args[++i];
                 else if (a == "--target" && i + 1 < args.size())options.target = args[++i];
@@ -26188,6 +26657,8 @@ int main(int argc, char** argv) {
                 }
                 else throw std::runtime_error("unknown option: " + a);
             }
+            if (command == "polr" && (polrFrom.empty() || polrTo.empty()))
+                throw std::runtime_error("polr requires --from ROUTINE and --to ROUTINE (or #ID selectors)");
             if (command == "emit") { if (emitKind == "cpp")command = "cpp"; else if (emitKind == "obj")command = "obj"; else if (emitKind == "exe")command = options.target == "windows-x86_64" ? "pe" : "build"; else throw std::runtime_error("unknown emit kind: " + emitKind); }
         }
 
@@ -26199,6 +26670,7 @@ int main(int argc, char** argv) {
         options.objectOnly = command == "obj";
         const auto& selectedTarget = pcn::target_contract::get(options.target);
         const bool frontendOnly = command == "check" || command == "ir" || command == "ast" || command == "sage";
+        const bool frontendOnly = command == "check" || command == "ir" || command == "ast" || command == "sage" || command == "polr";
         if (!frontendOnly) pcn::target_contract::requireCodegen(selectedTarget);
         if (options.debugInfo) {
             if (command != "obj" && command != "build" && command != "pe" && command != "run") throw std::runtime_error("E0580 -g requires obj, build, pe or run");
@@ -26209,6 +26681,7 @@ int main(int argc, char** argv) {
         else if (options.debugLinker != "lld-link") throw std::runtime_error("E0580 --debug-linker requires -g");
         if (!selectedTarget.windows()) {
             const std::set<std::string> supported{ "obj","build","check","ir","mir","asm","inspect","sage","ast","abi" };
+            const std::set<std::string> supported{ "obj","build","check","ir","mir","asm","inspect","sage","polr","ast","abi" };
             if (!supported.contains(command)) throw std::runtime_error("E0540 command is not implemented for this Unix target: " + command);
             if (useCache) throw std::runtime_error("E0540 Unix output caching is not implemented");
             if (command == "build" && !pcn::target_contract::executableSupported(selectedTarget)) throw std::runtime_error("E0541 executable linking is not implemented for " + options.target + "; emit an object and use a system linker");
@@ -26545,6 +27018,10 @@ int main(int argc, char** argv) {
         }
         if (command == "ast") { writeOrPrint(pcn::programToString(artifacts.program) + "\n", outputArg.empty() ? "" : ".ast"); return 0; }
         if (command == "sage") { writeOrPrint(pcn::skmToString(artifacts.analysis), outputArg.empty() ? "" : ".skm"); return 0; }
+        if (command == "polr") {
+            const auto report = pcn::blueprintRouteToString(artifacts.analysis.skm.blueprint, polrFrom, polrTo);
+            writeOrPrint(report, outputArg.empty() ? "" : ".polr"); return 0;
+        }
         if (command == "ir") { writeOrPrint(pcn::irToString(artifacts.pcir), outputArg.empty() ? "" : ".pcir"); return 0; }
         if (command == "mir") { writeOrPrint(pcn::pmirToString(artifacts.pmir), outputArg.empty() ? "" : ".pmir"); return 0; }
         if (command == "asm") { writeOrPrint(pcn::machineListingToString(artifacts.machine), outputArg.empty() ? "" : ".asm"); return 0; }
