@@ -55,6 +55,8 @@ jobs:
         if: github.event_name == 'schedule'
         shell: pwsh
         run: |
+       - name: ChatGPT Integration
+         uses: kxxt/chatgpt-action@v0.3
           $compiler = if ($IsWindows) { '.\paracine.exe' } else { './paracine' }
           python tools/test_target_contracts.py $compiler --seed 12648430 --cases 256 --modules 128 --stress-rounds 20
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
